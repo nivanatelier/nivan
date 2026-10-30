@@ -1,0 +1,164 @@
+/* ======= Herramientas avanzadas · Patronaje ======= */
+.pantallaCompleta.pantallaPatronajeNivan { padding: 0; overflow: hidden; }
+.pantallaCompleta.pantallaPatronajeNivan.abierta { display: flex; flex-direction: column; }
+
+.patCabecera { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 10px 14px 4px; }
+.patCabecera .volverAtras { padding: 0; white-space: nowrap; }
+.patTituloCab h2 { margin: 0; font-size: 17px; line-height: 1.2; }
+.patTituloCab p { margin: 0; font-size: 12px; color: #9fb0bd; max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.patTabs { flex: 0 0 auto; display: flex; gap: 6px; padding: 6px 12px 8px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid rgba(255,255,255,.12); }
+.patTabs::-webkit-scrollbar { display: none; }
+.patTabs button { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 62px; padding: 6px 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 10px; background: #26273c; color: #cfd8df; font-size: 11px; cursor: pointer; }
+.patTabs button span { font-size: 16px; }
+.patTabs button.activo { background: #89A6B8; color: #111; border-color: #89A6B8; font-weight: bold; }
+
+.patCuerpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 14px 90px; -webkit-overflow-scrolling: touch; }
+.patCuerpo.sinRelleno { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.patCuerpo > * { max-width: 760px; }
+.patCuerpo.sinRelleno > * { max-width: none; }
+
+.patCuerpo h3 { margin: 0 0 10px; font-size: 14px; letter-spacing: .5px; text-transform: uppercase; color: #89A6B8; }
+.patIntro p, .patAyuda, .patNotaPie { color: #b9c5ce; font-size: 13px; line-height: 1.45; margin: 4px 0 10px; }
+.patAyuda { font-size: 12px; color: #9fb0bd; }
+.patNotaPie { margin-top: 18px; font-size: 12px; color: #8696a3; }
+.patVacio { color: #8fa0ad; text-align: center; padding: 26px 10px; }
+.patAviso { color: #ffcf6b; font-size: 12px; }
+
+.patBloque { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+
+.patCuerpo input[type=text], .patCuerpo input[type=number], .patCuerpo select, .patCuerpo textarea,
+.patProps input[type=text], .patProps input[type=number], .patBarraOpc select {
+    width: 100%; box-sizing: border-box; padding: 9px 10px; border-radius: 9px; border: 1px solid #3a3d52; background: #14151f; color: #fff; font-size: 14px; font-family: inherit;
+}
+.patCuerpo textarea { resize: vertical; }
+.patCampo { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #d7dadc; margin-bottom: 10px; }
+.patCampo small { color: #8fa0ad; font-size: 11px; line-height: 1.3; }
+.patDosCol { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.patCheck { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #d7dadc; margin: 6px 0; }
+.patCheck input { width: 18px; height: 18px; flex: 0 0 auto; }
+
+.patBotonesFila { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.patBotonesFila.grande { margin: 14px 0; }
+.patBotonesFila.grande button { flex: 1 1 auto; padding: 13px; font-size: 15px; }
+.patCuerpo button, .patProps button, .patBarraOpc button, .patFlot button {
+    padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.18); background: #26273c; color: #fff; font-size: 13px; cursor: pointer; font-family: inherit;
+}
+.patCuerpo button.principal, .patFlot button.principal, .patProps button.principal { background: #89A6B8; color: #111; border-color: #89A6B8; font-weight: bold; }
+.patCuerpo button.peligro, .patProps button.peligro, .patBarraOpc button.peligro, .patFlot button.peligro { color: #ff8f8f; border-color: rgba(255,107,107,.45); }
+.patCuerpo button:disabled { opacity: .45; }
+
+/* Proyectos */
+.patLista { display: grid; gap: 12px; margin-top: 12px; }
+.patTarjeta { display: flex; gap: 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 10px; }
+.patMini { flex: 0 0 110px; width: 110px; height: 82px; border-radius: 8px; background: #12131a; align-self: flex-start; }
+.patTarjetaInfo { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.patTarjetaInfo strong { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.patTarjetaInfo > span { font-size: 12px; color: #9fb0bd; }
+.patTarjetaInfo .patBotonesFila { margin: 4px 0 0; gap: 6px; }
+.patTarjetaInfo .patBotonesFila button { padding: 5px 9px; font-size: 12px; }
+
+/* Medidas */
+.patGrillaMedidas { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.patMedida { display: grid; grid-template-columns: 1fr 112px; gap: 2px 10px; align-items: center; }
+.patMedidaNombre { font-size: 13px; color: #e6ebef; }
+.patMedidaInput { display: flex; align-items: center; gap: 4px; }
+.patMedidaInput em { font-style: normal; font-size: 11px; color: #8fa0ad; }
+.patMedida small { grid-column: 1 / -1; font-size: 11px; color: #8696a3; line-height: 1.3; }
+.patFilaPerfil { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+.patFilaPerfil span { flex: 1; font-size: 14px; }
+#patNombrePerfil { flex: 1 1 140px; width: auto; }
+
+/* Generadores */
+.patGeneradores { display: grid; gap: 10px; }
+.patGen { display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto; gap: 0 10px; text-align: left; padding: 12px; }
+.patGenIcono { grid-row: 1 / 3; font-size: 28px; align-self: center; text-align: center; }
+.patGen strong { font-size: 15px; }
+.patGen small { color: #aeb9c2; font-size: 12px; line-height: 1.35; }
+.patVolverGen { padding: 0 0 8px !important; background: none !important; border: none !important; font-size: 13px !important; }
+.patTituloGen { text-transform: none !important; font-size: 18px !important; color: #fff !important; }
+.patPrev, .patMapaHojas { display: block; width: 100%; border-radius: 12px; background: #12131a; border: 1px solid rgba(255,255,255,.1); }
+.patMapaHojas { width: auto; max-width: 100%; margin-top: 8px; }
+
+/* Editor */
+.patBarraHerr { flex: 0 0 auto; display: flex; gap: 5px; overflow-x: auto; padding: 7px 10px; scrollbar-width: none; background: #181924; border-bottom: 1px solid rgba(255,255,255,.08); }
+.patBarraHerr::-webkit-scrollbar, .patBarraOpc::-webkit-scrollbar { display: none; }
+.patBarraHerr button { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 4px 6px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: #cfd8df; font-size: 10px; cursor: pointer; }
+.patBarraHerr button span { font-size: 17px; line-height: 1.2; }
+.patBarraHerr button.activo { background: #89A6B8; color: #111; font-weight: bold; }
+.patBarraOpc { flex: 0 0 auto; display: flex; gap: 6px; overflow-x: auto; align-items: center; padding: 6px 10px; scrollbar-width: none; background: #181924; border-bottom: 1px solid rgba(255,255,255,.08); }
+.patBarraOpc button { flex: 0 0 auto; padding: 6px 10px; font-size: 12px; }
+.patBarraOpc select { width: auto; flex: 0 0 auto; padding: 6px 8px; font-size: 12px; }
+.patBarraOpc button.chip.activo { background: #2f4a3a; border-color: #6fdc8c; color: #bff3cf; }
+.patLienzoCaja { position: relative; flex: 1 1 auto; min-height: 220px; background: #12131a; overflow: hidden; }
+.patLienzoCaja > canvas { position: absolute; inset: 0; touch-action: none; cursor: crosshair; }
+.patHint { position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 10px; font-size: 11px; color: #b9c7d3; background: linear-gradient(transparent, rgba(18,19,26,.92) 40%); pointer-events: none; }
+.patModos { position: absolute; left: 8px; right: 8px; top: 8px; z-index: 6; display: none; justify-content: center; pointer-events: none; }
+.patModos button { pointer-events: auto; padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.28); background: #26273c; color: #fff; font-size: 12px; font-weight: bold; box-shadow: 0 3px 10px rgba(0,0,0,.45); }
+.patModos button.activo { background: #89A6B8; color: #111; border-color: #89A6B8; }
+.patModos #patBtnSelec { position: absolute; right: 0; top: 0; }
+.patLienzoCaja.conModos .patModos { display: flex; }
+.patLienzoCaja.conModos .patFlot { top: 50px; }
+.patFlot { position: absolute; left: 8px; right: 8px; top: 8px; display: none; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.patProps { flex: 0 0 auto; max-height: 32%; overflow-y: auto; background: #1c1d2b; border-top: 1px solid rgba(255,255,255,.14); padding: 8px 12px 14px; -webkit-overflow-scrolling: touch; }
+.patPropsResumen { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: #9fb0bd; }
+.patPropsResumen strong { color: #e6ebef; font-size: 13px; }
+.patPropsFila { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: 6px 0; }
+.patPropsFila.botones { gap: 6px; }
+.patPropsInfo { font-size: 12px; color: #89A6B8; font-weight: bold; }
+.patPropsCaja { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 8px 10px; margin: 6px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.patPropsCaja > b { width: 100%; font-size: 12px; color: #ffd666; }
+.patPropsCaja small { width: 100%; color: #8fa0ad; font-size: 11px; }
+.patProps .patCampo.chico { flex: 1 1 100px; margin: 0; font-size: 11px; }
+.patProps .patCampo.chico.grande { flex: 2 1 160px; }
+.patProps button.chico { padding: 6px 9px; font-size: 12px; }
+
+.patResultado { display: flex; flex-direction: column; gap: 4px; background: rgba(111,220,140,.1); border: 1px solid rgba(111,220,140,.4); border-radius: 14px; padding: 14px; margin-top: 8px; }
+.patResultado span { font-size: 12px; color: #b9c7d3; word-break: break-all; }
+
+@media (min-width: 720px) {
+    .patGrillaMedidas { grid-template-columns: 1fr 1fr; }
+    .patGeneradores { grid-template-columns: 1fr 1fr; }
+}
+
+.patPropsToggle { width: 100%; background: none !important; border: none !important; color: #89A6B8 !important; font-size: 11px !important; padding: 0 0 4px !important; text-align: center; }
+.patProps.colapsado > *:not(.patPropsToggle):not(.patPropsFila:first-of-type) { display: none; }
+.patProps.colapsado > .patPropsFila:first-of-type ~ .patPropsFila { display: none; }
+.patLienzoCaja { min-height: 240px; }
+
+
+/* Aviso beta */
+.patPildoraBeta { display:inline-block; vertical-align:middle; margin-left:6px; padding:2px 8px; border-radius:999px; background:linear-gradient(90deg,#7b61ff,#38bdf8); color:#fff; font-size:10px; font-weight:bold; letter-spacing:1px; }
+.patAvisoBeta { flex:0 0 auto; display:flex; gap:12px; align-items:center; margin:6px 12px 4px; padding:12px 14px; border-radius:14px; border:1px solid rgba(124,140,255,.55); background:linear-gradient(135deg, rgba(123,97,255,.22), rgba(56,189,248,.16)); box-shadow:0 0 18px rgba(123,97,255,.25); }
+.patAvisoBetaIcono { font-size:26px; flex-shrink:0; }
+.patAvisoBetaTexto { min-width:0; display:flex; flex-direction:column; gap:3px; font-size:12px; line-height:1.4; color:#dfe6ee; }
+.patAvisoBetaTexto strong { font-size:14px; color:#fff; }
+.patAvisoBetaTexto .patEnlaceReportar { color:#4da3ff; font-weight:bold; text-decoration:underline; }
+
+/* ======= Capas (panel tipo Ibis Paint) ======= */
+.patLienzoCaja { overflow: visible; z-index: 5; }
+.patHint { padding-right: 100px; }
+.patCuerpo .patBtnCapa { position: absolute; right: 10px; bottom: 28px; z-index: 7; display: flex; align-items: center; gap: 6px; padding: 9px 15px; border-radius: 999px; border: 1px solid rgba(255,255,255,.28); background: #26273c; color: #fff; font-size: 13px; font-weight: bold; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+.patCuerpo .patBtnCapa.activo { background: #89A6B8; color: #111; border-color: #89A6B8; }
+.patCapas { display: none; position: absolute; right: 10px; bottom: 76px; z-index: 8; width: min(340px, calc(100% - 20px)); flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; background: #1c1d2b; border: 1px solid rgba(255,255,255,.2); border-radius: 16px; box-shadow: 0 10px 34px rgba(0,0,0,.65); }
+.patCapas.abierto { display: flex; }
+.patCapasCab { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #23243a; border-bottom: 1px solid rgba(255,255,255,.12); }
+.patCapasCab strong { font-size: 15px; }
+.patCapasCab > span { flex: 1; color: #8fa0ad; font-size: 12px; }
+.patCapasLista { display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+.patCapaFila { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 12px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); cursor: pointer; }
+.patCapaFila.activa { border-color: #89A6B8; background: rgba(137,166,184,.2); }
+.patCapaFila.oculta .patCapaMini, .patCapaFila.oculta .patCapaTxt { opacity: .4; }
+.patCapaMini { flex: 0 0 auto; width: 44px; height: 34px; border-radius: 6px; background: #12131a; border: 1px solid rgba(255,255,255,.12); }
+.patCapaTxt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.patCapaTxt b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.patCapaTxt small { font-size: 11px; color: #8fa0ad; }
+.patCuerpo .patCapaIc { flex: 0 0 auto; width: 36px; height: 36px; padding: 0; font-size: 17px; line-height: 1; border-radius: 10px; }
+.patCuerpo .patCapaIc.apagado { opacity: .55; }
+.patCapasOpc { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 14px; border-top: 1px solid rgba(255,255,255,.12); }
+.patCapasOpc > b { font-size: 12px; color: #ffd666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.patCapasOpc .patCampo { margin: 0; font-size: 12px; }
+.patCapasOpc input[type=range] { width: 100%; padding: 0; accent-color: #89A6B8; }
+.patCapasBtns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.patCuerpo .patCapasBtns button { padding: 9px 6px; font-size: 12px; text-align: center; }
+.patCapasNota { font-size: 11px; color: #8696a3; line-height: 1.35; margin: 0; }

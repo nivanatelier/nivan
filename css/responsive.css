@@ -1,0 +1,79 @@
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { max-width: 100%; overflow-x: hidden; }
+img, video { max-width: 100%; }
+
+@media (max-width: 700px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea { font-size: 16px; }
+}
+
+/* Barra de abajo */
+.barraNavegacion {
+    padding-left: calc(4px + env(safe-area-inset-left));
+    padding-right: calc(4px + env(safe-area-inset-right));
+}
+.navItem { min-width: 0; padding: 0 2px; }
+.navItem small {
+    display: block;
+    max-width: 100%;
+    text-align: center;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+}
+@media (max-width: 380px) {
+    .navItem small { font-size: 8.5px; }
+    .navItem span img { width: 21px; height: 21px; }
+}
+@media (min-width: 900px) {
+    .barraNavegacion {
+        left: 50%;
+        right: auto;
+        width: min(760px, 100%);
+        transform: translateX(-50%);
+        border-radius: 18px 18px 0 0;
+        border-left: 1px solid #26273c;
+        border-right: 1px solid #26273c;
+    }
+    .navItem small { font-size: 11px; }
+}
+
+/* Carrusel */
+.carruselAnuncios { height: clamp(230px, 56vw, 300px); }
+.anuncio { padding: 18px 16px; }
+.anuncio h3 { overflow-wrap: anywhere; }
+.anuncio p { padding: 0 4px; }
+.anuncioBtn { max-width: 100%; white-space: normal; }
+
+@media (max-width: 600px) {
+    .carruselAnuncios { height: clamp(250px, 70vw, 290px); }
+    .anuncio h3 { font-size: 18px; margin-bottom: 12px; }
+    .anuncio p { font-size: 13.5px; line-height: 1.4; }
+}
+@media (max-width: 360px) {
+    .carruselAnuncios { height: 285px; }
+    .anuncio { padding: 14px 12px; }
+    .anuncio h3 { font-size: 16.5px; margin-bottom: 8px; }
+    .anuncio p { font-size: 12.5px; }
+    .anuncioIcono { font-size: 22px; margin-bottom: 4px; }
+}
+@media (min-width: 900px) {
+    .carruselAnuncios { height: 260px; }
+    .anuncio h3 { font-size: 26px; }
+    .anuncio p { font-size: 17px; }
+}
+
+/* Cartel de DNI */
+.cajaDocumentacionNivan {
+    width: min(92vw, 420px);
+    max-height: 90vh;
+    max-height: 90dvh;
+    overflow-y: auto;
+}
+
+/* Páginas */
+.contenedor { width: 100%; }
+@media (min-width: 1200px) {
+    .contenedor { padding-left: 28px; padding-right: 28px; }
+}

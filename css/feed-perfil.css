@@ -1,0 +1,89 @@
+/* ======= Feed de la pestaña Perfiles ======= */
+
+/* Selector Publicación / Post al subir algo al perfil */
+.selectorFormatoPerfilNivan { display:flex; gap:8px; margin:8px 0; }
+.selectorFormatoPerfilNivan button { flex:1; padding:10px 8px; border-radius:10px; border:1px solid #444; background:#111; color:#ccc; font-size:13px; cursor:pointer; }
+.selectorFormatoPerfilNivan button.activo { border-color:#89A6B8; background:#89A6B8; color:#111; font-weight:bold; }
+.camposNuevaPublicacionPerfil { display:none; }
+.camposNuevaPublicacionPerfil.abierto { display:block; }
+.camposNuevaPublicacionPerfil input[type="file"] { display:block; margin-top:8px; }
+.camposNuevaPublicacionPerfil .botonPerfilLateral { margin-top:10px; }
+
+/* publicidad3D: hasta 3 espacios para anuncios 3D pagos */
+.publicidad3DNivan { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin:8px 0; }
+.espacioPublicidad3DNivan { position:relative; aspect-ratio:3 / 4; border-radius:12px; overflow:hidden; background:rgba(255,255,255,0.05); border:1px solid #333; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.espacioPublicidad3DNivan img { width:100%; height:100%; object-fit:cover; }
+
+/* publicidadComun: una sola línea que se desliza */
+.publicidadComunNivan { display:flex; gap:6px; margin:8px 0; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+.publicidadComunNivan::-webkit-scrollbar { display:none; }
+.anuncioPublicidadComunNivan { position:relative; flex:0 0 78px; height:78px; border-radius:10px; overflow:hidden; scroll-snap-align:start; background:#222; cursor:pointer; }
+.anuncioPublicidadComunNivan img { width:100%; height:100%; object-fit:cover; display:block; }
+
+/* Post en grande */
+.tarjetaPostGrandeNivan { padding:14px; margin:10px 0; }
+.tarjetaPostGrandeNivan .textoTarjetaPostNivan { font-size:15px; margin-bottom:2px; }
+.tarjetaPostGrandeNivan .fotoTarjetaPostNivan { max-height:420px; border-radius:10px; }
+
+/* ======= Carga progresiva ======= */
+.centinelaFeedPerfilNivan { text-align:center; color:#777; font-size:12px; padding:18px 0; }
+
+/* ======= "editado" ======= */
+.etiquetaEditadoNivan { display:block; margin-top:6px; font-size:11px; color:#888; -webkit-text-fill-color:#888; font-style:italic; font-weight:normal; }
+
+/* ======= @etiquetas en azul mientras se escribe ======= */
+.cajaEtiquetasNivan { display:grid; margin-top:8px; }
+.cajaEtiquetasNivan .fondoEtiquetasNivan,
+.cajaEtiquetasNivan textarea.campoEtiquetasNivan {
+    grid-area:1 / 1; box-sizing:border-box; width:100%; min-height:60px; margin:0; padding:10px;
+    border:1px solid #444; border-radius:8px; font-size:14px; line-height:1.4; font-family:inherit;
+    white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; letter-spacing:normal;
+}
+.cajaEtiquetasNivan .fondoEtiquetasNivan { background:#111; color:#fff; -webkit-text-fill-color:#fff; pointer-events:none; }
+.cajaEtiquetasNivan textarea.campoEtiquetasNivan {
+    position:relative; z-index:1; background:transparent; color:transparent; -webkit-text-fill-color:transparent;
+    caret-color:#fff; resize:none; overflow:hidden; max-height:none;
+}
+.cajaEtiquetasNivan textarea.campoEtiquetasNivan::placeholder { color:#777; -webkit-text-fill-color:#777; }
+.etiquetaAzulEscribiendoNivan { color:#4DA3FF; -webkit-text-fill-color:#4DA3FF; font-weight:bold; }
+
+/* ======= Ventana para editar un post ======= */
+.overlayEdicionPostNivan { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:750; display:none; align-items:center; justify-content:center; padding:16px; }
+.overlayEdicionPostNivan.abierto { display:flex; }
+.cajaEdicionPostNivan { background:#2a2a2a; width:100%; max-width:480px; max-height:90vh; overflow-y:auto; border-radius:14px; padding:16px; }
+.tituloEdicionPostNivan { margin:0 0 6px; font-weight:bold; font-size:16px; }
+.botonesEdicionPostNivan { display:flex; gap:10px; margin-top:14px; }
+.botonesEdicionPostNivan button { flex:1; }
+
+/* ======= Vacantes ======= */
+.contenidoVacantesNivan { padding:0 4px 40px; }
+.contenidoVacantesNivan .botonPerfilLateral { margin:8px 0; }
+.notaVacantesNivan { font-size:12px; color:#9aa; margin:8px 0 12px; line-height:1.4; }
+.seccionVacantesNivan { margin:14px 0; }
+.tituloVacantesNivan { text-transform:uppercase; letter-spacing:1px; font-size:13px; color:#89A6B8; margin:0 0 8px; text-align:center; }
+.tarjetaVacanteNivan { background:rgba(255,255,255,0.06); border:1px solid #333; border-radius:12px; padding:12px; margin:8px 0; text-align:left; }
+.cabeceraTarjetaVacanteNivan { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.cabeceraTarjetaVacanteNivan strong { font-size:15px; line-height:1.3; }
+.idPostulanteNivan { font-weight:normal; font-size:12px; color:#999; -webkit-text-fill-color:#999; }
+.chipsVacanteNivan { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 4px; }
+.chipsVacanteNivan span { font-size:11px; padding:3px 8px; border-radius:20px; background:#1b2a35; color:#89A6B8; border:1px solid #2d4452; }
+.datoVacanteNivan { margin:6px 0; font-size:12px; color:#aaa; line-height:1.4; }
+.mensajePostulanteNivan { margin:6px 0; padding:8px; border-radius:8px; background:#111; font-size:13px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.estadoVacanteNivan { flex-shrink:0; font-size:11px; padding:3px 8px; border-radius:20px; font-weight:bold; }
+.estadoVacanteNivan.abierta { background:#14361f; color:#6fdc8c; }
+.estadoVacanteNivan.pausada { background:#3a3114; color:#e8cf6a; }
+.estadoVacanteNivan.cerrada { background:#3a1b1b; color:#ee8c8c; }
+.botonesVacanteNivan { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.botonesVacanteNivan button { flex:1 1 auto; padding:8px 10px; border-radius:8px; border:1px solid #444; background:#111; color:#ddd; font-size:12px; cursor:pointer; }
+.botonesVacanteNivan button:disabled { opacity:.5; cursor:default; }
+.campoVacanteNivan { margin:10px 0; flex:1; }
+.campoVacanteNivan label { display:block; font-size:12px; color:#9aa; margin-bottom:4px; }
+.campoVacanteNivan input, .campoVacanteNivan select, .campoVacanteNivan textarea { width:100%; box-sizing:border-box; padding:10px; border-radius:8px; border:1px solid #444; background:#111; color:#fff; font-size:14px; font-family:inherit; }
+.campoVacanteNivan textarea { resize:vertical; }
+.filaDosVacanteNivan { display:flex; gap:10px; }
+.checkVacanteNivan { display:flex; gap:8px; align-items:flex-start; font-size:13px; color:#ccc; margin:12px 0; line-height:1.4; }
+.checkVacanteNivan input { margin-top:3px; }
+.bloqueDetalleVacanteNivan { margin:10px 0; font-size:14px; line-height:1.45; }
+.bloqueDetalleVacanteNivan p { margin:6px 0; }
+.tituloDetalleVacanteNivan { margin-top:14px !important; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#89A6B8; }
+.textoDetalleVacanteNivan { white-space:pre-wrap; overflow-wrap:anywhere; }

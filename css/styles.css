@@ -1,0 +1,5387 @@
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            /* Saca el flash celeste/azul que Android pone al tocar
+               botones, links y otros elementos tocables. */
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button, a, input, select, textarea, [onclick] {
+            outline: none;
+        }
+
+        header {
+            background: #111;
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center
+        }
+
+        header h1 {
+            font-size: 25px;
+        }
+
+     #carritoBtn {
+    position: absolute;
+    top: -78px;
+    right: 35px;
+    z-index: 100;
+    color: white;
+    background: linear-gradient(to bottom, #000, #191919);
+    border-radius: 10px;
+    border: none;
+    box-shadow: 0 3px 10px rgba(0,0,0,.12);
+     }
+
+#carritoBtn img {
+    width: 40px;
+    height: 30px;
+    object-fit: contain;
+}
+      #cantidadCarrito {
+    position: absolute;
+    top: -4px;
+    right: 4px;
+    -webkit-text-fill-color: hwb(0 22% 35%);
+      }
+
+     /* Botón de tres rayitas (menú de perfil), espejo del carrito */
+     #perfilLateralBtn {
+    position: absolute;
+    top: -84px;
+    left: 35px;
+    z-index: 100;
+    color: white;
+    background: linear-gradient(to bottom, #000, #191919);
+    border-radius: 10px;
+    border: none;
+    box-shadow: 0 3px 10px rgba(0,0,0,.12);
+    padding: 10px 12px;
+    cursor: pointer;
+     }
+
+#perfilLateralBtn .lineaMenu {
+    display: block;
+    width: 15px;
+    height: 2px;
+    background: white;
+    border-radius: 2px;
+    margin: 5px 0;
+}
+
+/* Panel lateral de perfil (se abre "a la mitad" desde la izquierda) */
+.overlayPerfilLateral {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 499;
+    display: none;
+}
+
+.overlayPerfilLateral.abierto {
+    display: block;
+}
+
+.panelPerfilLateral {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    max-width: 100%;
+    background: #1c1c1c;
+    color: #fff;
+    z-index: 500;
+    transform: translateX(-100%);
+    transition: transform .3s ease;
+    overflow: hidden;
+    box-shadow: 4px 0 20px rgba(0,0,0,.4);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.contenidoPerfilLateralScroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.piePerfilLateral {
+    flex-shrink: 0;
+}
+
+/* En la página de Perfil (a diferencia del panel lateral tipo cajón),
+   el pie con los botones de Tienda/Personal no vive dentro de un
+   contenedor flex de altura fija, así que lo fijamos nosotros mismos
+   al fondo de la pantalla, justo arriba de la barra de navegación,
+   sin importar cuánto contenido haya arriba. */
+#paginaPerfil .piePerfilLateral {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    background: #1c1c1c;
+    z-index: 50;
+}
+
+/* Le dejamos lugar abajo al contenido para que no quede tapado por
+   los botones fijos de Tienda/Personal + la barra de navegación. */
+#paginaPerfil .contenidoPerfilLateralScroll {
+    padding-bottom: 80px;
+}
+
+.campoEditarPerfilLateral input,
+.campoEditarPerfilLateral select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background: #111;
+    color: #fff;
+    margin-top: 4px;
+}
+
+.campoEditarPerfilLateral {
+    margin-bottom: 14px;
+    margin-top: 14px;
+}
+
+.pistaCampoPerfil {
+    font-size: 11px;
+    color: #999;
+    margin-top: 4px;
+    display: block;
+}
+
+.fotoPerfilVendedorGrande {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.fotoPerfilVendedorGrandeVacia {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: #333;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 38px;
+}
+
+.cabeceraPerfilVendedor {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin: 10px 0 18px;
+    position: relative;
+}
+
+.editarFotoPerfilVendedorBtn {
+    display: inline-block;
+    font-size: 11px;
+    margin-top: 6px;
+    background: #fff;
+    color: #111;
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    border: none;
+}
+
+.marcaProducto {
+    font-size: 12px;
+    color: #888;
+    margin: 2px 0 6px;
+}
+
+.panelPerfilLateral.abierto {
+    transform: translateX(0);
+}
+
+/* Panel "Mi perfil" (se abre desde la foto de arriba a la derecha) */
+#panelMiPerfilNivan { left: auto; right: 0; transform: translateX(100%); box-shadow: -4px 0 20px rgba(0,0,0,.4); }
+#panelMiPerfilNivan.abierto { transform: translateX(0); }
+#panelMiPerfilNivan .contenidoPerfilLateralScroll { padding-top: 56px; }
+#panelMiPerfilNivan .piePerfilLateral { padding-bottom: env(safe-area-inset-bottom, 0px); background: #1c1c1c; }
+
+/* Pestaña Perfil = feed de publicaciones personales */
+.cabeceraFeedPersonalNivan { display:flex; align-items:center; gap:12px; padding: calc(14px + env(safe-area-inset-top,0px)) 14px 12px; }
+.cabeceraFeedPersonalNivan input { flex:1; min-width:0; padding:11px 16px; border-radius:999px; border:2px solid #fff; background:rgba(0,0,0,.35); color:#fff; -webkit-text-fill-color:#fff; font-size:14px; outline:none; }
+.cabeceraFeedPersonalNivan input::placeholder { color:#bbb; -webkit-text-fill-color:#bbb; }
+#botonMiPerfilNivan { flex-shrink:0; width:46px; height:46px; border-radius:50%; border:2px solid #fff; background:#222; color:#fff; font-size:22px; padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+#botonMiPerfilNivan img { width:100%; height:100%; object-fit:cover; }
+.envolturaMiPerfilNivan { position:relative; flex-shrink:0; width:46px; height:46px; }
+#badgeMiPerfilNivan { display:none; position:absolute; top:-6px; right:-6px; background:#e0245e; color:#fff; -webkit-text-fill-color:#fff; text-shadow:none; font-size:11px; font-weight:bold; min-width:20px; height:20px; border-radius:10px; align-items:center; justify-content:center; padding:0 5px; border:2px solid #1c1c1c; box-sizing:border-box; pointer-events:none; }
+#badgeMiPerfilNivan.visible { display:flex; }
+.filaPersonaFeedNivan { display:flex; align-items:center; gap:12px; padding:10px 14px; cursor:pointer; border-bottom:1px solid #333; }
+.filaPersonaFeedNivan img, .avatarVacioFeedNivan { width:44px; height:44px; border-radius:50%; object-fit:cover; background:#222; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.insigniaVideoFeedNivan { position:absolute; top:6px; right:6px; font-size:14px; text-shadow:0 1px 4px #000; }
+.autorPostFeedNivan { display:flex; align-items:center; gap:10px; margin-bottom:10px; cursor:pointer; font-weight:bold; }
+.autorPostFeedNivan img { width:34px; height:34px; border-radius:50%; object-fit:cover; }
+
+/* Etiquetas @ID (personas y tiendas) */
+a.etiquetaNivan, a.etiquetaNivan:visited { color:#4DA3FF; -webkit-text-fill-color:#4DA3FF; font-weight:bold; text-decoration:none; cursor:pointer; }
+
+/* Publicaciones personales: 6 en cuadrícula + 1 tarjeta de texto */
+.tarjetaPostTextoNivan { margin:6px 0; padding:12px; background:rgba(255,255,255,0.06); border:1px solid #333; border-radius:12px; cursor:pointer; text-align:left; }
+.tarjetaPostTextoNivan .autorTarjetaPostNivan { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.tarjetaPostTextoNivan .autorTarjetaPostNivan img,
+.tarjetaPostTextoNivan .autorTarjetaPostNivan .avatarVacioFeedNivan { width:34px; height:34px; border-radius:50%; object-fit:cover; flex-shrink:0; }
+.tarjetaPostTextoNivan .nombreTarjetaPostNivan { font-weight:bold; font-size:14px; line-height:1.2; }
+.tarjetaPostTextoNivan .idTarjetaPostNivan { display:block; font-size:11px; color:#999; -webkit-text-fill-color:#999; font-weight:normal; }
+.tarjetaPostTextoNivan .textoTarjetaPostNivan { margin:0; font-size:14px; line-height:1.4; white-space:pre-wrap; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
+.tarjetaPostTextoNivan .fotoTarjetaPostNivan { display:block; width:100%; max-height:260px; object-fit:cover; border-radius:8px; margin-top:10px; }
+
+/* Aviso de comisión en "Mis cupones" */
+.avisoComisionCuponNivan { margin:0 0 16px; padding:12px 14px; border-radius:10px; border:1px solid #3a4a5c; background:rgba(77,163,255,0.08); font-size:13px; line-height:1.45; text-align:left; }
+.avisoComisionCuponNivan .tituloAvisoCuponNivan { margin:0 0 6px; font-weight:bold; font-size:14px; }
+.avisoComisionCuponNivan ul { margin:0; padding-left:18px; }
+.avisoComisionCuponNivan li { margin-bottom:4px; }
+
+/* Confirmación propia de la app (en vez del confirm() nativo del
+   navegador, que en algunos entornos queda bloqueado y hace que
+   botones como "Borrar comentario" parezcan que no funcionan). */
+.overlayConfirmacionNivan {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    z-index: 700;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.overlayConfirmacionNivan.abierto {
+    display: flex;
+}
+
+.cajaConfirmacionNivan {
+    background: #1c1c1c;
+    color: #fff;
+    border-radius: 12px;
+    padding: 22px;
+    width: 85%;
+    max-width: 320px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+}
+
+.cajaConfirmacionNivan p {
+    margin-bottom: 18px;
+    font-size: 15px;
+}
+
+.botonesConfirmacionNivan {
+    display: flex;
+    gap: 10px;
+}
+
+.botonesConfirmacionNivan button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.botonConfirmacionCancelar {
+    background: #333;
+    color: #fff;
+}
+
+.botonConfirmacionAceptar {
+    background: #ff6b6b;
+    color: #111;
+}
+
+.botonConfirmacionAceptar.positivo {
+    background: #89A6B8;
+}
+
+.cerrarPerfilLateralBtn {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    z-index: 5;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.cabeceraPerfilLateral {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin: 30px 0 20px;
+    clear: both;
+    cursor: pointer;
+    position: relative;
+}
+
+.fotoPerfilLateral {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.fotoPerfilLateralVacia {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+}
+
+.nombrePerfilLateral {
+    font-size: 17px;
+    font-weight: bold;
+    color: #89A6B8;
+}
+
+.subTextoPerfilLateral {
+    font-size: 12px;
+    color: #d7dadc;
+}
+
+.cuentaResumenConfigLateral {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    background: rgba(0,0,0,0.3);
+    border: 1.5px solid #fff;
+    padding: 12px 16px;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(255,255,255,0.5);
+    transition: all 0.2s ease;
+}
+
+.cuentaResumenConfigLateral:hover,
+.cuentaResumenConfigLateral:active {
+    background: rgba(255,255,255,0.12);
+    box-shadow: 0 0 12px #fff, 0 0 22px rgba(255,255,255,0.6);
+}
+
+.botonCerrarSesionConfigLateral {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    color: #ff4d4d;
+    font-weight: bold;
+    font-size: 14px;
+    text-align: center;
+    padding: 14px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    cursor: pointer;
+}
+
+.botonVolverPanelLateral {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0 0 14px;
+    display: block;
+}
+
+.buscadorConfigLateralCont {
+    width: 100%;
+    max-width: 370px;
+    margin: 18px auto 0;
+}
+
+.buscadorConfigLateral {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1.5px solid #fff;
+    color: #fff;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    box-sizing: border-box;
+}
+
+.buscadorConfigLateral::placeholder {
+    color: rgba(255,255,255,0.6);
+    font-weight: 400;
+}
+
+.buscadorConfigLateral:focus {
+    outline: none;
+    box-shadow: 0 0 8px #fff;
+}
+
+.rutaBuscadorConfigNivan {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.7;
+    margin-top: 2px;
+}
+
+.etiquetaSeccionPerfilLateral {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #89A6B8;
+    margin: 18px 0 8px;
+}
+
+.bloqueTiendaPerfilLateral {
+    background: #2a2a2a;
+    padding: 14px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.botonPerfilLateral {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 8px;
+    background: #000000;
+    color: #ffffff;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.comentarioPerfilLateral {
+    background: #2a2a2a;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    position: relative;
+}
+
+.borrarComentarioPerfilLateral {
+    float: right;
+    background: none;
+    border: none;
+    color: #ff6b6b;
+    font-size: 15px;
+    cursor: pointer;
+    padding: 0 0 6px 6px;
+}
+
+.botonMensajesPerfilLateral {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.botonMensajesPerfilLateral .contadorChatsNivan {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ff3b3b;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 8px;
+    line-height: 1.4;
+}
+
+.botonVenderPerfilLateral {
+    background: rgba(0,0,0,0.3);
+    border: 1.5px solid #fff;
+    color: #fff;
+}
+
+.cabeceraPerfilLateral:hover {
+    opacity: .85;
+}
+
+.pistaEditarPerfilLateral {
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+}
+
+.campoEditarPerfilLateral label {
+    color: #ccc;
+    font-size: 13px;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.campoEditarPerfilLateral input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background: #111;
+    color: #fff;
+}
+
+.perfilLateralVacio {
+    margin-top: 30px;
+    text-align: center;
+}
+
+/* ======= PERFIL LATERAL: fila Tipo de trabajo / Currículum ======= */
+.filaTipoTrabajoCurriculumPerfilLateral {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0 6px;
+    font-size: 14px;
+}
+
+.tipoTrabajoPerfilLateral {
+    color: #ddd;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 14px;
+    padding: 0;
+}
+
+.separadorTipoTrabajoCurriculumPerfilLateral {
+    color: #666;
+}
+
+.linkCurriculumPerfilLateral {
+    color: #4fc3f7;
+    font-weight: bold;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 14px;
+    padding: 0;
+}
+
+/* ======= PERFIL LATERAL: biografía editable ======= */
+.bioPerfilLateralContenedor {
+    margin-bottom: 14px;
+}
+
+.bioPerfilLateralTexto {
+    font-size: 13px;
+    color: #eee;
+    cursor: pointer;
+    line-height: 1.4;
+}
+
+.bioPerfilLateralTexto .etiquetaBioPerfilLateral {
+    color: #89A6B8;
+    font-weight: bold;
+}
+
+.bioPerfilLateralTextarea {
+    width: 100%;
+    min-height: 70px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background: #111;
+    color: #fff;
+    font-size: 13px;
+    resize: vertical;
+}
+
+/* ======= PERFIL LATERAL: sección Publicaciones (grilla) ======= */
+.divisorPublicacionesPerfilLateral {
+    border: none;
+    border-top: 1px solid #333;
+    margin: 18px 0 14px;
+}
+
+.tituloPublicacionesPerfilLateral {
+    text-align: center;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #89A6B8;
+    margin-bottom: 12px;
+}
+
+.gridPublicacionesPerfilLateral {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3px;
+}
+
+.itemPublicacionGridPerfil {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: #222;
+    cursor: pointer;
+}
+
+.itemPublicacionGridPerfil img,
+.itemPublicacionGridPerfil video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.vacioPublicacionesPerfilLateral {
+    text-align: center;
+    color: #999;
+    font-size: 13px;
+    padding: 30px 10px;
+}
+
+/* El + queda FIJO en la pantalla (abajo a la derecha, arriba de los
+   botones Tienda/Personal) sin importar cuántas publicaciones haya.
+   --altoPieNivan lo calcula renderizarPerfilLateral() con el alto real
+   del pie. Dentro del panel, "fixed" se mide contra el panel. */
+.botonAgregarPublicacionPerfil {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #fff;
+    font-size: 26px;
+    cursor: pointer;
+    margin: 0;
+    position: fixed;
+    right: 16px;
+    bottom: calc(var(--altoPieNivan, 0px) + 16px + env(safe-area-inset-bottom, 0px));
+    z-index: 30;
+    box-shadow: 0 4px 14px rgba(0,0,0,.5);
+}
+
+/* Lugar abajo para que el + no tape el último contenido */
+#panelMiPerfilNivan .contenidoPerfilLateralScroll { padding-bottom: 100px; }
+
+.formNuevaPublicacionPerfil {
+    display: none;
+    background: #2a2a2a;
+    padding: 12px;
+    border-radius: 10px;
+    margin: 10px 0 16px;
+}
+
+.formNuevaPublicacionPerfil.abierto {
+    display: block;
+}
+
+.formNuevaPublicacionPerfil textarea {
+    width: 100%;
+    min-height: 60px;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 8px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background: #111;
+    color: #fff;
+    font-size: 13px;
+    resize: vertical;
+}
+
+/* ======= PERFIL LATERAL: overlay para ver una publicación ======= */
+.overlayPosteoPerfil {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.85);
+    z-index: 600;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.overlayPosteoPerfil.abierto {
+    display: flex;
+}
+
+.cajaPosteoPerfil {
+    background: #1c1c1c;
+    border-radius: 12px;
+    max-width: 400px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    color: #fff;
+}
+
+.cajaPosteoPerfil img,
+.cajaPosteoPerfil video {
+    width: 100%;
+    max-height: 55vh;
+    object-fit: contain;
+    background: #000;
+    display: block;
+}
+
+.cuerpoPosteoPerfil {
+    padding: 14px;
+}
+
+.cerrarPosteoPerfilBtn {
+    float: right;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+/* ======= PERFIL LATERAL: pestañas inferiores (personal / tienda) ======= */
+.tabsVistaPerfilLateral {
+    display: flex;
+    background: #1c1c1c;
+    border-top: 1px solid #333;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.tabVistaPerfilLateral {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 8px 4px;
+    border-radius: 8px;
+}
+
+.tabVistaPerfilLateral.activa {
+    color: #fff;
+    background: #2a2a2a;
+    font-weight: bold;
+}
+
+.filtrosCategorias {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 5px 0 15px 0;
+    margin-bottom: 10px;
+}
+
+.categoriaBtn {
+    background: #89A6B8;
+    border: 1px solid #ffffff;
+    border-radius: 20px;
+    padding: 10px 16px;
+    white-space: nowrap;
+    cursor: pointer;
+    font-size: 14px;
+    color: #fff;
+}
+
+.categoriaBtn.activo {
+    background: #364958;
+    color: white;
+    border-color: #111;
+}
+
+.ordenBuscadorContenedor {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 15px;
+    font-size: 14px;
+    flex-wrap: wrap;
+}
+
+#ordenBuscador {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: white;
+    font-size: 14px;
+}
+      /* SECCIÓN A MEDIDA */
+
+.aMedida {
+    display: none;
+    background:
+        linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.55)),
+        url('https://i.imgur.com/OhOfc6t.jpeg') center/cover no-repeat;
+    color: #fff;
+    padding: 30px;
+    border-radius: 15px;
+    margin: 20px 0 30px;
+  font-family: 'Bodoni moda', serif;
+              font-style: italic;
+}
+
+.aMedida.abierta {
+    display: block;
+}
+
+.aMedidaTitulo {
+    text-align: center;
+    margin-bottom: 25px;
+  font-family: 'Bodoni moda', serif;
+              font-style: italic;
+}
+
+.aMedidaTitulo h2 {
+    margin-bottom: 10px;
+  font-family: 'Bodoni moda', serif;
+              font-style: italic;
+}
+
+.opcionesMedida {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+}
+
+.opcionMedida {
+    background: rgba(0,0,0,.6);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    font-family: 'Bodoni moda', serif;
+    width: 100%;
+    padding: 15px 20px;
+    border-radius: 28px;
+    outline: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,.7);
+    font-style: italic;
+}
+
+.opcionMedida strong,
+.opcionMedida span {
+    display: block;
+}
+
+.opcionMedida strong {
+    margin: 10px 0 8px;
+}
+
+.opcionMedida span {
+    font-size: 13px;
+    color: #fff;
+}
+
+.formularioMedida {
+    display: none;
+    background: rgba(0,0,0,.6);
+    color: white;
+    margin-top: 25px;
+    padding: 20px;
+    border-radius: 12px;
+}
+
+.tituloMedidas {
+    margin: 20px 0 15px;
+}
+
+.medidasGrid {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.opcionFormulario {
+    display: none;
+}
+
+#enviarSolicitudMedida {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    background: linear-gradient(to right,#171719, #364958, #89A6B8);
+    color:white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+/*solicitud enviada con éxito*/
+      
+.resultadoMedida {
+          display: none;
+    margin-top: 20px;
+    padding: 15px;
+    background: #89A6B8;
+    border-radius: 8px;
+    color: #ffffff;
+}
+      
+      .presupuestoMinimo {
+    display: none;
+    -webkit-text-fill-color: #fff;
+    margin: 15px 0;
+    padding: 15px;
+    background: #d32f2f;
+    border-radius: 10px;
+    border:1px solid #ddd;
+}
+
+.presupuestoMinimo strong {
+    display: block;
+    font-size: 18px;
+    margin-bottom: 6px;
+}
+
+.presupuestoMinimo span {
+    color: #555;
+    font-size: 14px;
+
+}
+    
+.inputError {
+    border: 2px solid #d32f2f !important;
+    background: #fff5f5;
+}
+
+.mensajeErrorPresupuesto {
+    display: none;
+    color: #d32f2f;
+    font-size: 13px;
+    margin-top: 6px;
+    font-weight: bold;
+
+}
+      .seccionMedidaBtn {
+    width: 100%;
+   font-family:'Bodoni moda', serif;
+   font-style: italic;
+    padding: 13px;
+    margin: 5px 0 20px;
+    background: linear-gradient(to right,#171719, #364958, #89A6B8);
+    color: White;
+    border: 1px solid #9EB1BE;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+.seccionMedidaBtn:hover {
+    background:linear-gradient(to right,#171719, #364958, #89A6B8);
+}
+
+/* ==============================
+   FILTROS DEL BUSCADOR
+============================== */
+.botonFiltrosBuscador {
+    margin-left: auto;
+    background: #89A6B8;
+    border: 1px solid #fff;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 14px;
+    color: #fff;
+    cursor: pointer;
+}
+.botonFiltrosBuscador.conFiltros { background: #364958; border-color: #111; }
+.panelFiltrosBuscador {
+    display: none;
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 15px;
+}
+.panelFiltrosBuscador.abierto { display: block; }
+.grupoFiltroBuscador { margin-bottom: 14px; }
+.grupoFiltroBuscador h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #bbb;
+    margin: 0 0 8px;
+}
+.filtroPrecioFila { display: flex; align-items: center; gap: 8px; }
+.filtroPrecioFila input {
+    width: 100%;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+}
+.chipsFiltroBuscador { display: flex; flex-wrap: wrap; gap: 8px; }
+.chipFiltroBuscador {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 13px;
+    border: 1px solid #fff;
+    border-radius: 18px;
+    background: transparent;
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+}
+.chipFiltroBuscador.activo { background: #fff; color: #111; }
+.puntoColorFiltro {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.7);
+}
+.limpiarFiltrosBuscador {
+    width: 100%;
+    padding: 10px;
+    border: 0;
+    border-radius: 8px;
+    background: #fff;
+    color: #111;
+    font-weight: bold;
+    cursor: pointer;
+}
+.sinResultadosBuscador {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 30px 10px;
+    color: #d0d0d5;
+}
+
+/* ==============================
+   FEED HOME: MÁS VENDIDOS / TENDENCIA
+============================== */
+.feedNivan { grid-column: 1 / -1; margin: 10px 0 14px; min-width: 0; }
+.recomendadosNivan { grid-column: 1 / -1; margin: 10px 0 14px; min-width: 0; }
+.recomendadosNivan h3 {
+    display: inline-block;
+    margin: 0 0 12px;
+    background: #fff;
+    color: #111;
+    border-radius: 20px;
+    padding: 9px 16px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.feedTabs { display: flex; gap: 10px; margin-bottom: 12px; }
+.feedTab {
+    background: transparent;
+    border: 1px solid #fff;
+    border-radius: 20px;
+    padding: 9px 16px;
+    font-size: 14px;
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.feedTab.activo { background: #fff; color: #111; font-weight: bold; }
+.feedLista {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scroll-snap-type: x proximity;
+}
+.feedItem { position: relative; flex: 0 0 108px; cursor: pointer; scroll-snap-align: start; }
+.feedItem img { width: 100%; height: 135px; object-fit: cover; border-radius: 10px; display: block; }
+.feedPuesto {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: #111;
+    color: #fff;
+    border-radius: 12px;
+    padding: 2px 9px;
+    font-size: 12px;
+    font-weight: bold;
+}
+.feedItem h4 { font-size: 12px; margin: 6px 0 2px; font-weight: bold; }
+.feedPrecio { font-size: 13px; }
+.feedDato { font-size: 12px; color: #d0d0d5; margin-top: 2px; }
+.feedVacio { color: #d0d0d5; font-size: 14px; padding: 14px 0; }
+
+/* ==============================
+   ACTIVIDAD (perfil)
+============================== */
+.listaActividadNivan { max-width: 560px; }
+
+/* ==============================
+   MIS COMPRAS / MIS VENTAS (pedidos)
+============================== */
+.listaPedidosNivan { display: grid; gap: 14px; max-width: 560px; }
+.tarjetaPedidoNivan { background: #26273c; border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 14px; }
+.cabeceraPedidoNivan { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+.cabeceraPedidoNivan strong { display: block; font-size: 14px; }
+.cabeceraPedidoNivan small { color: #d7dadc; font-size: 12px; }
+.estadoPedidoNivan { flex-shrink: 0; border-radius: 20px; padding: 4px 10px; font-size: 12px; font-weight: bold; color: #111; }
+.estadoPedidoNivan.pendiente { background: #f5b942; }
+.estadoPedidoNivan.enviado { background: #5aa9ff; }
+.estadoPedidoNivan.entregado { background: #4cd08a; }
+.trackerPedidoNivan { display: flex; margin: 2px 0 12px; }
+.pasoPedidoNivan { flex: 1; text-align: center; opacity: .3; }
+.pasoPedidoNivan.activo { opacity: 1; }
+.pasoPedidoNivan span { display: block; font-size: 18px; }
+.pasoPedidoNivan small { font-size: 11px; color: #d7dadc; }
+.itemPedidoNivan { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid rgba(255,255,255,.08); }
+.itemPedidoNivan img, .itemPedidoNivanSinFoto { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #3a3b52; display: flex; align-items: center; justify-content: center; }
+.itemPedidoNivan div.textoItemPedidoNivan { flex: 1; min-width: 0; }
+.itemPedidoNivan strong { display: block; font-size: 13px; }
+.itemPedidoNivan p { font-size: 12px; color: #d7dadc; margin-top: 2px; }
+.datosPedidoNivan { border-top: 1px solid rgba(255,255,255,.08); padding-top: 8px; font-size: 12px; color: #d7dadc; display: grid; gap: 3px; }
+.totalPedidoNivan { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; margin-top: 8px; }
+.accionPedidoNivan { width: 100%; margin-top: 12px; padding: 11px; border: none; border-radius: 10px; background: #fff; color: #111; font-weight: bold; font-size: 13px; cursor: pointer; }
+.pedidosVaciosNivan { color: #d7dadc; font-size: 14px; }
+
+/* ==============================
+   CALIFICAR AL VENDEDOR + CHAT
+   ============================== */
+.accionPedidoNivan.secundaria { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4); margin-top: 8px; }
+.accionesPedidoFilaNivan { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.accionesPedidoFilaNivan .derechaAccionesNivan { display: flex; gap: 6px; margin-left: auto; }
+.accionesPedidoFilaNivan button { padding: 9px 10px; font-size: 12px; font-weight: bold; border-radius: 8px; cursor: pointer; background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4); }
+.accionesPedidoFilaNivan button.principalNivan { background: #fff; color: #111; border-color: #fff; }
+.calificacionPedidoNivan { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.06); font-size: 13px; }
+.calificacionPedidoNivan strong { display: block; margin-bottom: 4px; font-size: 13px; }
+.calificacionPedidoNivan p { margin-top: 4px; color: #d7dadc; font-size: 12px; }
+.estrellasCalifNivan { color: #f5b942; letter-spacing: 2px; font-size: 16px; }
+
+.overlayDocumentacionNivan { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 10006; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+.overlayDocumentacionNivan.abierto { display: flex; }
+.cajaDocumentacionNivan { background: linear-gradient(#171719, #364958); color: #fff; width: 100%; max-width: 400px; border-radius: 16px; padding: 24px 22px 20px; margin: auto; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+.cajaDocumentacionNivan h3 { margin: 0 0 12px; font-size: 19px; }
+.cajaDocumentacionNivan p { margin: 0 0 10px; font-size: 14px; line-height: 1.45; color: rgba(255,255,255,.88); }
+.cajaDocumentacionNivan .notaDocumentacionNivan { font-size: 13px; color: rgba(255,255,255,.7); }
+.cajaDocumentacionNivan button { width: 100%; padding: 13px; border-radius: 10px; font-size: 15px; cursor: pointer; margin-top: 8px; }
+.cajaDocumentacionNivan .btnDocContinuarNivan { background: #fff; color: #111; border: none; font-weight: bold; }
+.cajaDocumentacionNivan .btnDocCargarNivan { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.5); }
+.overlayCalifNivan { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 10004; align-items: center; justify-content: center; padding: 20px; }
+.overlayCalifNivan.abierto { display: flex; }
+.cajaCalifNivan { background: #1c1c1c; color: #fff; border-radius: 14px; padding: 20px; width: 100%; max-width: 360px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.cajaCalifNivan h3 { font-size: 17px; margin-bottom: 4px; }
+.subCalifNivan { color: #bbb; font-size: 12px; margin-bottom: 14px; }
+.estrellasElegirCalifNivan { display: flex; justify-content: center; gap: 6px; margin-bottom: 4px; }
+.estrellasElegirCalifNivan button { background: none; border: none; font-size: 40px; line-height: 1; color: #555; cursor: pointer; padding: 0 2px; }
+.estrellasElegirCalifNivan button.activa { color: #f5b942; }
+.textoEstrellasCalifNivan { text-align: center; min-height: 18px; font-size: 13px; color: #f5b942; margin-bottom: 12px; }
+.cajaCalifNivan textarea { width: 100%; min-height: 80px; max-height: 200px; border-radius: 8px; border: 1px solid #444; background: #111; color: #fff; padding: 10px; resize: none; font-family: Arial, sans-serif; margin-bottom: 6px; }
+.avisoErrorNivan { display: none; background: rgba(255,107,107,.12); border: 1px solid rgba(255,107,107,.5); color: #ffb3b3; border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.4; margin-bottom: 10px; }
+.avisoErrorNivan.visible { display: block; }
+.botonesCalifNivan { display: flex; gap: 10px; }
+.botonesCalifNivan button { flex: 1; padding: 10px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
+.botonesCalifNivan .cancelar { background: #333; color: #fff; }
+.botonesCalifNivan .enviar { background: #fff; color: #111; }
+
+.tituloCalifVendedorNivan { font-size: 16px; font-weight: bold; margin: 26px 0 10px; }
+.itemCalifVendedorNivan { background: #26273c; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 12px; margin-bottom: 10px; max-width: 560px; }
+.itemCalifVendedorNivan small { display: block; color: #d7dadc; font-size: 11px; margin-top: 4px; }
+.itemCalifVendedorNivan p { font-size: 13px; margin-top: 6px; overflow-wrap: anywhere; }
+.accionesPerfilVendedorNivan { margin: 12px 0 4px; max-width: 320px; }
+.accionesPerfilVendedorNivan button + button { margin-top: 8px; }
+.accionesPerfilVendedorNivan button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.4); background: transparent; color: #fff; font-weight: bold; font-size: 13px; cursor: pointer; }
+
+.overlayChatNivan { display: none; position: fixed; inset: 0; z-index: 10003; background: #474E51; color: #fff; flex-direction: column; }
+.overlayChatNivan.abierto { display: flex; }
+.cabeceraChatNivan { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 12px 14px; padding-top: calc(12px + env(safe-area-inset-top, 0px)); background: #1c1c1c; }
+.volverChatNivan { background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; padding: 2px 8px 2px 0; line-height: 1; }
+.avatarChatNivan { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #333; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.datosCabeceraChatNivan { min-width: 0; flex: 1; }
+.datosCabeceraChatNivan strong { display: block; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.datosCabeceraChatNivan small { color: #bbb; font-size: 11px; }
+.verPerfilChatNivan { flex-shrink: 0; background: transparent; border: 1px solid rgba(255,255,255,.4); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+
+.mensajesChatNivan { flex: 1; min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.burbujaChatNivan {
+    max-width: 80%;
+    padding: 8px 11px 6px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    cursor: pointer;
+}
+.burbujaChatNivan.mia { align-self: flex-end; background: #fff; color: #111; border-bottom-right-radius: 4px; }
+.burbujaChatNivan.suya { align-self: flex-start; background: #26273c; color: #fff; border-bottom-left-radius: 4px; }
+.burbujaChatNivan small { display: block; font-size: 10px; opacity: .6; margin-top: 3px; text-align: right; white-space: normal; }
+.separadorChatNivan, .contextoChatNivan { align-self: center; font-size: 11px; color: #e6e8ea; background: rgba(0,0,0,.28); padding: 3px 10px; border-radius: 10px; margin: 6px 0; text-align: center; max-width: 90%; overflow-wrap: anywhere; }
+.vacioChatNivan { margin: auto; text-align: center; color: #d7dadc; font-size: 13px; padding: 20px; line-height: 1.5; }
+
+.pieChatNivan { flex-shrink: 0; background: #1c1c1c; padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
+.filaEnviarChatNivan { display: flex; gap: 8px; align-items: flex-end; }
+.filaEnviarChatNivan textarea { flex: 1; min-height: 40px; max-height: 110px; border-radius: 10px; border: 1px solid #444; background: #111; color: #fff; padding: 10px; resize: none; font-family: Arial, sans-serif; font-size: 14px; }
+.filaEnviarChatNivan button { flex-shrink: 0; border: none; border-radius: 10px; background: #fff; color: #111; font-weight: bold; padding: 0 16px; height: 40px; cursor: pointer; }
+
+.listaChatsNivan { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 0 24px; }
+.itemChatNivan {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    position: relative;
+}
+.textoItemChatNivan { min-width: 0; flex: 1; }
+.textoItemChatNivan strong { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.textoItemChatNivan strong em { font-style: normal; font-weight: normal; font-size: 11px; color: #bbb; margin-left: 6px; }
+.textoItemChatNivan span { display: block; font-size: 12px; color: #d7dadc; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metaItemChatNivan { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.metaItemChatNivan small { font-size: 11px; color: #bbb; }
+.metaItemChatNivan b { background: #ff6b6b; color: #111; border-radius: 10px; min-width: 20px; padding: 2px 6px; font-size: 11px; text-align: center; }
+.botonBorrarChatNivan { flex-shrink: 0; background: none; border: none; color: #d7dadc; font-size: 18px; cursor: pointer; padding: 4px 6px; line-height: 1; }
+.overlayAccionChatNivan { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 10007; align-items: flex-end; justify-content: center; }
+.overlayAccionChatNivan.abierto { display: flex; }
+.hojaAccionChatNivan { background: #1c1c1c; color: #fff; width: 100%; max-width: 450px; border-radius: 16px 16px 0 0; padding: 18px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+.hojaAccionChatNivan h4 { margin: 0 0 6px; font-size: 15px; }
+.hojaAccionChatNivan .resumenAccionChatNivan { margin: 0 0 8px; font-size: 13px; color: #bbb; line-height: 1.4; overflow-wrap: anywhere; }
+.hojaAccionChatNivan .notaAccionChatNivan { margin: 8px 2px 0; font-size: 12px; color: #bbb; line-height: 1.4; }
+.hojaAccionChatNivan button { width: 100%; padding: 13px; margin-top: 8px; border-radius: 10px; font-size: 15px; cursor: pointer; border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; text-align: left; }
+.hojaAccionChatNivan button.peligroNivan { color: #ff6b6b; }
+.hojaAccionChatNivan button:disabled { opacity: .4; cursor: default; }
+.textoItemChatNivan strong em.etiquetaTiendaChatNivan { display:inline-block; background:rgba(137,166,184,.22); color:#cfe3f0; border-radius:8px; padding:1px 7px; font-size:10px; margin-left:6px; }
+.compraChatNivan { align-self:center; max-width:88%; margin:10px auto; padding:12px 14px; border-radius:14px; background:rgba(76,208,138,.12); border:1px solid rgba(76,208,138,.45); color:#fff; font-size:13px; line-height:1.45; }
+.compraChatNivan strong { display:block; font-size:14px; margin-bottom:4px; }
+.compraChatNivan ul { margin:4px 0 6px 18px; padding:0; }
+.compraChatNivan small { display:block; color:#cfd6d9; font-size:11px; }
+.identidadEnvioChatNivan { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:#cfd6d9; padding:0 2px 8px; }
+.identidadEnvioChatNivan span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.identidadEnvioChatNivan button { flex-shrink:0; background:transparent; border:1px solid rgba(255,255,255,.35); color:#fff; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer; }
+.itemChatNivan.seleccionadoNivan { background: rgba(76,208,138,.18); }
+.checkSeleccionChatNivan { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: #4cd08a; color: #111; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.cabeceraSeleccionChatsNivan strong { font-size: 15px; }
+.vacioChatsNivan { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 60px 30px; color: #d7dadc; font-size: 13px; line-height: 1.5; }
+.iconoVacioChatsNivan { font-size: 48px; }
+
+        /* PANTALLAS COMPLETAS (Mi tipo de trabajo / Vender / Publicar / Términos) */
+        .pantallaCompleta {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 400;
+            background: #1c1c1c;
+            color: #fff;
+            overflow-y: auto;
+            padding: 20px 20px 100px;
+        }
+
+        .pantallaCompleta.abierta {
+            display: block;
+            animation: entrarPantallaCompletaNivan .3s ease;
+        }
+
+        /* Misma entrada que el panel de Configuración: desliza desde la izquierda */
+        @keyframes entrarPantallaCompletaNivan {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+
+        .volverAtras {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 0 14px;
+        }
+
+        .tituloPantallaCompleta {
+            margin-bottom: 20px;
+        }
+
+        .tituloPantallaCompleta p {
+            color: #d7dadc;
+        }
+
+        /* TIPO DE TRABAJO */
+        .bloqueTipoTrabajo h3 {
+            margin-bottom: 4px;
+        }
+
+        .textoAyudaTipoTrabajo {
+            color: #d7dadc;
+            font-size: 13px;
+            margin-bottom: 14px;
+        }
+
+        .listaTiposTrabajo {
+            display: grid;
+            gap: 10px;
+        }
+
+        .opcionTipoTrabajo {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: #26273c;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+        }
+
+        .opcionTipoTrabajo:has(input:checked) {
+            border-color: #fff;
+        }
+
+        .opcionTipoTrabajo input {
+            margin-top: 3px;
+            flex-shrink: 0;
+        }
+
+        .opcionTipoTrabajo strong {
+            display: block;
+            font-size: 14px;
+        }
+
+        .opcionTipoTrabajo span span {
+            display: block;
+            font-size: 12px;
+            color: #b7bbc0;
+            margin-top: 2px;
+        }
+
+        #guardarTipoTrabajoBtn,
+        .botonPantallaCompleta {
+            width: 100%;
+            padding: 13px;
+            margin-top: 16px;
+            border: none;
+            background: #111;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .notaTipoTrabajo {
+            font-size: 12px;
+            color: #d7dadc;
+            margin-top: 14px;
+            line-height: 1.5;
+        }
+
+        /* VENDER */
+        .listaVender {
+            display: grid;
+            gap: 12px;
+            max-width: 520px;
+        }
+
+        .listaVender button {
+            padding: 15px;
+            border: 1px solid rgba(255,255,255,.2);
+            background: #26273c;
+            color: #fff;
+            border-radius: 12px;
+            text-align: left;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        /* CUPONES */
+        .formCuponNivan {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            max-width: 520px;
+            margin-bottom: 26px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,.15);
+        }
+
+        .filaDosCamposCuponNivan {
+            display: flex;
+            gap: 12px;
+        }
+
+        .filaDosCamposCuponNivan .campo {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .formCuponNivan button[type="submit"] {
+            padding: 13px;
+            border: none;
+            border-radius: 12px;
+            background: #fff;
+            color: #111;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .filaCuponGuardarNivan {
+            display: flex;
+            gap: 10px;
+            max-width: 520px;
+            margin-bottom: 20px;
+        }
+
+        .filaCuponGuardarNivan input {
+            flex: 1;
+            min-width: 0;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,.25);
+            background: #111;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .filaCuponGuardarNivan button {
+            flex-shrink: 0;
+            padding: 0 18px;
+            border: none;
+            border-radius: 10px;
+            background: #fff;
+            color: #111;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .tarjetaCuponNivan {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            background: #26273c;
+            border: 1px solid rgba(255,255,255,.15);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            max-width: 520px;
+        }
+
+        .tarjetaCuponNivan.cuponInactivoNivan {
+            opacity: .55;
+        }
+
+        .datosCuponNivan {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .datosCuponNivan strong {
+            font-size: 16px;
+            letter-spacing: .5px;
+        }
+
+        .datosCuponNivan span {
+            font-size: 13px;
+            color: #d7dadc;
+        }
+
+        .datosCuponNivan small {
+            font-size: 11px;
+            color: #9aa;
+        }
+
+        .estadoCuponNivan {
+            display: inline-block;
+            margin-top: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #9aa;
+        }
+
+        .accionesCuponNivan {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .accionesCuponNivan button {
+            padding: 7px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,.3);
+            background: transparent;
+            color: #fff;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        /* Cupón dentro del carrito */
+        .filaCuponCarritoNivan {
+            display: flex;
+            gap: 8px;
+            margin: 14px 0 6px;
+        }
+
+        .filaCuponCarritoNivan input {
+            flex: 1;
+            min-width: 0;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: #111;
+            color: #fff;
+            font-size: 13px;
+        }
+
+        .filaCuponCarritoNivan button {
+            flex-shrink: 0;
+            padding: 0 14px;
+            border: none;
+            border-radius: 8px;
+            background: #fff;
+            color: #111;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .cuponAplicadoCarritoNivan {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,.08);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 14px 0 6px;
+            font-size: 13px;
+        }
+
+        .cuponAplicadoCarritoNivan button {
+            border: none;
+            background: transparent;
+            color: #ff8a8a;
+            font-size: 12px;
+            font-weight: bold;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .avisoCuponCarritoNivan {
+            color: #ff8a8a;
+            font-size: 12px;
+            margin: 0 0 6px;
+        }
+
+        .lineaDescuentoCuponNivan {
+            color: #8fe28f;
+            font-size: 13px;
+            font-weight: bold;
+            margin: 0 0 4px;
+            text-align: right;
+        }
+
+        .lineaSinDescuentoNivan {
+            font-size: 14px;
+            margin: 0 0 4px;
+            text-align: right;
+            opacity: .85;
+        }
+
+        .precioSinImpuestosNivan {
+            font-size: 12px;
+            opacity: .7;
+            margin: 2px 0 10px;
+            text-align: inherit;
+        }
+
+        .detallePrecio + .precioSinImpuestosNivan {
+            margin-top: -10px;
+        }
+
+        /* ESTADÍSTICAS DE VENTA */
+        .filaPeriodoEstadisticasNivan {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
+        .botonPeriodoEstadNivan {
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.3);
+            background: transparent;
+            color: #fff;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .botonPeriodoEstadNivan.activo {
+            background: #fff;
+            color: #111;
+            border-color: #fff;
+        }
+
+        .gridEstadisticasNivan {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            max-width: 520px;
+            margin-bottom: 24px;
+        }
+
+        .tarjetaEstadisticaNivan {
+            background: #26273c;
+            border: 1px solid rgba(255,255,255,.15);
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .tarjetaEstadisticaNivan span {
+            font-size: 12px;
+            color: #d7dadc;
+        }
+
+        .tarjetaEstadisticaNivan strong {
+            font-size: 20px;
+        }
+
+        .listaTopProductosNivan {
+            max-width: 520px;
+        }
+
+        .itemTopProductoNivan {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,.1);
+        }
+
+        .posicionTopProductoNivan {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .datosTopProductoNivan {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .datosTopProductoNivan span {
+            font-size: 12px;
+            color: #d7dadc;
+        }
+
+        /* MIS PUBLICACIONES */
+        .filtroMisPublicaciones {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .filtroMisPubBtn {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,.2);
+            background: transparent;
+            color: #fff;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .filtroMisPubBtn.activo {
+            background: #fff;
+            color: #111;
+            font-weight: bold;
+        }
+
+        .itemMisPublicaciones {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #26273c;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .itemMisPublicaciones img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        .infoMisPublicaciones {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .infoMisPublicaciones strong {
+            display: block;
+            font-size: 14px;
+        }
+
+        .infoMisPublicaciones p {
+            font-size: 13px;
+            color: #d7dadc;
+            margin-top: 2px;
+        }
+
+        .accionesMisPublicaciones {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .accionesMisPublicaciones button {
+            border: none;
+            border-radius: 8px;
+            padding: 7px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .pausarPublicacionBtn {
+            background: #fff;
+            color: #111;
+        }
+
+        .eliminarPublicacionBtn {
+            background: transparent;
+            color: #ff6b6b;
+            border: 1px solid #ff6b6b !important;
+        }
+
+        .editarPublicacionBtn {
+            background: transparent;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,.4) !important;
+        }
+
+        .misPublicacionesVacio {
+            display: none;
+            color: #d7dadc;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        /* CREAR PUBLICACIÓN */
+        .campoPublicacion {
+            margin-bottom: 18px;
+        }
+
+        .campoPublicacion label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        .campoPublicacion input[type="text"],
+        .campoPublicacion input[type="number"],
+        .campoPublicacion input[type="file"],
+        .campoPublicacion select,
+        .campoPublicacion textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,.25);
+            border-radius: 8px;
+            font-size: 15px;
+            background: #26273c;
+            color: #fff;
+        }
+
+        .campoPublicacion textarea {
+            min-height: 90px;
+            max-height: 220px;
+            overflow-y: auto;
+            resize: vertical;
+        }
+
+        .avisoTipoTrabajoPublicacion {
+            background: #26273c;
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 13px;
+            color: #d7dadc;
+            margin-bottom: 18px;
+        }
+
+        .avisoObligatorioPublicacion {
+            background: rgba(198, 40, 40, .15);
+            border: 1px solid #c62828;
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #ff5c5c;
+            margin-bottom: 18px;
+        }
+
+        .avisoLimitePrecioMayor {
+            display: block;
+            font-size: 12px;
+            font-weight: bold;
+            color: #ff5c5c;
+            margin-top: 6px;
+        }
+
+        .pistaEtiquetasPublicacion {
+            font-size: 11px;
+            color: #999;
+            margin-top: 6px;
+        }
+
+        /* VENTA POR MENOR / MAYOR (en el formulario de publicación) */
+        .filaTramoMayorPublicacion {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .filaTramoMayorPublicacion input {
+            flex: 1 1 110px;
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,.25);
+            border-radius: 8px;
+            font-size: 14px;
+            background: #26273c;
+            color: #fff;
+        }
+
+        .botonAgregarTramoMayor {
+            flex: 1 1 100%;
+            background: #89A6B8;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #111;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .listaTramosMayorPublicacion {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tramoMayorPublicacion {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #26273c;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 13px;
+        }
+
+        .tramoMayorPublicacion button {
+            background: none;
+            border: none;
+            color: #ff7675;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0 0 0 10px;
+        }
+
+        .listaTallesPublicacion {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .talleCheckPublicacion {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #26273c;
+            border: 1px solid rgba(255,255,255,.2);
+            border-radius: 20px;
+            padding: 7px 14px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .talleCheckPublicacion.fijo {
+            border-color: #fff;
+            opacity: .85;
+            cursor: default;
+        }
+
+        .tablaMedidasPublicacion {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        .tablaMedidasPublicacion th,
+        .tablaMedidasPublicacion td {
+            border: 1px solid rgba(255,255,255,.15);
+            padding: 6px;
+            text-align: center;
+        }
+
+        .tablaMedidasPublicacion input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid rgba(255,255,255,.25);
+            border-radius: 6px;
+            background: #1c1d2e;
+            color: #fff;
+            text-align: center;
+        }
+
+        .listaColoresPublicacion {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .colorSwatchPublicacion {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,.35);
+            cursor: pointer;
+            position: relative;
+            padding: 0;
+        }
+
+        .colorSwatchPublicacion.seleccionado {
+            border-color: #fff;
+            box-shadow: 0 0 0 2px #6c5ce7;
+        }
+
+        .colorSwatchPublicacion.seleccionado::after {
+            content: "✓";
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 14px;
+            text-shadow: 0 0 3px rgba(0,0,0,.8);
+        }
+
+        .subtituloColoresPublicacion {
+            font-size: 12px;
+            color: #b7bac1;
+            margin: 10px 0 6px;
+            font-weight: bold;
+        }
+
+        .ruedaColorBoton {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,.4);
+            cursor: pointer;
+            background: conic-gradient(
+                from 0deg,
+                #ff0000, #ff9900, #f4ff00, #22ff00,
+                #00fff7, #0044ff, #ae00ff, #ff0090, #ff0000
+            );
+            box-shadow: 0 0 0 2px rgba(0,0,0,.15) inset;
+            padding: 0;
+        }
+
+        .chipsColoresElegidos {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .chipColorElegido {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #26273c;
+            border: 1px solid rgba(255,255,255,.2);
+            border-radius: 20px;
+            padding: 5px 10px 5px 6px;
+            font-size: 12px;
+        }
+
+        .chipColorElegido .puntoColor {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,.4);
+            display: inline-block;
+        }
+
+        .chipColorElegido button {
+            background: none;
+            border: none;
+            color: #ff7675;
+            font-size: 14px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .previewMediosPublicacion {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .medioPublicacionMiniatura {
+            position: relative;
+            width: 90px;
+            height: 90px;
+        }
+
+        .medioPublicacionMiniatura img,
+        .medioPublicacionMiniatura video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .medioPublicacionMiniatura .indicadorVideoMiniatura {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            background: rgba(0,0,0,.6);
+            color: #fff;
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+
+        .botonQuitarMedioPublicacion {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: none;
+            background: #111;
+            color: #fff;
+            font-size: 13px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        /* PIE DE PÁGINA */
+        .piePaginaNivan {
+            margin-top: 40px;
+            padding: 22px 10px 10px;
+            border-top: 1px solid rgba(255,255,255,.15);
+            color: #fff;
+            font-size: 12px;
+            line-height: 1.8;
+            text-align: center;
+        }
+
+        .enlaceTerminos {
+            color: #6ea8fe;
+            text-decoration: underline;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* ETIQUETAS DE TIPO DE VENTA (A medida / Talle estándar) */
+        .etiquetaVendedor {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            margin: 4px 0 2px;
+            background: linear-gradient(to right, #171719, #364958, #89A6B8);
+            color: #ffffff;
+        }
+
+        .descripcionEtiquetaVendedor {
+            font-size: 11px;
+            color: #777;
+            margin-bottom: 6px;
+        }
+
+        .bloqueAMedidaDesdeReventa {
+            margin-top: 16px;
+            padding: 14px;
+            background: linear-gradient(to right,#171719, #364958, #89A6B8);
+            border-radius: 10px;
+        }
+
+        .bloqueAMedidaDesdeReventa p {
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .bloqueAMedidaDesdeReventa button {
+            width: 100%;
+            padding: 11px;
+            border: none;
+            background: #111;
+            color: white;
+            border-radius: 7px;
+            cursor: pointer;
+        }
+
+        .bannerInspiracionReventa {
+            background: #111;
+            color: white;
+            padding: 12px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+.producto {
+    /* Tarjeta en columna: la info ocupa todo el alto que sobra y el botón
+       "Agregar al carrito" queda pegado abajo, siempre a la misma altura,
+       sin importar cuánto texto tenga cada publicación. */
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: #364958;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+}
+
+.producto .imagenProductoWrap {
+    flex-shrink: 0;
+}
+
+.producto .productoInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.producto .productoInfo > button {
+    margin-top: auto;
+}
+
+.filaBotonesProducto {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: auto;
+}
+
+.filaBotonesProducto button {
+    width: 100%;
+    margin-top: 0;
+}
+
+.botonComprarRapidoNivan {
+    background: #fff;
+    color: #111;
+    font-weight: bold;
+    border: none;
+}
+
+.favoritoProductoBtn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 42px !important;
+    height: 42px;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    border: none !important;
+    background: white !important;
+    color: #111 !important;
+    font-size: 25px;
+    cursor: pointer;
+    z-index: 2;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.favoritoProductoBtn.activo {
+    color: #e91e63 !important;
+}
+
+.compartirProductoBtn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 42px;
+    height: 42px;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    border: none !important;
+    background: white !important;
+    color: #111 !important;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 2;  }
+
+      .compartirProductoBtn img {
+    width: 32px !important;
+    height: 32px !important;
+    max-width: 32px !important;
+    max-height: 32px !important;
+    object-fit: contain !important;
+    border-radius: 50% !important;
+    display: block;
+    background: transparent !important;}
+      
+/* ETIQUETAS DESTACADAS EN LAS TARJETAS (Nuevo / Última unidad) */
+.imagenProductoWrap {
+    position: relative;
+}
+
+.etiquetasDestacadas {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    z-index: 2;
+}
+
+.badgeDestacado {
+    font-size: 11px;
+    font-weight: bold;
+    padding: 4px 9px;
+    border-radius: 6px;
+    color: white;
+    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    white-space: nowrap;
+}
+
+.badgeDestacado.nuevo {
+    background:#30865B;
+    border-radius: 28px;
+    outline: none;
+  -webkit-text-fill-color: #fff;
+  box-shadow:  0 2px 8px rgba(0,0,0,.7);
+}
+
+.badgeDestacado.ultimaUnidad {
+    background:#863130;
+    border-radius: 28px;
+    outline: none;
+  -webkit-text-fill-color: #fff;
+  box-shadow:  0 2px 8px rgba(0,0,0,.7);}
+
+/* VISTOS RECIENTEMENTE (botón colapsable en Buscador y categorías) */
+.panelVistosRecientemente {
+    margin: 0 0 16px;
+    background: #22232a;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.listaVistosRecientemente {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+}
+
+.itemVistoReciente {
+    flex: 0 0 auto;
+    width: 100px;
+    cursor: pointer;
+}
+
+.itemVistoReciente img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 10px;
+    background: #3f4052;
+}
+
+.itemVistoReciente p {
+    font-size: 12px;
+    margin-top: 5px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* AYUDA "¿QUÉ TALLE ME QUEDA?" */
+.ayudaTalleBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: 1px solid rgba(255,255,255,.4);
+    color: #fff;
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    margin: 4px 0 10px;
+}
+
+.ayudaTalleBtn:hover {
+    background: rgba(255,255,255,.1);
+}
+        .producto img {
+    width: 100%;
+    object-fit: cover;
+    background: #3f4052;
+    height: 210px;
+}
+
+        .productoInfo h3 {
+    margin-bottom: 8px;
+    font-size: 15px;
+}
+
+        .precio {
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 17px !important;
+}
+
+        .vendedor {
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: #000;
+    border-radius: 4px;
+}
+
+        .producto button {
+    width: 100%;
+    border: none;
+    background: #111;
+    color: white;
+    border-radius: 7px;
+    cursor: pointer;
+    padding: 9px;
+    font-size: 12px;
+}
+
+        .producto button:hover {
+            background: #333;
+        }
+
+        /* CARTELITOS (toast) que se desvanecen solos */
+        #toastNivan {
+            position: fixed;
+            left: 50%;
+            bottom: 90px;
+            transform: translateX(-50%) translateY(10px);
+            max-width: 88%;
+            background: #111;
+            color: #fff;
+            padding: 13px 18px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.35;
+            text-align: center;
+            box-shadow: 0 6px 20px rgba(0,0,0,.4);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .4s ease, transform .4s ease;
+            z-index: 100000;
+        }
+
+        #toastNivan.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+   .carrito {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background:linear-gradient(#191919,#364958, #89A6B8);
+    z-index: 9999;
+    overflow-y: auto;
+    display: none;
+    padding: 30px;
+    box-sizing: border-box;
+}
+
+.carrito.abierto {
+    display: block;
+}
+
+#itemsCarrito {
+    margin-top: 90px;
+}
+      #carritoVacio {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 50px;
+    min-height: 60vh;
+    text-align: left;
+    position: relative;
+    top: -90px;
+    pointer-events: none;
+}
+
+#carritoVacio img {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+}
+
+#carritoVacio h2 {
+    font-size: 25px;
+    margin-bottom: 20px;
+}
+
+#carritoVacio p {
+    color: #666;
+    font-size: 17px;
+}
+
+        .carritoHeader {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 90px;
+            margin-left: 50px;
+            position: absolute;
+        }
+
+        .carritoHeader h2 {
+            font-size: 19px;
+        }
+
+        /* ⋮ y Favoritos arriba a la derecha del carrito */
+        .carritoAccionesNivan {
+            position: absolute;
+            top: 24px;
+            right: 18px;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .envolturaMenuCarritoNivan { position: relative; }
+
+        .botonPuntosCarritoNivan {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            width: 36px;
+            height: 40px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(0,0,0,.35);
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .botonPuntosCarritoNivan span {
+            display: block;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #fff;
+        }
+
+        .menuCarritoNivan {
+            display: none;
+            position: absolute;
+            top: 46px;
+            right: 0;
+            min-width: 240px;
+            background: #1c1c1c;
+            border: 1px solid #444;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.55);
+            overflow: hidden;
+        }
+
+        .menuCarritoNivan.abierto { display: block; }
+
+        .menuCarritoNivan button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 14px 16px;
+            border: none;
+            border-bottom: 1px solid #333;
+            background: transparent;
+            color: #fff;
+            -webkit-text-fill-color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .menuCarritoNivan button:last-child { border-bottom: none; }
+
+        .botonFavoritosCarritoNivan {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            height: 40px;
+            padding: 0 12px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(0,0,0,.35);
+            color: #fff;
+            -webkit-text-fill-color: #fff;
+            cursor: pointer;
+        }
+
+        .botonFavoritosCarritoNivan img { width: 24px; height: 24px; object-fit: contain; }
+        .botonFavoritosCarritoNivan small { font-size: 12px; }
+
+        /* Los paneles de pagos/direcciones, cuando se abren desde el
+           carrito, tienen que quedar por encima de él (z-index 9999). */
+        body.guardadosDesdeCarritoNivan #overlayConfigAppNivan { z-index: 10000; }
+        body.guardadosDesdeCarritoNivan #panelConfigAppNivan { z-index: 10001; }
+
+        .checkCargarDireccionNivan {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #89A6B8;
+            -webkit-text-fill-color: #89A6B8;
+        }
+        .checkCargarDireccionNivan input { width: 18px; height: 18px; }
+
+        .volverFavoritosNivan {
+            border: none;
+            background: none;
+            color: #fff;
+            -webkit-text-fill-color: #fff;
+            font-size: 15px;
+            padding: 14px 16px 0;
+            cursor: pointer;
+        }
+
+        .cerrar {
+            border: none;
+            background: none;
+            font-size: 40px;
+            cursor: pointer;
+            position: absolute;
+            left: -60px;
+            top: -25px;
+        }
+
+        .itemCarrito {
+            border-bottom: 1px solid #ddd;
+            padding: 15px 0;
+        }
+.detalleItemCarrito {
+    font-size: 13px;
+    color: #d7dadc;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0;
+}
+.colorMuestraCarrito {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.4);
+    display: inline-block;
+}
+.eliminarCarritoBtn {
+    background: none;
+    color: #c62828;
+    border: none;
+    padding: 5px 0;
+    cursor: pointer;
+    font-weight: bold;
+}
+.avisoItemCarritoNoDisponible {
+    display: inline-block;
+    margin: 4px 0;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(198,40,40,.15);
+    color: #c62828;
+    font-size: 12px;
+    font-weight: bold;
+}
+.itemCarrito.itemCarritoNoDisponible {
+    opacity: .65;
+}
+.opcionesItemCarritoClickeable {
+    cursor: pointer;
+}
+.cambiarOpcionesCarrito {
+    display: block;
+    color: #89A6B8;
+    font-size: 12px;
+    font-weight: bold;
+    margin: 4px 0 2px;
+}
+        .total {
+            font-size: 22px;
+            font-weight: bold;
+            margin-top: -290px;
+        }
+
+        #comprarBtn {
+            width: 100%;
+            padding: 14px;
+            margin-top: 20px;
+            border: none;
+            border-radius: 8px;
+            background: #111;
+            color: white;
+            cursor: pointer;
+        }
+              /* FORMULARIO DE COMPRA */
+
+        .checkoutForm {
+    display: none;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+      
+        }
+
+        .checkoutForm h3 {
+            margin-bottom: 15px;
+        }
+
+        .checkoutFormHeader {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .checkoutFormHeader h3 {
+            margin-bottom: 0;
+        }
+
+        #cerrarCheckout {
+            border: none;
+            background: none;
+            font-size: 26px;
+            line-height: 1;
+            cursor: pointer;
+            color: #222;
+        }
+
+        .fotoPerfilNivan {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 10px 0 15px;
+        }
+
+        .campo {
+            margin-bottom: 15px;
+        }
+
+        .campo label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        .campo input,
+        .campo select,
+        .campo textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 7px;
+            font-size: 15px;
+        }
+
+        .campo .telefonoCompraWrap {
+            display: flex;
+            align-items: stretch;
+            border: 1px solid #ccc;
+            border-radius: 7px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .campo .telefonoCompraWrap:focus-within {
+            border-color: #111;
+        }
+
+        .prefijoTelefonoCompra {
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            background: #eee;
+            color: #222;
+            font-size: 15px;
+            font-weight: bold;
+            white-space: nowrap;
+            border-right: 1px solid #ccc;
+            user-select: none;
+            -webkit-user-select: none;
+            cursor: default;
+        }
+
+        .campo .telefonoCompraWrap input {
+            flex: 1;
+            min-width: 0;
+            width: auto;
+            border: none;
+            border-radius: 0;
+            outline: none;
+        }
+
+        .pistaTelefonoCompra {
+            display: block;
+            margin-top: 6px;
+            color: #666;
+            font-size: 12px;
+            line-height: 1.3;
+        }
+
+        .avisoTelefonoCompra {
+            display: none;
+            margin-top: 4px;
+            color: #c0392b;
+            font-size: 13px;
+            line-height: 1.3;
+        }
+
+        .campo textarea {
+            min-height: 80px;
+            max-height: 220px;
+            overflow-y: auto;
+            resize: none;
+        }
+
+        #guardarDatosCompraBtn {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 8px;
+            border: 1px solid #111;
+            border-radius: 9px;
+            background: #fff;
+            color: #111;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        #guardarDatosCompraBtn:hover {
+            background: #111;
+            color: #fff;
+        }
+
+        .estadoDatosCompra {
+            min-height: 18px;
+            margin-bottom: 14px;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .estadoDatosCompra.ok { color: #1b7f3b; }
+        .estadoDatosCompra.info { color: #555; }
+        .estadoDatosCompra.error { color: #c0392b; }
+
+        #confirmarCompraBtn {
+            width: 100%;
+            padding: 14px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 8px;
+            background: #111;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #confirmarCompraBtn:hover {
+            background: #333;
+        }
+
+        .pedidoExitoso {
+            background: #f1f1f1;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+          }
+
+.modalCuenta {
+    display: none;
+
+    position: fixed;
+
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+
+    background:
+        rgba(0,0,0,0.6);
+
+    z-index: 100;
+
+    padding: 20px;
+
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Antes el contenido se centraba con align-items:center: cuando el formulario
+   era más alto que la pantalla (o aparecía el teclado) se cortaba la parte de
+   arriba y no se podía ver. Ahora arranca desde arriba y el margin:auto del
+   contenido lo centra solo cuando sobra lugar. */
+.modalCuenta.abierto {
+    display: flex;
+
+    justify-content: center;
+
+    align-items: flex-start;
+}
+
+.contenidoCuenta {
+    position: relative;
+
+    margin: auto;
+
+    background:linear-gradient( #171719, #364958);
+    color: #fff;
+    width: 100%;
+    max-width: 450px;
+    padding: 30px;
+    border-radius: 15px;
+}
+
+.cerrarCuenta {
+    position: absolute;
+
+    top: 15px;
+    right: 15px;
+
+    background: none;
+
+    border: none;
+
+    font-size: 28px;
+
+    cursor: pointer;
+}
+
+.botonCuenta {
+    width: 100%;
+
+    padding: 14px;
+
+    background: #111;
+
+    color: white;
+
+    border: none;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    font-size: 16px;
+}
+
+.textoCuenta {
+    text-align: center;
+
+    margin-top: 20px;
+}
+
+
+/* Recuperar contraseña, sesiones activas e historial de inicios */
+.linkOlvidoNivan { display:block; margin:-6px 0 14px auto; padding:0; background:none; border:none; color:inherit; text-decoration:underline; font-size:13px; cursor:pointer; opacity:.8; }
+.linkOlvidoNivan:hover { opacity:1; }
+.avisoCodigoNivan { background:rgba(245,185,66,.12); border:1px solid rgba(245,185,66,.5); border-radius:8px; padding:10px 12px; font-size:13px; margin:0 0 14px; }
+.avisoCodigoNivan strong { font-size:20px; letter-spacing:4px; display:block; margin-top:4px; }
+.pistaRecuperarNivan { display:block; font-size:12px; margin-top:4px; min-height:14px; }
+.itemSesionNivan { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; margin-top:10px; border:1px solid rgba(128,128,128,.35); border-radius:10px; }
+.itemSesionNivan .datosSesionNivan { display:flex; flex-direction:column; gap:2px; font-size:13px; min-width:0; }
+.itemSesionNivan .datosSesionNivan strong { font-size:14px; }
+.itemSesionNivan button { flex:none; padding:8px 10px; border-radius:8px; border:1px solid rgba(128,128,128,.5); background:none; color:inherit; cursor:pointer; font-size:13px; }
+.etiquetaEsteDispositivoNivan { color:#4cd08a; font-weight:bold; }
+.itemHistorialLoginNivan { display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid rgba(128,128,128,.25); font-size:13px; }
+.itemHistorialLoginNivan .iconoHistorialNivan { font-size:18px; line-height:1.2; }
+.itemHistorialLoginNivan .datosHistorialNivan { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.itemHistorialLoginNivan.fallidoNivan strong { color:#ff8c8c; }
+
+/* Autenticación en 2 pasos y privacidad */
+.opcionPrivacidadNivan { display:block; width:100%; text-align:left; margin-top:10px; padding:12px; border:1px solid rgba(128,128,128,.4); border-radius:10px; background:none; color:inherit; cursor:pointer; font-size:14px; }
+.opcionPrivacidadNivan small { display:block; margin-top:4px; opacity:.75; font-size:12px; }
+.opcionPrivacidadNivan.seleccionadaNivan { border-color:#4cd08a; background:rgba(76,208,138,.12); }
+.claveDosPasosNivan { font-family:monospace; font-size:16px; letter-spacing:2px; word-break:break-all; user-select:all; -webkit-user-select:all; padding:10px; border:1px dashed rgba(128,128,128,.6); border-radius:8px; margin:8px 0; }
+.codigosRespaldoNivan { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0; }
+.codigosRespaldoNivan span { font-family:monospace; font-size:14px; padding:8px; text-align:center; border:1px solid rgba(128,128,128,.4); border-radius:8px; user-select:all; -webkit-user-select:all; }
+.estadoDosPasosNivan { padding:12px; border-radius:10px; margin-top:12px; font-size:14px; border:1px solid rgba(128,128,128,.4); }
+.estadoDosPasosNivan.activaNivan { border-color:#4cd08a; }
+.enlaceAutenticadorNivan { display:inline-block; margin:6px 0 12px; font-size:14px; }
+
+/* Verificación, permisos y cuenta */
+.filaPermisoNivan { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; margin-top:10px; border:1px solid rgba(128,128,128,.4); border-radius:10px; }
+.filaPermisoNivan .datosPermisoNivan { display:flex; flex-direction:column; gap:3px; font-size:13px; min-width:0; }
+.filaPermisoNivan .datosPermisoNivan strong { font-size:14px; }
+.filaPermisoNivan button { flex:none; padding:8px 10px; border-radius:8px; border:1px solid rgba(128,128,128,.5); background:none; color:inherit; cursor:pointer; font-size:13px; }
+.estadoPermisoNivan.okNivan { color:#4cd08a; } .estadoPermisoNivan.noNivan { color:#ff8c8c; } .estadoPermisoNivan.askNivan { color:#f5b942; }
+.estadoVerificacionNivan { padding:12px; border-radius:10px; margin-top:12px; font-size:14px; border:1px solid rgba(128,128,128,.4); }
+.estadoVerificacionNivan.aprobadaNivan { border-color:#4cd08a; } .estadoVerificacionNivan.pendienteNivan { border-color:#f5b942; } .estadoVerificacionNivan.rechazadaNivan { border-color:#ff8c8c; }
+.campoFotoVerifNivan { margin-top:12px; font-size:14px; }
+.campoFotoVerifNivan label { display:block; margin-bottom:6px; font-weight:bold; }
+.campoFotoVerifNivan input[type=file] { width:100%; }
+.campoFotoVerifNivan .okFotoNivan { display:block; margin-top:4px; font-size:12px; color:#4cd08a; min-height:14px; }
+.zonaPeligroNivan { border-color:#ff8c8c !important; }
+.listaCuentaNivan { font-size:13px; margin:8px 0 12px 18px; padding:0; }
+
+.textoCuenta button {
+    background: none;
+
+    border: none;
+
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+      /* ==============================
+   DETALLE DEL PRODUCTO
+============================== */
+
+.modalRuedaColor {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    /* Tiene que ir por encima de .pantallaCompleta (z-index 400),
+       porque "Crear publicación" es una de esas pantallas y si no
+       la rueda de color queda tapada detrás, invisible.
+       (También tiene que superar a .pantallaCompleta.sobreBarraNivan, z-index 550.) */
+    z-index: 560;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.modalRuedaColor.abierto {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.contenidoRuedaColor {
+    background: #26273c;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+    border-radius: 15px;
+    padding: 25px;
+    position: relative;
+    text-align: center;
+    color: #fff;
+}
+
+.cerrarRuedaColor {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    border: none;
+    background: none;
+    color: #fff;
+    font-size: 26px;
+    cursor: pointer;
+}
+
+.wrapRuedaColor {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    margin: 15px auto;
+}
+
+.wrapRuedaColor canvas {
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    touch-action: none;
+    cursor: crosshair;
+}
+
+.marcadorRuedaColor {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 4px rgba(0,0,0,.6);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    top: 0;
+    left: 0;
+}
+
+.labelBrilloRuedaColor {
+    display: block;
+    font-size: 12px;
+    color: #b7bac1;
+    margin-bottom: 4px;
+}
+
+#brilloRuedaColor {
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+.previewRuedaColor {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.puntoPreviewRuedaColor {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.4);
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.previewRuedaColor input[type="text"] {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 8px;
+    background: #1c1d2e;
+    color: #fff;
+    font-size: 14px;
+    text-align: center;
+}
+
+#nombreRuedaColorInput {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 8px;
+    background: #1c1d2e;
+    color: #fff;
+    font-size: 14px;
+    margin-bottom: 14px;
+}
+
+.botonAgregarRuedaColor {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background: #6c5ce7;
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Editor de talle/color de un item del carrito: pestaña que sube
+   desde abajo, más chica que el modal completo del detalle. */
+.overlayEditorCarrito {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 10000;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.overlayEditorCarrito.abierto {
+    display: flex;
+}
+
+.panelEditorCarrito {
+    background: #1c1c1c;
+    color: #fff;
+    width: 100%;
+    max-width: 480px;
+    max-height: 80vh;
+    overflow-y: auto;
+    border-radius: 18px 18px 0 0;
+    padding: 20px;
+    position: relative;
+    transform: translateY(100%);
+    transition: transform .3s ease;
+    box-shadow: 0 -10px 30px rgba(0,0,0,.4);
+}
+
+.overlayEditorCarrito.abierto .panelEditorCarrito {
+    transform: translateY(0);
+}
+
+.manijaEditorCarrito {
+    width: 40px;
+    height: 4px;
+    border-radius: 4px;
+    background: #555;
+    margin: 0 auto 14px;
+}
+
+.cerrarEditorCarritoBtn,
+.cerrarPreguntaVendedorBtn,
+.cerrarCompartirBtn {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+.editorCarritoImagen {
+    width: 100%;
+    max-height: 180px;
+    overflow: hidden;
+    border-radius: 10px;
+    margin-bottom: 12px;
+}
+
+.editorCarritoImagen img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Preguntas al vendedor */
+.overlayPreguntaVendedor,
+.overlayReporteNivan {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    z-index: 10001;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.overlayPreguntaVendedor.abierto,
+.overlayReporteNivan.abierto {
+    display: flex;
+}
+
+.panelPreguntaVendedor {
+    background: #1c1c1c;
+    color: #fff;
+    border-radius: 14px;
+    padding: 20px;
+    width: 100%;
+    max-width: 380px;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+}
+
+.nombreProductoPreguntaVendedor {
+    color: #bbb;
+    font-size: 13px;
+    margin-bottom: 14px;
+}
+
+.listaPreguntasVendedor {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.preguntaVendedorItem {
+    background: #2a2a2a;
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 13px;
+}
+
+.respuestaVendedorItem {
+    margin-top: 6px;
+    color: #9fd18f;
+}
+
+.respuestaPendientePregunta {
+    margin-top: 6px;
+    color: #999;
+    font-size: 12px;
+    font-style: italic;
+}
+
+.sinPreguntasNivan {
+    color: #999;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.formResponderPregunta {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.formResponderPregunta textarea {
+    width: 100%;
+    min-height: 50px;
+    max-height: 200px;
+    overflow-y: auto;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #111;
+    color: #fff;
+    padding: 8px;
+    resize: none;
+}
+
+.formResponderPregunta button {
+    align-self: flex-end;
+    background: #fff;
+    color: #111;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.formPreguntaVendedor textarea {
+    width: 100%;
+    min-height: 70px;
+    max-height: 220px;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background: #111;
+    color: #fff;
+    padding: 10px;
+    resize: none;
+    margin-bottom: 10px;
+    font-family: Arial, sans-serif;
+}
+
+.formPreguntaVendedor button {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: #fff;
+    color: #111;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.preguntasPublicacionBtn {
+    background: transparent;
+    color: #89A6B8;
+    border: 1px solid #89A6B8 !important;
+}
+
+/* Reportar publicación o usuario */
+
+.panelReporteNivan {
+    background: #1c1c1c;
+    color: #fff;
+    border-radius: 14px;
+    padding: 20px;
+    width: 100%;
+    max-width: 380px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.panelReporteNivan h3 {
+    margin: 0 0 4px;
+}
+
+.subReporteNivan {
+    color: #aaa;
+    font-size: 13px;
+    margin: 0 0 14px;
+}
+
+.listaMotivosReporte {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.opcionMotivoReporte {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.2);
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.opcionMotivoReporte.activa {
+    border-color: #E63946;
+    background: rgba(230,57,70,.12);
+}
+
+.opcionMotivoReporte input {
+    accent-color: #E63946;
+}
+
+#detalleReporteNivan {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.25);
+    background: transparent;
+    color: #fff;
+    padding: 10px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 70px;
+    max-height: 220px;
+    overflow-y: auto;
+    margin-bottom: 6px;
+}
+
+.avisoErrorReporteNivan {
+    display: none;
+    color: #ff8080;
+    font-size: 13px;
+    margin: 4px 0 10px;
+}
+
+.avisoErrorReporteNivan.visible {
+    display: block;
+}
+
+.botonesReporteNivan {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.botonesReporteNivan button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.botonCancelarReporte {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.4);
+    color: #fff;
+}
+
+.botonEnviarReporte {
+    background: #E63946;
+    border: none;
+    color: #fff;
+}
+
+.botonAbrirReporteNivan {
+    margin-top: 10px;
+    background: transparent;
+    border: 1px solid rgba(230,57,70,.6);
+    color: #ff8080;
+}
+
+/* Botón "⋮" arriba a la derecha del perfil de vendedor */
+.filaTituloPerfilVendedorNivan {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.botonMasOpcionesPerfilVendedorNivan {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    line-height: 1;
+    padding: 0 8px 14px;
+    cursor: pointer;
+}
+
+/* Cartel que sube desde abajo con Bloquear / Reportar */
+.overlayMasOpcionesPerfilVendedorNivan {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    z-index: 10005;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.overlayMasOpcionesPerfilVendedorNivan.abierto {
+    display: flex;
+}
+
+.panelMasOpcionesPerfilVendedorNivan {
+    background: #1c1c1c;
+    color: #fff;
+    width: 100%;
+    max-width: 480px;
+    border-radius: 18px 18px 0 0;
+    padding: 10px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: subirCartelAbajoNivan .2s ease;
+}
+
+@keyframes subirCartelAbajoNivan { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.agarraderaMasOpcionesNivan {
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,.3);
+    margin: 4px auto 10px;
+}
+
+.opcionMasOpcionesPerfilVendedorNivan {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+}
+
+.opcionMasOpcionesPerfilVendedorNivan.bloquear {
+    background: rgba(230,57,70,.15);
+    color: #ff8080;
+}
+
+.opcionMasOpcionesPerfilVendedorNivan.reportar {
+    background: rgba(255,255,255,.08);
+    color: #fff;
+}
+
+.opcionMasOpcionesPerfilVendedorNivan.cancelar {
+    background: transparent;
+    color: #aaa;
+}
+
+/* CUPÓN DENTRO DEL CHAT Y NOTIFICACIONES */
+.cuponChatNivan { margin-top: 8px; padding: 10px 12px; border-radius: 10px; border: 1px dashed rgba(128,128,128,.7); background: rgba(128,128,128,.14); display: flex; flex-direction: column; gap: 4px; min-width: 190px; }
+.cuponChatNivan strong { font-size: 17px; letter-spacing: 1px; }
+.cuponChatNivan span { font-size: 12px; opacity: .85; }
+.cuponChatNivan button { margin-top: 6px; padding: 8px 14px; border: none; border-radius: 8px; background: #111; color: #fff; font-weight: bold; font-size: 13px; cursor: pointer; }
+.burbujaChatNivan.suya .cuponChatNivan button { background: #fff; color: #111; }
+.cuponChatNivan button:disabled, .botonUsarCuponNotifNivan:disabled { opacity: .6; cursor: default; }
+.botonUsarCuponNotifNivan { display: block; margin-top: 8px; padding: 8px 14px; border: none; border-radius: 8px; background: #fff; color: #111; font-weight: bold; font-size: 13px; cursor: pointer; }
+
+.opcionAudienciaNivan { display: flex; align-items: center; gap: 10px; padding: 10px 4px; font-size: 14px; cursor: pointer; text-align: left; }
+.opcionAudienciaNivan input { width: 20px; height: 20px; flex-shrink: 0; }
+.opcionAudienciaNivan small { display: block; opacity: .7; font-size: 12px; }
+.opcionAudienciaNivan.todos { border-bottom: 1px solid rgba(128,128,128,.4); font-weight: bold; }
+.notaAudienciaNivan { font-size: 12px; opacity: .7; margin: 6px 0 0; }
+
+/* SEGUIDORES / SEGUIDOS Y CUPONES DE PERFIL */
+.contadoresSeguidoresNivan { font-size: 13px; color: #d7dadc; margin: 4px 0; }
+.contadoresSeguidoresNivan span { cursor: pointer; margin-right: 12px; }
+.contadoresSeguidoresNivan strong { color: #fff; }
+
+.tabsSeguidoresNivan { display: flex; gap: 8px; margin-bottom: 12px; max-width: 520px; }
+.tabsSeguidoresNivan button { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff; font-weight: bold; font-size: 13px; cursor: pointer; }
+.tabsSeguidoresNivan button.activo { background: #fff; color: #111; }
+
+.buscadorSeguidoresNivan { width: 100%; max-width: 520px; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: none; margin-bottom: 8px; font-size: 14px; }
+
+.filaSeguidorNivan { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.1); max-width: 520px; }
+.datosSeguidorNivan { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+.avatarSeguidorNivan { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: #333; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.datosSeguidorNivan strong { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.datosSeguidorNivan small { color: #bbb; font-size: 12px; }
+.botonesSeguidorNivan { display: flex; gap: 6px; flex-shrink: 0; }
+.botonesSeguidorNivan button { padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,.4); background: transparent; color: #fff; font-size: 12px; font-weight: bold; cursor: pointer; }
+.botonesSeguidorNivan button.principal { background: #fff; color: #111; border-color: #fff; }
+
+.seccionCuponesPerfilNivan { margin: 14px 0; max-width: 520px; }
+.seccionCuponesPerfilNivan h3 { font-size: 15px; margin: 0 0 8px; }
+.etiquetaVisibilidadCuponNivan { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; background: rgba(255,255,255,.12); margin-top: 4px; }
+
+.filaUsuarioBloqueadoNivan {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+}
+
+/* Soporte, ahorro de datos y cambiar contraseña */
+.subtituloSoporteNivan {
+    margin: 22px 0 8px;
+    font-size: 15px;
+    color: #fff;
+}
+
+.preguntaFrecuenteNivan {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    color: #fff;
+}
+
+.preguntaFrecuenteNivan summary {
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.preguntaFrecuenteNivan p {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: #cfcfd6;
+}
+
+/* Direcciones y métodos de pago guardados */
+.listaGuardadosNivan {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 18px 0;
+}
+
+.itemGuardadoNivan {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #fff;
+}
+
+.itemGuardadoNivan.principal {
+    border-color: #fff;
+    box-shadow: 0 0 6px rgba(255,255,255,.4);
+}
+
+.datosItemGuardadoNivan strong {
+    display: block;
+    font-size: 15px;
+}
+
+.datosItemGuardadoNivan strong small {
+    color: #cfcfd6;
+    font-weight: 400;
+    font-size: 12px;
+}
+
+.datosItemGuardadoNivan span {
+    display: block;
+    margin-top: 3px;
+    font-size: 13px;
+    color: #cfcfd6;
+    word-break: break-word;
+}
+
+.etiquetaPredeterminadaNivan {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.2);
+    font-size: 11px;
+    font-style: normal;
+}
+
+.accionesItemGuardadoNivan {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.accionesItemGuardadoNivan button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.4);
+    color: #fff;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.accionesItemGuardadoNivan button.borrar {
+    border-color: #ff6b6b;
+    color: #ff8c8c;
+}
+
+.botonAgregarGuardadoNivan {
+    width: 100%;
+    margin-top: 10px;
+    padding: 13px;
+    background: rgba(255,255,255,.12);
+    border: 1.5px solid #fff;
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.botonAgregarGuardadoNivan:active {
+    background: rgba(255,255,255,.25);
+}
+
+.filaAgregarMetodoNivan {
+    display: flex;
+    gap: 10px;
+}
+
+.checkGuardadoNivan {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    color: #ddd;
+    font-size: 14px;
+}
+
+.checkGuardadoNivan input {
+    width: 18px;
+    height: 18px;
+}
+
+/* Selector de país (primera vez) y panel Moneda / País */
+.selectorPaisNivan {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    background: #0b0b0f;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.selectorPaisNivan.visible {
+    display: flex;
+}
+
+.cajaSelectorPaisNivan {
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+    color: #fff;
+}
+
+.cajaSelectorPaisNivan h2 {
+    margin: 0 0 8px;
+    font-size: 26px;
+}
+
+.cajaSelectorPaisNivan p {
+    margin: 0 0 22px;
+    color: #cfcfd6;
+    font-size: 15px;
+}
+
+.cajaSelectorPaisNivan .notaSelectorPaisNivan {
+    margin: 22px 0 0;
+    font-size: 12px;
+    color: #8d8d96;
+}
+
+.opcionesPaisNivan {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.opcionesPaisNivan button,
+.opcionPaisConfigNivan {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 16px 18px;
+    background: rgba(255,255,255,.06);
+    border: 1.5px solid rgba(255,255,255,.5);
+    border-radius: 14px;
+    color: #fff;
+    text-align: left;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.opcionesPaisNivan button:active,
+.opcionPaisConfigNivan:active {
+    background: rgba(255,255,255,.16);
+}
+
+.opcionesPaisNivan strong,
+.opcionPaisConfigNivan strong {
+    display: block;
+    font-size: 17px;
+}
+
+.opcionesPaisNivan small,
+.opcionPaisConfigNivan small {
+    display: block;
+    margin-top: 2px;
+    color: #cfcfd6;
+    font-size: 13px;
+}
+
+.banderaPaisNivan {
+    font-size: 32px;
+    line-height: 1;
+}
+
+.listaOpcionesPaisNivan {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 18px 0;
+}
+
+.opcionPaisConfigNivan .textoOpcionPaisNivan {
+    flex: 1;
+}
+
+.opcionPaisConfigNivan.activo {
+    border-color: #fff;
+    background: rgba(255,255,255,.16);
+    box-shadow: 0 0 8px rgba(255,255,255,.5);
+}
+
+.tildePaisNivan {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.filaSonidosNivan {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 0;
+    margin-top: 10px;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+    color: #fff;
+    font-weight: 700;
+}
+
+.interruptorNivan {
+    position: relative;
+    width: 50px;
+    height: 28px;
+    padding: 0;
+    border: 1.5px solid rgba(255,255,255,.6);
+    border-radius: 28px;
+    background: rgba(255,255,255,.12);
+    cursor: pointer;
+    transition: background .2s ease;
+    flex-shrink: 0;
+}
+
+.interruptorNivan::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform .2s ease;
+}
+
+.interruptorNivan.activo {
+    background: rgba(255,255,255,.45);
+    box-shadow: 0 0 8px rgba(255,255,255,.6);
+}
+
+.interruptorNivan.activo::after {
+    transform: translateX(22px);
+}
+
+.filaUsuarioBloqueadoNivan button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.4);
+    color: #fff;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Compartir publicación (respaldo manual cuando no hay
+   Web Share API ni portapapeles disponibles, ej. abriendo
+   el archivo local desde Acode) */
+.overlayCompartirNivan {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    z-index: 10002;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.overlayCompartirNivan.abierto {
+    display: flex;
+}
+
+.panelCompartirNivan {
+    background: #1c1c1c;
+    color: #fff;
+    border-radius: 14px;
+    padding: 20px;
+    width: 100%;
+    max-width: 380px;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+}
+
+.panelCompartirNivan h3 {
+    margin-bottom: 12px;
+}
+
+.panelCompartirNivan input {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background: #111;
+    color: #fff;
+    padding: 10px;
+    margin-bottom: 12px;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+}
+
+.panelCompartirNivan button {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: #fff;
+    color: #111;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.panelCompartirNivan .botonCompartirWhatsapp {
+    background: #25D366;
+    color: #fff;
+}
+
+/* Pagina Notificaciones */
+.badgeNotificaciones {
+    display: none;
+    position: absolute;
+    top: 2px;
+    right: 22%;
+    background: #e0245e;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+}
+
+.badgeNotificaciones.visible {
+    display: flex;
+}
+
+.listaNotificacionesNivan {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 15px 15px;
+}
+
+.notificacionItem {
+    /* #paginaNotificaciones fuerza texto blanco (-webkit-text-fill-color)
+       pensado para su fondo oscuro; estas tarjetas son claras, así que
+       hay que pisar ese blanco heredado o el texto queda invisible. */
+    background: #f4f4f4;
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    cursor: pointer;
+    border: 1px solid transparent;
+    color: #111;
+    -webkit-text-fill-color: #111;
+    flex-wrap: wrap;
+}
+
+.notificacionTexto { flex: 1; min-width: 0; }
+
+
+.notificacionItem.noLeida {
+    background: #eaf1fb;
+    border-color: #c7dcf5;
+}
+
+.notificacionIcono {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.notificacionTexto strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 2px;
+    color: #111;
+    -webkit-text-fill-color: #111;
+}
+
+.notificacionTexto span {
+    font-size: 13px;
+    color: #555;
+    -webkit-text-fill-color: #555;
+}
+
+.notificacionTexto small {
+    display: block;
+    margin-top: 4px;
+    color: #999;
+    font-size: 11px;
+    -webkit-text-fill-color: #999;
+}
+
+.filaAccionesNotificacionesNivan {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0 15px 10px;
+}
+
+.marcarLeidasBtn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+    margin: 0;
+}
+
+.borrarNotifBtn {
+    background: transparent;
+    border: none;
+    color: #ff6b6b;
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+    margin: 0;
+}
+
+.eliminarNotifItemBtn {
+    background: transparent;
+    border: none;
+    color: #999;
+    -webkit-text-fill-color: #999;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+
+.eliminarNotifItemBtn:hover {
+    color: #ff6b6b;
+    -webkit-text-fill-color: #ff6b6b;
+}
+
+.modalProducto {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #26273c;
+    /* Tiene que ir por encima de .barraNavegacion (z-index 500):
+       si no, la barra de navegación de abajo queda tapando botones
+       del final de la publicación (ej. "Enviar reseña") y los toques
+       ahí terminan cayendo sobre la barra en vez del botón. */
+    z-index: 600;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.modalProducto.abierto {
+    display: block;
+}
+
+.contenidoProducto {
+    background: #26273c;
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    border-radius: 0;
+    padding: 25px;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.cerrarProducto {
+    position: absolute;
+    top: 12px;
+    right: 15px;
+    border: none;
+    background: none;
+    color: #fff;
+    font-size: 30px;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.detalleProductoGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+}
+
+.botonAgregarCarritoDetalle {
+    width: 100%;
+    padding: 18px 20px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 10px;
+    letter-spacing: .3px;
+}
+
+.botonComprarDetalle {
+    width: 100%;
+    padding: 18px 20px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 10px;
+    letter-spacing: .3px;
+    background: #fff;
+    color: #111;
+    border: none;
+}
+
+.detalleProductoImagen {
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+    object-fit: cover;
+    display: block;
+    margin: 0 auto;
+}
+
+/* Galería de fotos/videos del detalle de la publicación (cuando hay
+   más de un archivo cargado). Cada elemento es cuadrado, igual que
+   la imagen principal, y se desliza horizontalmente. */
+.galeriaProductoDetalle {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+
+.galeriaProductoDetalle .detalleProductoImagen,
+.galeriaProductoDetalle video.detalleProductoImagen {
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    margin: 0;
+}
+
+.puntosGaleriaDetalle {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.puntoGaleriaDetalle {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.3);
+}
+
+.puntoGaleriaDetalle.activo {
+    background: #fff;
+}
+
+.detalleProductoInfo h2 {
+    margin-bottom: 10px;
+}
+
+.detallePrecio {
+    font-size: 28px;
+    font-weight: bold;
+    margin: 15px 0;
+}
+
+.detalleTienda {
+    padding: 15px;
+    background: #22232a;
+    border-radius: 10px;
+    margin: 15px 0;
+}
+
+.detalleSeccion {
+    margin-top: 30px;
+    border-top: 1px solid #999;
+    padding-top: 20px;
+}
+
+.listaColoresDetalle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 8px 0 4px;
+}
+
+.listaEtiquetasDetalle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.etiquetaDetalle {
+    background: rgba(137,166,184,.18);
+    color: #89A6B8;
+    border: 1px solid rgba(137,166,184,.4);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.etiquetaDetalle:hover,
+.etiquetaDetalle:active {
+    background: rgba(137,166,184,.32);
+}
+
+.listaRecomendadasDetalle {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    padding: 6px 2px 10px;
+}
+
+.tarjetaRecomendadaDetalle {
+    flex: 0 0 130px;
+    cursor: pointer;
+}
+
+.tarjetaRecomendadaDetalle img {
+    width: 130px;
+    height: 160px;
+    object-fit: cover;
+    border-radius: 10px;
+    display: block;
+}
+
+.nombreRecomendadaDetalle {
+    font-size: 13px;
+    margin-top: 6px;
+    line-height: 1.2;
+}
+
+.precioRecomendadaDetalle {
+    font-size: 13px;
+    font-weight: bold;
+    color: #89A6B8;
+}
+
+.colorChipDetalle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #22232a;
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 20px;
+    padding: 5px 12px 5px 6px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.colorChipDetalle.activo {
+    background: #fff;
+    color: #111;
+    border-color: #fff;
+}
+
+.colorChipDetalle .puntoColorDetalle {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.35);
+    display: inline-block;
+}
+
+.infoStockEntrega {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin: 10px 0;
+    font-size: 14px;
+}
+
+.infoStockEntrega span strong {
+    display: block;
+    font-size: 13px;
+    color: #b7bac1;
+    font-weight: normal;
+}
+
+/* VENTA POR MENOR / MAYOR (en la ficha del producto) */
+.avisoTipoVentaDetalle {
+    background: rgba(137,166,184,.15);
+    border: 1px solid rgba(137,166,184,.4);
+    color: #89A6B8;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.tablaMayorDetalle {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+.tablaMayorDetalle th,
+.tablaMayorDetalle td {
+    border: 1px solid rgba(255,255,255,.2);
+    padding: 6px 8px;
+    text-align: center;
+}
+
+.selectorCantidadDetalle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.selectorCantidadDetalle input {
+    width: 90px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.25);
+    background: #22232a;
+    color: #fff;
+    font-size: 15px;
+}
+
+.precioSegunCantidadDetalle {
+    font-size: 15px;
+    font-weight: bold;
+    margin-top: 8px;
+    color: #89A6B8;
+}
+
+.tablaMedidasDetalle {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 10px;
+}
+
+.tablaMedidasDetalle th,
+.tablaMedidasDetalle td {
+    border: 1px solid rgba(255,255,255,.15);
+    padding: 8px;
+    text-align: center;
+}
+
+.selectorTalle {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.talleBtn {
+    padding: 10px 15px;
+    background: white;
+    border: 1px solid #aaa;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.talleBtn.activo {
+    background: #111;
+    color: white;
+}
+
+.comentario {
+    padding: 15px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.medidorPasswordNivan { margin-top: 8px; display: none; }
+.medidorPasswordNivan .barraPasswordNivan { height: 8px; border-radius: 6px; background: rgba(255,255,255,.18); overflow: hidden; }
+.medidorPasswordNivan .barraPasswordNivan span { display: block; height: 100%; width: 0; border-radius: 6px; background: #ff4d4d; transition: width .25s, background .25s; }
+.medidorPasswordNivan .textoPasswordNivan { display: block; margin-top: 5px; font-size: 13px; font-weight: bold; }
+.medidorPasswordNivan .faltaPasswordNivan { display: block; margin-top: 2px; font-size: 12px; opacity: .8; }
+.botonCuenta:disabled { opacity: .5; cursor: not-allowed; }
+.contadorCaracteresNivan { display: block; text-align: right; font-size: 12px; opacity: .75; margin-top: 4px; }
+.contadorCaracteresNivan.lleno { color: #f5b942; opacity: 1; font-weight: bold; }
+.avisoReseniaNivan { border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; font-size: 13px; line-height: 1.4; background: rgba(90,169,255,.12); border: 1px solid rgba(90,169,255,.5); }
+.avisoReseniaNivan.cerrado { background: rgba(245,185,66,.12); border-color: rgba(245,185,66,.55); }
+.avisoReseniaNivan p { margin: 0; }
+.formResenia {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #999;
+}
+
+.formResenia h4 {
+    margin-bottom: 10px;
+}
+
+.estrellasInput {
+    font-size: 28px;
+    margin-bottom: 12px;
+}
+
+.estrellaInput {
+    color: #666;
+    margin-right: 4px;
+    cursor: pointer;
+}
+
+.estrellaInput.activa {
+    color: #ffc107;
+}
+
+.formResenia textarea {
+    width: 100%;
+    min-height: 70px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #999;
+    resize: none;
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #222;
+}
+
+.formResenia button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    background: #111;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.vendedorClickeable {
+    cursor: pointer;
+    text-decoration: underline;
+    -webkit-text-fill-color: #fff;
+}
+
+@media (max-width: 700px) {
+
+    .detalleProductoGrid {
+        grid-template-columns: 1fr;
+    }
+
+}
+      /* ==============================
+   CARRUSEL DE ANUNCIOS NIVAN
+============================== */
+
+.carruselAnuncios {
+    position: relative;
+    width: 100%;
+    height: 210px;
+    margin: 20px auto 30px;
+    overflow: hidden;
+    border-radius: 18px;
+    background-image: url("https://i.imgur.com/NwCCvYN.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    margin-top: 8px;
+    touch-action: pan-y;
+}
+
+.anuncio {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    padding: 25px;
+    text-align: center;
+
+    color: white;
+
+    opacity: 0;
+    transform: translateX(30px);
+
+    transition:
+        opacity 0.6s ease,
+        transform 0.6s ease;
+
+    pointer-events: none;
+}
+
+.anuncio.activo {
+    opacity: 1;
+    transform: translateX(0);
+
+    pointer-events: auto;
+}
+
+.anuncioIcono {
+    font-size: 25px;
+    margin-bottom: 8px;
+}
+
+.anuncio h3 {
+    font-size: 22px;
+    margin-bottom: 25px;
+}
+
+.anuncio p {
+    max-width: 650px;
+    line-height: 1.5;
+    color: #ddd;
+  font-family: 'Bodoni moda', serif;
+  font-style: italic;
+}
+
+.anuncioBtn {
+    margin-top: 15px;
+
+    padding: 10px 18px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #745C4E;
+    color: #111;
+
+    font-weight: bold;
+
+    cursor: pointer;
+}
+      
+/* PUNTITOS */
+
+.indicadoresAnuncios {
+    position: absolute;
+
+    bottom: 15px;
+
+    left: 50%;
+
+    transform: translateX(-50%);
+
+    display: flex;
+
+    gap: 7px;
+
+    z-index: 5;
+}
+
+.indicadorAnuncio {
+    width: 8px;
+    height: 8px;
+
+    border-radius: 50%;
+
+    background: #777;
+
+    cursor: pointer;
+
+    transition: 0.3s;
+}
+
+.indicadorAnuncio.activo {
+    background: white;
+
+    width: 22px;
+
+    border-radius: 10px;
+}
+
+/* CELULAR */
+
+@media (max-width: 600px) {
+
+    .carruselAnuncios {
+        height: 250px;
+    }
+
+    .anuncio h3 {
+        font-size: 19px;
+    }
+
+    .anuncio p {
+        font-size: 14px;
+    }
+
+  }
+
+/* El rectángulo de arriba solo se ve en Home */
+body.sinHeaderNivan .headerNivan { display: none; }
+
+      .headerNivan {
+    width: 100%;
+    height: 90px;
+    background: linear-gradient(135deg, #000000, #1c1c1c);
+
+   background-image: url("https://i.imgur.com/SV5cdIH.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0 0 20px 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.35);
+}
+
+.logoNivan {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logoNivan img {
+    width: 70px;
+    height: 70px;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.logoNivan h1 {
+    color: white;
+    font-size: 30px;
+    margin: 0;
+    letter-spacing: 4px;
+}
+      
+.comprobanteNivan{background:white;border:1px solid #ddd;border-radius:12px;padding:20px;margin-top:10px}.comprobanteNivan h2{margin-bottom:12px}.comprobanteNivan hr{border:none;border-top:1px solid #ddd;margin:15px 0}.comprobanteNivan ul{padding-left:20px;margin:10px 0}.notaComprobante{font-size:12px;color:#666;margin:15px 0}.botonComprobante{width:100%;padding:13px;margin-top:10px;border:none;border-radius:8px;background:#111;color:white;cursor:pointer;font-size:15px}.botonComprobante:hover{background:#333}
+/* Letras del comprobante en negro (el fondo es blanco y heredaban el blanco del carrito) */
+.comprobanteNivan, .comprobanteNivan :not(.botonComprobante) { color:#111 !important; -webkit-text-fill-color:#111 !important; }
+.comprobanteNivan .botonComprobante { color:#fff !important; -webkit-text-fill-color:#fff !important; }
+
+.mensajeErrorMedida {
+    color: #c62828;
+    font-size: 13px;
+    margin-top: 5px;
+    display: none;
+}
+   .medidaInvalida {
+    border: 2px solid #c62828 !important;
+   }
+
+/* =========================
+   PERFIL CORPORAL NIVAN
+========================= */
+
+/* ==============================
+   ESTRUCTURA INICIAL NIVAN
+============================== */
+html { min-height: 100%; background: #171719; }
+body { background: linear-gradient(to bottom,#364958,#171719, #171719) no-repeat;
+min-height: 100vh;
+color: #fff ; padding-bottom: 82px; }
+.contenedor { max-width: 1100px; margin: auto; padding: 18px 18px 100px; }
+.pagina { background: transparent;
+          border-radius:18px;
+color: #fff ;display: none; animation: aparecerPagina .2s ease; }
+.pagina.activa { display: block; }
+.pagina.sobreCarritoNivan {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 10002;
+    background: linear-gradient(#191919,#364958,#89A6B8);
+    overflow-y: auto;
+    padding: 20px 16px 40px;
+    border-radius: 0;
+}
+/* para que la ficha de un producto abierta desde Favoritos quede arriba del carrito */
+body.favoritosSobreCarritoNivan .modalProducto { z-index: 10003; }
+@keyframes aparecerPagina { from { opacity: .4; } to { opacity: 1; } }
+/* ==============================
+   HOME / FONDO Y ENCABEZADO
+   ============================== */
+
+.homeHero {
+    position: relative;
+    height: 300px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    text-align: left;
+    padding: 35px 20px;
+    background-image:
+        linear-gradient(rgba(255,255,255,.12), rgba(255,255,255,.12)),
+        url('https://i.imgur.com/nTmAbFQ.jpeg');
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+.homeHero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,.08);
+    z-index: 0;
+}
+
+.heroMarca, .heroTexto {
+    position: relative;
+    z-index: 1;
+}
+
+.heroMarca {
+    font-size: 120px;
+    line-height: .8;
+    font-weight: 900;
+    color: rgba(0,0,0,.18);
+    margin-bottom: 22px;
+    user-select: none;
+}
+
+.heroTexto {
+    background: rgba(255,255,255,.78);
+    padding: 13px 20px;
+    border-radius: 16px;
+    backdrop-filter: blur(3px);
+}
+
+.heroTexto h2 { font-size: 26px;
+                margin-bottom: 8px; 
+              text-shadow: 0 2px 8px rgba(0,0,0,.7);}
+      
+.heroTexto p { color: #555; 
+             text-shadow:  0 2px 8px rgba(0,0,0,.7);}
+
+.buscadorRapidoHome {
+    position: relative;
+    z-index: 20;
+    margin: -42px 18px 28px;
+}
+
+#buscadorRapido {
+    width: 100%;
+    padding: 15px 20px;
+    border-radius: 28px ;
+    background: transparent;
+    font-size: 16px;
+    outline: none;
+  -webkit-text-fill-color: #fff;
+  font-family: 'Bodoni moda', serif;
+  font-style: italic;
+  box-shadow:  0 2px 8px rgba(0,0,0,.7);
+}
+
+#buscadorRapido:focus {
+    box-shadow: 0 5px 20px rgba(0,0,0,.22);
+}
+
+.separadorHome {
+    display: none;
+}
+
+/* PAGINA DE CATEGORIAS*/
+      
+.tituloPagina { margin: 8px 0 22px; 
+              font-family: 'Bodoni moda', serif;
+              font-style: italic;
+              border-radius: 15px;}
+.tituloPagina h2 { margin-bottom: 6px;
+                 }
+.tituloPagina p { color: #ffffff; }
+      
+.pagina-buscador
+     {       border-radius: 18px;
+       color: #fff;
+       text-shadow: 0 2px 8px rgba(0,0,0,.7);}
+      
+.pagina-buscador #buscador {   width: 100%;
+    padding: 15px 20px;
+    border-radius: 28px ;
+    background: transparent;
+    font-size: 16px;
+    outline: none;
+  -webkit-text-fill-color: #fff;
+  font-family: 'Bodoni moda', serif;
+  font-style: italic;
+  box-shadow:  0 2px 8px rgba(0,0,0,.7);
+                            
+} 
+.pagina-buscador .filtrosCategorias { margin-bottom: 22px;
+                                     font-family: 'Bodoni moda', serif;
+                                     font-style: italic;}
+.productos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.productoInfo { padding: 11px; }
+.visor3D {
+    position: relative;
+    width: 100%;
+    border-radius: 18px;
+    background: #111;
+    border: 1px solid #333;
+    overflow: hidden;
+}
+.visor3D canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    touch-action: none;
+}
+.modelo3DPlaceholder { width: 82%; text-align:center; padding: 30px 15px; color:#444; }
+
+.modelo3DPlaceholder strong, .modelo3DPlaceholder span { display:block; }
+.modelo3DPlaceholder span { margin-top: 8px; color:#777; font-size:13px; line-height:1.45; }
+.guardarMedidasBtn { width:100%; padding:13px; border:0; border-radius:9px; background:#111; color:#fff; cursor:pointer; margin-top:5px; }
+.estadoMedidas { margin-top:10px; text-align:center; font-size:13px; min-height:18px; }
+
+/* ==============================
+   MEDIDAS: barra superior, panel lateral y controles inferiores
+============================== */
+.medidasCard { margin-top:-15px; border-radius:18px; overflow:hidden; background:transparent; }
+
+/* Barra superior con pestañas en forma de flecha */
+.barraMedidas { position:relative; z-index:30; height:40px; }
+.tabMedidas {
+    position:absolute; top:0; height:100%;
+    border:0; color:#fff; font-family:inherit; font-size:14px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    white-space:nowrap; cursor:pointer;
+    clip-path:polygon(0 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 0 100%);
+}
+.tabTipoCuerpo { left:0; width:44%; z-index:3; background:#08080a; justify-content:flex-start; padding:0 22px 0 14px; }
+.tabGenero { left:calc(44% - 20px); width:calc(29% + 20px); z-index:2; background:#1d1d20; padding-left:20px; }
+@media (max-width:340px) { .tabMedidas { font-size:12.5px; gap:5px; } .tabTipoCuerpo { padding-left:10px; } }
+
+/* Género y Medidas salen desde atrás de "Tipo de cuerpo" */
+.tabGenero, .tabMedidasPanel {
+    opacity:0; pointer-events:none; transform:translateX(-45%);
+    transition:transform .35s ease, opacity .25s ease;
+}
+.tabMedidasPanel {
+    left: calc(73% - 20px);
+    width: calc(27% + 20px);
+    right: 0;
+    z-index: 1;
+    background: #3a3a3f;
+    padding-left: 20px;
+    clip-path: none;
+    transition-delay: .06s;
+}
+.medidasCard.tipoCuerpoAbierto .tabGenero,
+.medidasCard.tipoCuerpoAbierto .tabMedidasPanel { opacity:1; pointer-events:auto; transform:translateX(0); }
+
+.chevronMedidas {
+    width:7px; height:7px; margin-top:-4px;
+    border-right:2px solid #fff; border-bottom:2px solid #fff;
+    transform:rotate(45deg); transition:transform .3s ease;
+}
+.medidasCard.tipoCuerpoAbierto .tabTipoCuerpo .chevronMedidas,
+.medidasCard.panelMedidasAbierto .tabMedidasPanel .chevronMedidas,
+.barraMedidas:has(.generoMenu.abierto) .tabGenero .chevronMedidas { transform:rotate(-135deg); margin-top:4px; }
+
+/* Menú de género (Mujer / Hombre) */
+.generoMenu {
+    position:absolute; z-index:25; top:100%; left:calc(44% - 20px);
+    width:29%; min-width:130px; padding:8px 0 16px;
+    background:#1d1d20; border-radius:0 0 18px 0;
+    display:flex; flex-direction:column;
+    opacity:0; visibility:hidden; transform:translateY(-10px);
+    transition:opacity .25s ease, transform .25s ease, visibility 0s .25s;
+}
+.generoMenu.abierto { opacity:1; visibility:visible; transform:translateY(0); transition:opacity .25s ease, transform .25s ease; }
+.generoOpcion {
+    border:0; background:transparent; color:#d0d0d5; font-family:inherit; font-size:16px;
+    text-align:left; padding:9px 20px 9px 22px; cursor:pointer;
+}
+.generoOpcion.activa { color:#fff; font-weight:bold; }
+.generoOpcion.activa::after { content:" ✓"; }
+
+/* Escena: modelo 3D + panel de medidas a la derecha */
+.medidasEscena { position:relative; display:block; overflow:hidden; }
+.medidasEscena .visor3D {
+    width:100%; border:0; border-radius:0;
+    height: 480px; /* <-- ALTO DEL CUADRADO DEL MODELO 3D: cambiá solo este número */
+}
+/* El panel va por encima del visor: no cambia el tamaño del modelo 3D */
+.panelMedidasLateral {
+    position:absolute; top:0; right:0; bottom:0; width:50%; z-index:5;
+    overflow:hidden; opacity:0; pointer-events:none;
+    background:#45464c;
+    transform:translateX(100%);
+    transition:transform .35s ease, opacity .25s ease;
+}
+.medidasCard.panelMedidasAbierto .panelMedidasLateral { transform:translateX(0); opacity:1; pointer-events:auto; }
+.panelMedidasInterior { position:absolute; inset:0; overflow-y:auto; padding:12px; min-width:150px; }
+.panelMedidasInterior h3 { display:none; }
+.panelMedidasInterior .campo { margin-bottom:7px; }
+.panelMedidasInterior .campo label { font-size:12px; margin-bottom:3px; }
+.panelMedidasInterior .campo input { padding:7px 9px; font-size:14px; }
+.panelMedidasInterior .guardarMedidasBtn { padding:9px 4px; font-size:13px; margin-top:2px; }
+.panelMedidasInterior .estadoMedidas { min-height:0; margin-top:6px; font-size:12px; }
+.panelMedidasInterior .medidasGrid { grid-template-columns:1fr; gap:0; }
+
+/* Controles inferiores: Musculatura / Grasa corporal + Elegí tu ropa */
+.controlesMedidas {
+    display:grid; grid-template-columns:1fr 1px 1fr; min-height:130px;
+    background:#2c2e33;
+}
+.controlesCuerpo { min-width:0; overflow:hidden; }
+.controlesCuerpoInterior { min-width:150px; padding:14px 16px; }
+.controlesDivisor { background:#fff; margin:14px 0; }
+  
+.controlesRopa { min-width:0; padding:14px 16px; }
+.controlesRopa h4, .controlesCuerpoInterior label { font-size:15px; font-weight:bold; }
+.controlesCuerpoInterior label { display:block; }
+.botonArmario {
+    margin-top:12px; padding:8px 18px; border-radius:20px; cursor:pointer;
+    background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.35);
+    color:#fff; font-family:inherit; font-size:14px;
+}
+
+/* Sliders (por ahora solo visuales, todavía no hacen nada) */
+.sliderCuerpo {
+    -webkit-appearance:none; appearance:none; display:block;
+    width:100%; height:6px; margin:10px 0 18px; border-radius:6px;
+    background:#fff; outline:none;
+}
+.sliderCuerpo::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none; width:22px; height:22px; border-radius:50%;
+    background:#fff; border:3px solid #2c2e33; box-shadow:0 0 0 1px #fff; cursor:pointer;
+}
+.sliderCuerpo::-moz-range-thumb {
+    width:16px; height:16px; border-radius:50%;
+    background:#fff; border:3px solid #2c2e33; box-shadow:0 0 0 1px #fff; cursor:pointer;
+}
+
+.notaMedidas { margin:14px 4px 0; text-align:center; font-size:12.5px; line-height:1.6; color:#d5d8dc; }
+.paginaVacia { min-height:250px; border:1px dashed #ccc; border-radius:18px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:8px; color:#555; }
+.paginaIcono { font-size:55px; }
+      
+.barraNavegacion { position:fixed; z-index:500; left:0; right:0; bottom:0; height:72px; background:linear-gradient(to right, #171719, #000) ; border-top:1px solid #26273c ; box-shadow:0 -3px 14px rgba(0,0,0,.08); display:grid; grid-template-columns:repeat(5,1fr); padding:6px 4px calc(6px + env(safe-area-inset-bottom)); }
+      
+.navItem {
+    position: relative;
+    border: 0;
+    background: transparent;
+    color: #777;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    font-size: 21px;
+}
+.navItem small { font-size:10px; }
+.navItem.activo { color:#ffffff; font-weight:bold; }
+.navItem.activo span { transform:scale(1.08); }
+@media (max-width:700px) { .contenedor { padding-left:12px; padding-right:12px; }
+                           
+.homeHero { min-height:300px;
+            padding:30px 15px 60px; } 
+.heroMarca { font-size:92px; margin-bottom:18px; }
+                           
+                          .heroTexto {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    backdrop-filter: none;
+
+    position: relative;
+    z-index: 2;
+
+    margin-top: 10px;
+    margin-left: 0;
+                           }
+
+/* =========================
+   CALIDAD, DISTINCIÓN, ELEGANCIA.
+========================= */
+                           
+.heroTexto h2 {
+    font-size: 24px;
+    margin-top: 25px;
+  margin-bottom: 2px;
+    font-family: 'Bodoni moda', serif;
+    font-style: italic;
+    font-weight: 500;
+    letter-spacing: -0.5px;
+  }
+                           
+.heroTexto p {
+    color: #ffffff;
+    font-family: 'Bodoni moda', serif;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: 0.2px;
+}
+                           
+.buscadorRapidoHome { margin-top:-150px; } .productos { gap:8px; } .producto img { height:145px; } .productoInfo { padding:8px; } .productoInfo h3 { font-size:13px; } .precio { font-size:15px !important; } .producto button { font-size:11px; padding:8px 4px; } .favoritoProductoBtn { width:32px !important; height:32px !important; font-size:19px !important; top:5px !important; right:5px !important; } .compartirProductoBtn { width:32px !important; height:32px !important; font-size:16px !important; top:5px !important; left:5px !important; }   .medidasGrid { grid-template-columns:1fr 1fr; } }
+@media (max-width:380px) { .productos { gap:5px; } .producto img { height:125px; } .productoInfo h3 { font-size:12px; } .navItem small { font-size:9px; } .navItem { font-size:18px; } }
+
+#paginaNotificaciones,
+#paginaFavoritos,
+#paginaPerfil {
+    border-radius: 18px;
+    -webkit-text-fill-color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,.7);
+}
+
+#paginaMedidas
+      {       border-radius: 18px;
+       text-shadow: 0 2px 8px rgba(0,0,0,.7);
+              }
+
+
+.perfilMenu{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  width:100%;
+  max-width:370px;
+  margin: 0 auto;
+  margin-top: 30px;
+}
+.perfilMenu button{
+  background:rgba(0,0,0,0.3);
+  border:1.5px solid #fff;
+  color:#fff;
+  padding:15px 35px;
+  font-weight:700;
+  font-size:15px;
+  text-align:left;
+  cursor:pointer;
+  transform:skewX(-18deg);
+  box-shadow:0 0 6px rgba(255,255,255,0.5);
+  transition:all 0.2s ease;
+}
+.perfilMenu button > span{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  transform:skewX(18deg);
+}
+/* TRIANGULITO oculto */
+.perfilMenu button > span::before{
+  content:'▲';
+  font-size:12px;
+  opacity:0;
+  transform:translateX(-10px);
+  transition:all 0.2s ease;
+}
+/* CUANDO PASAS MOUSE O MANTENES EL DEDO */
+.perfilMenu button:hover,
+.perfilMenu button:active,
+.perfilMenu button:focus{
+  background:rgba(255,255,255,0.12);
+  box-shadow:0 0 12px #fff, 0 0 22px rgba(255,255,255,0.6);
+  border-color:#fff;
+  transform:skewX(-18deg) scale(1.03);
+}
+.perfilMenu button:hover > span::before,
+.perfilMenu button:active > span::before{
+  opacity:1;
+  transform:translateX(0);
+}
+      
+#paginaHome {
+    position: relative;
+}
+
+.navItem span img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.avisoSeguridadNuevoNivan {
+    position: relative;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+
+    margin: 12px 14px;
+    padding: 15px 42px 15px 15px;
+
+    background: #fff;
+    border: 1px solid #dddddd;
+    border-radius: 14px;
+
+    color: #222;
+    font-size: 13px;
+    line-height: 1.45;
+
+    box-shadow: 0 3px 12px rgba(0,0,0,0.06);
+}
+
+.avisoSeguridadNuevoNivan.oculto {
+    display: none;
+}
+
+.iconoAvisoSeguridadNuevoNivan {
+    font-size: 25px;
+    flex-shrink: 0;
+}
+
+.avisoSeguridadNuevoNivan strong {
+    display: block;
+    font-size: 15px;
+    margin-bottom: 5px;
+}
+
+.avisoSeguridadNuevoNivan p {
+    margin: 0 0 7px;
+}
+
+.cerrarAvisoSeguridadNuevoNivan {
+    position: absolute;
+    top: 8px;
+    right: 9px;
+
+    width: 28px;
+    height: 28px;
+
+    border: none;
+    background: transparent;
+
+    font-size: 23px;
+    line-height: 1;
+    color: #777;
+
+    cursor: pointer;
+}
+
+.cerrarAvisoSeguridadNuevoNivan:hover {
+    color: #111;
+}
+      
+/* Estilos que antes estaban como style="" en el HTML */
+#textoPosteoFeedNivan, #textoPosteoPerfil { clear: both; }
+#tituloAudienciaCuponNivan, #tituloEnviarCuponNivan { margin: 0 0 4px; font-weight: bold; text-align: center; }
+#codigoCuponNivan, #codigoCuponGuardarNivan, #codigoCuponCarritoNivan { text-transform: uppercase; }
+#bioPerfilVendedorContenedor .bioPerfilLateralTexto, #bioPerfilPersonalContenedorNivan .bioPerfilLateralTexto { cursor: default; }
+#campoMayorPublicacion .pistaTramosMayorPublicacionNivan { margin-top: 14px; }
+#vistaRegistro .notaDocumentacionRegistroNivan { margin: 0 0 10px; font-size: 13px; line-height: 1.4; opacity: .8; }
+#botonVistosRecientementeBuscador { margin: -6px 0 14px; }
+.avisoNombreDniNivan { display: block; margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: #fff7e0; color: #7a5a00; font-size: 13px; line-height: 1.4; }
+.campoIdTiendaNivan { display: flex; align-items: center; gap: 6px; }
+.campoIdTiendaNivan span { font-weight: 700; }
+.campoIdTiendaNivan input { flex: 1; }
+
+/* ---- Ojo de contraseña ---- */
+.envolturaPasswordNivan { position: relative; display: block; width: 100%; }
+.envolturaPasswordNivan input { width: 100%; box-sizing: border-box; padding-right: 46px; }
+.ojoPasswordNivan {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    width: 36px; height: 36px; padding: 0; border: none; background: none;
+    display: flex; align-items: center; justify-content: center;
+    color: #666; -webkit-text-fill-color: #666; cursor: pointer;
+}
+.ojoPasswordNivan svg { width: 22px; height: 22px; }
+
+/* ---- Likes / comentarios / reportar ---- */
+.interaccionPostNivan { margin-top: 12px; border-top: 1px solid #333; padding-top: 10px; }
+.barraAccionesPostNivan { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; font-size: 14px; }
+.barraAccionesPostNivan button { background: none; border: none; color: #fff; -webkit-text-fill-color: #fff; font-size: 14px; cursor: pointer; padding: 4px 0; }
+.barraAccionesPostNivan button.activo { color: #ff6b81; -webkit-text-fill-color: #ff6b81; }
+.barraAccionesPostNivan button:last-child { margin-left: auto; color: #aaa; -webkit-text-fill-color: #aaa; font-size: 13px; }
+.barraAccionesPostNivan button:disabled { opacity: .6; cursor: default; }
+.listaComentariosPostNivan { max-height: 240px; overflow-y: auto; margin-bottom: 10px; }
+.comentarioPostNivan { background: #1f1f1f; border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+.cabeceraComentarioPostNivan { display: flex; justify-content: space-between; font-size: 13px; }
+.cabeceraComentarioPostNivan small { color: #888; -webkit-text-fill-color: #888; }
+.comentarioPostNivan p { margin: 4px 0; font-size: 14px; word-break: break-word; }
+.accionesComentarioPostNivan { display: flex; gap: 14px; }
+.accionesComentarioPostNivan button { background: none; border: none; font-size: 12px; color: #89A6B8; -webkit-text-fill-color: #89A6B8; cursor: pointer; padding: 0; }
+.sinComentariosPostNivan { color: #888; -webkit-text-fill-color: #888; font-size: 13px; }
+.nuevoComentarioPostNivan { display: flex; gap: 8px; }
+.nuevoComentarioPostNivan input { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #444; background: #fff; color: #111; }
+.nuevoComentarioPostNivan button { border: none; border-radius: 10px; padding: 0 16px; background: #2a2a2a; color: #fff; -webkit-text-fill-color: #fff; cursor: pointer; }
+
+/* ---- Avatar del autor (se veía estirado) ---- */
+.cajaPosteoPerfil .autorPostFeedNivan img,
+.cajaPosteoPerfil .avatarComentarioPostNivan {
+    width: 34px;
+    height: 34px;
+    max-height: none;
+    border-radius: 50%;
+    object-fit: cover;
+    background: none;
+    flex-shrink: 0;
+    display: block;
+}
+.autorPostFeedNivan span { min-width: 0; }
+
+/* ---- Comentarios con ⋮, like y respuestas ---- */
+.listaComentariosPostNivan { max-height: none; overflow: visible; }
+.comentarioPostNivan { display: flex; gap: 8px; align-items: flex-start; }
+.avatarComentarioPostNivan.avatarVacio { display: flex; align-items: center; justify-content: center; background: #333; font-size: 16px; }
+.cuerpoComentarioPostNivan { flex: 1; min-width: 0; }
+.cabeceraComentarioPostNivan { display: flex; align-items: center; gap: 8px; }
+.cabeceraComentarioPostNivan small { margin-left: auto; }
+.menuComentarioPostNivan { position: relative; }
+.puntosComentarioPostNivan { background: none; border: none; color: #aaa; -webkit-text-fill-color: #aaa; font-size: 20px; line-height: 1; padding: 0 4px; cursor: pointer; }
+.desplegableComentarioPostNivan {
+    position: absolute; right: 0; top: 26px; z-index: 5; min-width: 150px;
+    background: #111; border: 1px solid #444; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 6px 18px rgba(0,0,0,.6);
+}
+.desplegableComentarioPostNivan button {
+    display: block; width: 100%; text-align: left; padding: 10px 12px;
+    background: none; border: none; border-bottom: 1px solid #2a2a2a;
+    color: #fff; -webkit-text-fill-color: #fff; font-size: 13px; cursor: pointer;
+}
+.desplegableComentarioPostNivan button:last-child { border-bottom: none; }
+.accionesComentarioPostNivan button.activo { color: #ff6b81; -webkit-text-fill-color: #ff6b81; }
+.respuestasComentarioPostNivan { margin-left: 24px; padding-left: 8px; border-left: 2px solid #333; }
+.avisoRespondiendoNivan {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: #89A6B8; -webkit-text-fill-color: #89A6B8; margin-bottom: 6px;
+}
+.avisoRespondiendoNivan button { background: none; border: none; color: #aaa; -webkit-text-fill-color: #aaa; cursor: pointer; font-size: 14px; }
+
+/* ---- Barra de publicar FIJA abajo (arriba de Tienda / Personal) ----
+   No depende de cuántas publicaciones haya. El + queda arriba de ella. */
+.formNuevaPublicacionPerfil.abierto {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--altoPieNivan, 0px);
+    z-index: 25;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 14px 16px;
+    box-sizing: border-box;
+    background: #151515;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -6px 20px rgba(0,0,0,.55);
+    max-height: 65vh;
+    overflow-y: auto;
+    text-align: center;
+}
+.formNuevaPublicacionPerfil .selectorFormatoPerfilNivan { justify-content: center; }
+.formNuevaPublicacionPerfil .camposNuevaPublicacionPerfil input[type="file"] { margin-left: auto; margin-right: auto; }
+.formNuevaPublicacionPerfil textarea { text-align: left; box-sizing: border-box; }
+
+/* El + sube para quedar encima de la barra cuando está abierta */
+.botonAgregarPublicacionPerfil {
+    z-index: 30;
+    bottom: calc(var(--altoPieNivan, 0px) + var(--altoFormNivan, 0px) + 16px + env(safe-area-inset-bottom, 0px));
+}
+
+/* + centrado, arriba de la barra de publicar */
+.botonAgregarPublicacionPerfil {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+}
+/* ---- Botones posts / usuarios del buscador de Perfiles ---- */
+.filtrosBusquedaPerfilNivan { display: none; gap: 10px; padding: 0 14px 10px; }
+.filtrosBusquedaPerfilNivan.visible { display: flex; }
+.filtrosBusquedaPerfilNivan button {
+    flex: 1; padding: 10px; border-radius: 999px; border: 2px solid #fff;
+    background: rgba(0,0,0,.35); color: #fff; -webkit-text-fill-color: #fff;
+    font-size: 14px; cursor: pointer;
+}
+.filtrosBusquedaPerfilNivan button.activo {
+    background: #89A6B8; border-color: #89A6B8;
+    color: #111; -webkit-text-fill-color: #111; font-weight: bold;
+}
+.tituloSeccionBusquedaNivan {
+    padding: 10px 14px 4px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+    color: #89A6B8; -webkit-text-fill-color: #89A6B8;
+}
+
+/* ---- Propuesta de cantidades y presupuesto (chat) ---- */
+.botonPropuestaChatNivan { display:block; width:100%; margin:0 0 8px; padding:9px; border-radius:10px; border:1px dashed rgba(255,255,255,.4); background:transparent; color:#fff; font-size:13px; cursor:pointer; }
+.propuestaChatNivan { max-width:88%; }
+.propuestaChatNivan strong { display:block; font-size:14px; margin-bottom:4px; }
+.propuestaChatNivan ul { margin:4px 0 6px 18px; padding:0; }
+.propuestaChatNivan .presupuestoPropuestaNivan { font-weight:bold; margin:4px 0; }
+.propuestaChatNivan p { margin:4px 0 0; font-size:13px; overflow-wrap:anywhere; }
+.overlayPropuestaChatNivan { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:10007; align-items:flex-end; justify-content:center; }
+.overlayPropuestaChatNivan.abierto { display:flex; }
+.hojaPropuestaChatNivan { background:#1c1c1c; color:#fff; width:100%; max-width:450px; max-height:90vh; overflow-y:auto; border-radius:16px 16px 0 0; padding:18px 16px calc(16px + env(safe-area-inset-bottom, 0px)); box-sizing:border-box; }
+.hojaPropuestaChatNivan h4 { margin:0 0 6px; font-size:16px; }
+.hojaPropuestaChatNivan .notaPropuestaNivan { margin:0 0 10px; font-size:12px; color:#bbb; line-height:1.4; }
+.hojaPropuestaChatNivan input, .hojaPropuestaChatNivan textarea { width:100%; box-sizing:border-box; border-radius:10px; border:1px solid #444; background:#111; color:#fff; padding:10px; font-size:14px; font-family:Arial, sans-serif; }
+.hojaPropuestaChatNivan textarea { resize:none; }
+.filaPrendaPropuestaNivan { display:flex; gap:8px; margin-bottom:8px; }
+.filaPrendaPropuestaNivan .prendaPropuestaNivan { flex:1; min-width:0; }
+.filaPrendaPropuestaNivan .cantidadPropuestaNivan { width:84px; flex-shrink:0; }
+.hojaPropuestaChatNivan .etiquetaPropuestaNivan { display:block; margin:10px 0 5px; font-size:12px; color:#cfd6d9; }
+.hojaPropuestaChatNivan .agregarFilaPropuestaNivan { background:transparent; border:none; color:#9ecbff; font-size:13px; padding:4px 0; cursor:pointer; }
+.hojaPropuestaChatNivan .avisoErrorNivan { margin-top:10px; margin-bottom:0; }
+.botonesPropuestaNivan { display:flex; gap:8px; margin-top:14px; }
+.botonesPropuestaNivan button { flex:1; padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,.25); background:transparent; color:#fff; font-size:14px; cursor:pointer; }
+.botonesPropuestaNivan button.principalPropuestaNivan { background:#fff; color:#111; font-weight:bold; border-color:#fff; }
+
+/* AVISO "¿TE QUEDA?" AL ELEGIR TALLE */
+.avisoMedidasTalle {
+    position: relative;
+    margin-top: 12px;
+    padding: 12px 34px 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.3);
+    background: rgba(255,255,255,.08);
+    color: #fff;
+    font-size: 13px;
+}
+
+.avisoMedidasTalle.ok {
+    border-color: #3ecf8e;
+    background: rgba(62,207,142,.14);
+}
+
+.avisoMedidasTalle.alerta {
+    border-color: #f5b041;
+    background: rgba(245,176,65,.15);
+}
+
+.avisoMedidasTalle p {
+    margin: 6px 0;
+}
+
+.avisoMedidasTalle small {
+    display: block;
+    opacity: .75;
+    font-size: 11px;
+}
+
+.avisoMedidasTalleCerrar {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.avisoMedidasTalleBtn {
+    background: none;
+    border: 1px solid rgba(255,255,255,.5);
+    color: inherit;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    margin: 2px 0 8px;
+    cursor: pointer;
+}
+
+/* HISTORIA DE LA PRENDA */
+.bloqueHistoriaPublicacionNivan input, .bloqueHistoriaPublicacionNivan select { margin-bottom: 10px; }
+.subtituloHistoriaPublicacionNivan { display: block; margin: 4px 0 6px; font-size: 13px; color: #d7dadc; font-weight: normal; }
+.historiaPrendaDetalleNivan dl { display: grid; gap: 12px; margin: 12px 0 0; }
+.historiaPrendaDetalleNivan dt { font-size: 12px; color: #d7dadc; }
+.historiaPrendaDetalleNivan dd { margin: 2px 0 0; font-size: 15px; text-transform: none; word-break: break-word; }
+.etiquetaProduccionNivan { display: inline-block; margin-top: 10px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; color: #111; background: #f5b942; }
+.etiquetaProduccionNivan.mano { background: #c79bff; }
+.etiquetaProduccionNivan.produccion { background: #5aa9ff; }
+.bloqueHistoriaPublicacionNivan input[type="month"] { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #111; color: #fff; font-size: 14px; }

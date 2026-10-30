@@ -1,0 +1,10 @@
+{
+  "name": "nivan-backend",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Backend de NIVAN. Sin DATABASE_URL guarda en un archivo; con DATABASE_URL usa PostgreSQL.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "prueba": "node prueba.js" },
+  "dependencies": { "pg": "^8.13.0" },
+  "engines": { "node": ">=18" }
+}

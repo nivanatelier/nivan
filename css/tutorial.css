@@ -1,0 +1,51 @@
+/* ==============================
+   TUTORIAL DE USO
+   Globo con punta, como la pestaña "Tipo de cuerpo".
+   ============================== */
+.tutorialNivan { display: none; position: fixed; inset: 0; z-index: 100010; }
+.tutorialNivan.activo { display: block; }
+
+.capaTutorialNivan { position: fixed; inset: 0; touch-action: none; }
+
+.focoTutorialNivan {
+    position: fixed; border-radius: 12px; pointer-events: none;
+    box-shadow: 0 0 0 100vmax rgba(0,0,0,.72), 0 0 0 2px rgba(255,255,255,.75);
+}
+.focoTutorialNivan.sinObjetivoTutorialNivan { inset: 0; border-radius: 0; background: rgba(0,0,0,.72); box-shadow: none; }
+
+.globoTutorialNivan {
+    position: fixed; color: #fff; font-family: inherit;
+    filter: drop-shadow(0 6px 16px rgba(0,0,0,.6)) drop-shadow(0 0 1px rgba(255,255,255,.55));
+}
+.globoTutorialInteriorNivan { background: #08080a; padding: 16px 16px 14px; }
+
+/* Con punta hacia el elemento resaltado */
+.globoTutorialNivan.puntaArriba .globoTutorialInteriorNivan {
+    padding-top: 30px;
+    clip-path: polygon(0 14px, calc(var(--puntaX) - 14px) 14px, var(--puntaX) 0, calc(var(--puntaX) + 14px) 14px, 100% 14px, 100% 100%, 0 100%);
+}
+.globoTutorialNivan.puntaAbajo .globoTutorialInteriorNivan {
+    padding-bottom: 28px;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(var(--puntaX) + 14px) calc(100% - 14px), var(--puntaX) 100%, calc(var(--puntaX) - 14px) calc(100% - 14px), 0 calc(100% - 14px));
+}
+/* Sin objetivo: la misma forma de flecha de la pestaña */
+.globoTutorialNivan.centrado .globoTutorialInteriorNivan {
+    padding-right: 36px;
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 0 100%);
+}
+
+.contadorTutorialNivan { font-size: 12px; color: #a9a9b3; margin-bottom: 6px; letter-spacing: .5px; }
+.progresoTutorialNivan { height: 3px; border-radius: 3px; background: rgba(255,255,255,.18); margin-bottom: 10px; overflow: hidden; }
+.progresoTutorialNivan span { display: block; height: 100%; width: 0; background: #fff; border-radius: 3px; transition: width .25s ease; }
+.globoTutorialInteriorNivan h3 { margin: 0 0 6px; font-size: 19px; line-height: 1.2; }
+.globoTutorialInteriorNivan p { margin: 0 0 14px; font-size: 14px; line-height: 1.45; color: #d9d9df; }
+
+.botonesTutorialNivan { display: flex; align-items: center; gap: 8px; }
+.botonesTutorialNivan button { font-family: inherit; font-size: 13px; cursor: pointer; border-radius: 20px; padding: 8px 14px; }
+.botonesTutorialNivan button[hidden] { display: none; }
+.saltarTutorialNivan { background: none; border: none; color: #a9a9b3; padding-left: 0; margin-right: auto; }
+.atrasTutorialNivan { background: transparent; border: 1px solid rgba(255,255,255,.4); color: #fff; }
+.siguienteTutorialNivan { background: #fff; border: 1px solid #fff; color: #111; font-weight: bold; margin-left: auto; }
+.atrasTutorialNivan:not([hidden]) + .siguienteTutorialNivan { margin-left: 0; }
+
+

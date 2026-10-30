@@ -1,0 +1,210 @@
+/* ======= Herramientas premium ======= */
+
+.contenidoPremiumNivan { padding: 0 4px 40px; max-width: 560px; }
+.notaPremiumNivan { font-size: 12px; color: #9aa; margin: 8px 0 14px; line-height: 1.4; }
+.datoPremiumNivan { margin: 4px 0; font-size: 13px; color: #aaa; line-height: 1.4; }
+.tituloSeccionPremiumNivan { margin: 22px 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #89A6B8; }
+
+.estadoPremiumNivan { background: #1b2a35; border: 1px solid #2d4452; border-radius: 14px; padding: 14px; }
+.estadoPremiumNivan h3 { margin: 2px 0 4px; font-size: 18px; }
+.etiquetaPlanActivoNivan { margin: 0; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #6fdc8c; }
+
+.botonPremiumNivan { display: block; width: 100%; box-sizing: border-box; margin-top: 12px; padding: 12px; border: none; border-radius: 10px; background: #89A6B8; color: #111; font-size: 14px; font-weight: bold; text-align: center; cursor: pointer; }
+.botonPremiumNivan:disabled { opacity: .5; cursor: default; }
+.botonPremiumNivan.secundario { background: #111; color: #ddd; border: 1px solid #444; }
+.botonPremiumNivan.chico { display: inline-block; width: auto; margin: 6px 6px 0 0; padding: 8px 12px; font-size: 12px; }
+.botonesPremiumNivan { display: flex; flex-wrap: wrap; }
+
+.espacioPremiumNivan { display: flex; gap: 12px; align-items: center; background: rgba(255,255,255,0.06); border: 1px solid #333; border-radius: 12px; padding: 10px; margin: 8px 0; }
+.espacioPremiumNivan > img, .fotoVaciaPremiumNivan { flex: 0 0 64px; width: 64px; height: 84px; object-fit: cover; border-radius: 8px; }
+.fotoVaciaPremiumNivan { display: flex; align-items: center; justify-content: center; border: 1px dashed #555; color: #777; font-size: 24px; }
+.infoEspacioPremiumNivan { min-width: 0; }
+.infoEspacioPremiumNivan strong { font-size: 14px; }
+
+.tablaPremiumNivan { width: 100%; border-collapse: collapse; font-size: 12px; }
+.tablaPremiumNivan th, .tablaPremiumNivan td { padding: 8px 6px; border-bottom: 1px solid #333; text-align: right; }
+.tablaPremiumNivan th:first-child, .tablaPremiumNivan td:first-child { text-align: left; }
+.tablaPremiumNivan th { color: #89A6B8; font-weight: normal; }
+
+.planesPremiumNivan { display: flex; gap: 12px; margin: 14px -4px 0; padding: 26px 4px 24px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.planesPremiumNivan::-webkit-scrollbar { display: none; }
+.planPremiumNivan { position: relative; flex: 0 0 86%; transform: scale(.95); transition: transform .3s ease; display: flex; flex-direction: column; box-sizing: border-box; scroll-snap-align: center; background: rgba(255,255,255,0.06); border: 1px solid #333; border-radius: 16px; padding: 16px; }
+.planPremiumNivan.recomendado { border: 2px solid #89A6B8; padding-top: 24px; }
+.planPremiumNivan.mejor { border: 2px solid #d4af37; background: rgba(212,175,55,0.08); padding-top: 24px; }
+.planPremiumNivan.enfocado { transform: scale(1.04); }
+.planPremiumNivan .botonPremiumNivan { margin-top: auto; }
+.planPremiumNivan .botonPremiumNivan + .botonPremiumNivan { margin-top: 8px; }
+.planPremiumNivan .botonPremiumNivan.anual { background: transparent; color: #d4af37; -webkit-text-fill-color: #d4af37; border: 2px solid #d4af37; }
+.ahorroAnualPremiumNivan { margin: 6px 0 0; font-size: 11px; color: #d4af37; -webkit-text-fill-color: #d4af37; text-align: center; line-height: 1.3; }
+.puntosPlanesPremiumNivan { display: flex; justify-content: center; gap: 7px; margin: 10px 0; }
+.puntosPlanesPremiumNivan span { width: 8px; height: 8px; border-radius: 50%; background: #555; transition: .3s; }
+.puntosPlanesPremiumNivan span.activo { width: 22px; border-radius: 10px; background: #fff; }
+.botonCancelarPremiumNivan { display: block; width: 100%; margin-top: 30px; padding: 12px; border: 1px solid #ff6b6b; border-radius: 10px; background: transparent; color: #ff6b6b; -webkit-text-fill-color: #ff6b6b; font-size: 14px; cursor: pointer; }
+.planPremiumNivan h3 { margin: 0 0 4px; font-size: 18px; }
+.cintaRecomendadoNivan { position: absolute; top: -11px; left: 16px; padding: 3px 12px; border-radius: 20px; background: #89A6B8; color: #111; -webkit-text-fill-color: #111; font-size: 11px; font-weight: bold; }
+.precioPlanPremiumNivan { margin: 0 0 6px; font-size: 22px; font-weight: bold; }
+.precioPlanPremiumNivan span { font-size: 13px; font-weight: normal; color: #999; }
+.listaPlanPremiumNivan, .porquePremiumNivan ul { margin: 10px 0; padding: 0; list-style: none; }
+.listaPlanPremiumNivan li, .porquePremiumNivan li { position: relative; padding-left: 22px; margin: 7px 0; font-size: 13px; line-height: 1.4; color: #ddd; }
+.listaPlanPremiumNivan li::before { content: "✓"; position: absolute; left: 2px; color: #6fdc8c; font-weight: bold; }
+.planPremiumNivan.mejor .cintaRecomendadoNivan { background: #d4af37; }
+.porquePremiumNivan { margin: 12px 0; padding: 12px; border-radius: 10px; background: rgba(212,175,55,0.12); }
+.porquePremiumNivan strong { font-size: 13px; color: #d4af37; -webkit-text-fill-color: #d4af37; }
+.porquePremiumNivan li::before { content: "★"; position: absolute; left: 2px; color: #d4af37; }
+
+/* ======= Etiquetas de publicidad y tienda destacada ======= */
+.etiquetaPublicidadNivan { position: absolute; top: 4px; left: 4px; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,0.65); color: #fff; -webkit-text-fill-color: #fff; font-size: 9px; letter-spacing: .3px; }
+.anuncioTexto .etiquetaPublicidadNivan { position: static; background: rgba(255,255,255,0.18); font-size: 10px; padding: 2px 8px; }
+.pieAnuncio3DNivan { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 6px 6px; background: linear-gradient(transparent, rgba(0,0,0,.75)); color: #fff; -webkit-text-fill-color: #fff; font-size: 11px; text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.badgeDestacado.tiendaDestacada { background: #d4af37; color: #111; -webkit-text-fill-color: #111; border-radius: 28px; box-shadow: 0 2px 8px rgba(0,0,0,.7); }
+
+/* ======= Anuncio pago dentro del carrusel del Home ======= */
+.anuncio.anuncioPago { flex-direction: row; gap: 18px; padding: 25px 25px 40px; }
+.anuncioPago .anuncioImagen { flex: 0 0 auto; height: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 12px; cursor: pointer; }
+.anuncioPago .anuncioTexto { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; text-align: left; }
+.anuncioPago h3 { margin: 0; font-size: 20px; overflow-wrap: anywhere; }
+.anuncioPago .anuncioPrecio { font-size: 18px; }
+.anuncioPago .anuncioBtn { margin-top: 8px; }
+
+/* ======= Mis compras y Panel de Vendedor por encima de la barra de abajo ======= */
+.pantallaCompleta.sobreBarraNivan { z-index: 550; }
+
+/* ======= Publicaciones de tiendas destacadas: dorado con degradado animado (suave) ======= */
+.producto.productoDorado {
+    background: #dcbc5c;
+    box-shadow: 0 0 0 1px rgba(255,226,130,.45), 0 3px 10px rgba(212,175,55,.22);
+    isolation: isolate;
+}
+/* El degradado se mueve con transform (liviano). Va en horizontal y con dos tandas iguales
+   de colores, así al terminar cada vuelta empalma justo con el inicio y no se ve ningún corte. */
+.producto.productoDorado::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 200%;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(to right, #c9a23a, #dcbc5c, #ecd488, #dcbc5c, #c9a23a, #dcbc5c, #ecd488, #dcbc5c, #c9a23a);
+    animation: brilloDoradoNivan 9s linear infinite;
+    will-change: transform;
+}
+.producto.productoDorado .imagenProductoWrap,
+.producto.productoDorado .productoInfo { position: relative; z-index: 1; }
+.producto.productoDorado .productoInfo h3,
+.producto.productoDorado .productoInfo p { color: #241800; -webkit-text-fill-color: #241800; }
+.producto.productoDorado .badgeDestacado.tiendaDestacada { background: #241800; color: #ffd966; -webkit-text-fill-color: #ffd966; }
+
+@keyframes brilloDoradoNivan {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+/* Mismo efecto para fondos grandes (botón y planes): el fondo mide el doble y se desplaza una vuelta exacta. */
+@keyframes deslizarBrilloNivan {
+    from { background-position: 0% 0; }
+    to { background-position: 100% 0; }
+}
+
+/* ======= Metal animado (dorado / plateado), liviano =======
+   El brillo es un degradado de doble ancho que se desliza con transform (lo resuelve la GPU, sin repintar).
+   Se usa en: botón "Herramientas premium", planes, y el cuadro "Plan activo". */
+.metalOroNivan, .metalPlataNivan {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    color: var(--tintaPlanNivan);
+}
+.metalOroNivan { --m1: #c9a23a; --m2: #dcbc5c; --m3: #ecd488; --tintaPlanNivan: #241800; --brilloPlanNivan: #ffe08a; background-color: #dcbc5c; }
+.metalPlataNivan { --m1: #aeb4bc; --m2: #c4c9cf; --m3: #dde0e4; --tintaPlanNivan: #1c2128; --brilloPlanNivan: #eceff2; background-color: #c4c9cf; }
+.metalOroNivan::before, .metalPlataNivan::before {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 200%;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(to right, var(--m1), var(--m2), var(--m3), var(--m2), var(--m1), var(--m2), var(--m3), var(--m2), var(--m1));
+    animation: brilloDoradoNivan 9s linear infinite;
+    will-change: transform;
+}
+.metalPlataNivan::before { animation-duration: 14s; }
+
+/* Botón del Panel de Vendedor */
+button#botonHerramientasPremiumNivan { border-color: rgba(255,226,130,.6); color: #241800; -webkit-text-fill-color: #241800; font-weight: bold; }
+
+/* Planes y cuadro "Plan activo" en metal: textos oscuros */
+.planPremiumNivan.metalOroNivan, .planPremiumNivan.metalPlataNivan,
+.estadoPremiumNivan.metalOroNivan, .estadoPremiumNivan.metalPlataNivan { border: 2px solid rgba(255,255,255,.5); }
+.planPremiumNivan.metalOroNivan, .estadoPremiumNivan.metalOroNivan { border-color: rgba(255,226,130,.7); }
+:is(.planPremiumNivan, .estadoPremiumNivan):is(.metalOroNivan, .metalPlataNivan) :is(h3, p, li, strong) { color: var(--tintaPlanNivan); -webkit-text-fill-color: var(--tintaPlanNivan); }
+:is(.planPremiumNivan, .estadoPremiumNivan):is(.metalOroNivan, .metalPlataNivan) :is(.precioPlanPremiumNivan span, .notaPremiumNivan, .datoPremiumNivan) { color: var(--tintaPlanNivan); -webkit-text-fill-color: var(--tintaPlanNivan); opacity: .8; }
+:is(.planPremiumNivan, .estadoPremiumNivan):is(.metalOroNivan, .metalPlataNivan) .etiquetaPlanActivoNivan { color: var(--tintaPlanNivan); -webkit-text-fill-color: var(--tintaPlanNivan); }
+:is(.planPremiumNivan, .estadoPremiumNivan):is(.metalOroNivan, .metalPlataNivan) :is(.listaPlanPremiumNivan li, .porquePremiumNivan li)::before { color: var(--tintaPlanNivan); }
+:is(.planPremiumNivan, .estadoPremiumNivan):is(.metalOroNivan, .metalPlataNivan) .porquePremiumNivan { background: rgba(0,0,0,.1); }
+:is(.planPremiumNivan, .estadoPremiumNivan):is(.metalOroNivan, .metalPlataNivan) .cintaRecomendadoNivan { background: var(--tintaPlanNivan); color: var(--brilloPlanNivan); -webkit-text-fill-color: var(--brilloPlanNivan); }
+:is(.planPremiumNivan, .estadoPremiumNivan):is(.metalOroNivan, .metalPlataNivan) .botonPremiumNivan { background: var(--tintaPlanNivan); color: var(--brilloPlanNivan); -webkit-text-fill-color: var(--brilloPlanNivan); }
+:is(.planPremiumNivan, .estadoPremiumNivan):is(.metalOroNivan, .metalPlataNivan) .botonPremiumNivan.secundario { background: transparent; border: 1px solid var(--tintaPlanNivan); color: var(--tintaPlanNivan); -webkit-text-fill-color: var(--tintaPlanNivan); }
+:is(.planPremiumNivan, .estadoPremiumNivan):is(.metalOroNivan, .metalPlataNivan) .botonPremiumNivan.anual { background: transparent; border: 2px solid var(--tintaPlanNivan); color: var(--tintaPlanNivan); -webkit-text-fill-color: var(--tintaPlanNivan); }
+:is(.planPremiumNivan, .estadoPremiumNivan):is(.metalOroNivan, .metalPlataNivan) .ahorroAnualPremiumNivan { color: var(--tintaPlanNivan); -webkit-text-fill-color: var(--tintaPlanNivan); }
+
+/* Menos trabajo para el teléfono en la pantalla de planes */
+.planesPremiumNivan { overscroll-behavior-x: contain; }
+.planPremiumNivan { will-change: transform; }
+.planPremiumNivan:not(.enfocado)::before { animation-play-state: paused; }  /* solo brilla el plan que se está viendo */
+
+/* La cinta va adentro de la tarjeta (la tarjeta recorta lo que se sale) */
+.cintaRecomendadoNivan { top: 10px; }
+.planPremiumNivan.conCintaNivan { padding-top: 40px; }
+
+/* ======= Mi tienda ======= */
+.formMiTiendaNivan { max-width: 520px; padding-bottom: 40px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .producto.productoDorado::before,
+    .metalOroNivan::before, .metalPlataNivan::before { animation: none; }
+}
+
+/* Confirmación de pago premium con Términos y Condiciones */
+.overlayPremiumTycNivan {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.65);
+    z-index: 760;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.overlayPremiumTycNivan.abierto { display: flex; }
+.cajaPremiumTycNivan {
+    background: #1c1c1c;
+    color: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    width: 90%;
+    max-width: 360px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+}
+.cajaPremiumTycNivan.terminos { max-width: 520px; height: 85vh; }
+.mensajePremiumTycNivan { font-size: 15px; margin-bottom: 12px; }
+.condicionesPremiumTycNivan {
+    font-size: 13px;
+    color: #cfcfcf;
+    margin: 0 0 14px 18px;
+    padding: 0;
+    line-height: 1.4;
+}
+.condicionesPremiumTycNivan li { margin-bottom: 6px; }
+.aceptarPremiumTycNivan {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 13px;
+    margin-bottom: 16px;
+    cursor: pointer;
+}
+.aceptarPremiumTycNivan input { margin-top: 2px; width: 18px; height: 18px; flex: none; }
+.aceptarPremiumTycNivan a { color: #89A6B8; text-decoration: underline; }
+.overlayPremiumTycNivan .botonConfirmacionAceptar:disabled { opacity: .4; cursor: not-allowed; }
+.textoTycPremiumNivan { margin-top: 12px; font-size: 13px; line-height: 1.5; }
