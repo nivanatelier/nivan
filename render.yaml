@@ -1,0 +1,17 @@
+# Blueprint de Render (solo el servidor, plan gratis). La base de datos va en Neon (gratis, sin vencimiento).
+# En Render: New → Blueprint → elegir el repo. Render te va a pedir el valor de DATABASE_URL:
+# pegá ahí la "connection string" de tu proyecto en Neon.
+services:
+  - type: web
+    name: nivan
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/salud
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL
+        value: "1"

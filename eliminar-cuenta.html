@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eliminar cuenta · Nivan</title>
+<style>
+:root{color-scheme:light dark}
+body{font:16px/1.6 system-ui,sans-serif;max-width:520px;margin:0 auto;padding:20px}
+label{display:block;margin-top:14px;font-weight:600}
+input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;margin-top:4px}
+button{margin-top:20px;padding:12px 18px;font-size:16px;cursor:pointer}
+#msg{margin-top:16px;font-weight:600}
+</style></head><body>
+<h1>Eliminar mi cuenta de Nivan</h1>
+<p>Ingresá el email y la contraseña de tu cuenta. Se borra tu cuenta del servidor y se cierran todas tus sesiones. No se puede deshacer.</p>
+<p>Los datos que quedaron guardados solo en tu celular se borran desde la app, en Configuración, o al desinstalarla. Si necesitás que borremos algo más, escribinos desde la <a href="/privacidad.html">política de privacidad</a>.</p>
+<label for="email">Email</label>
+<input id="email" type="email" autocomplete="email">
+<label for="pass">Contraseña</label>
+<input id="pass" type="password" autocomplete="current-password">
+<button id="btn" type="button">Eliminar mi cuenta</button>
+<div id="msg" role="status"></div>
+<script>
+document.getElementById("btn").addEventListener("click", async function () {
+    var msg = document.getElementById("msg"), btn = this;
+    var email = document.getElementById("email").value.trim(), password = document.getElementById("pass").value;
+    if (!email || !password) { msg.textContent = "Completá email y contraseña."; return; }
+    if (!confirm("¿Seguro? La cuenta se borra definitivamente.")) return;
+    btn.disabled = true; msg.textContent = "Procesando...";
+    try {
+        var r = await fetch("/api/eliminar-cuenta", { method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email, password: password }) });
+        var d = {}; try { d = await r.json(); } catch (e) {}
+        if (d.ok) {
+            try { localStorage.removeItem("nivanSesion"); localStorage.removeItem("nivanSesionId"); } catch (e) {}
+            msg.textContent = "Tu cuenta fue eliminada.";
+            document.getElementById("pass").value = "";
+        } else { msg.textContent = d.error || "No se pudo eliminar la cuenta."; btn.disabled = false; }
+    } catch (e) { msg.textContent = "No hay conexión con el servidor. Probá de nuevo."; btn.disabled = false; }
+});
+</script></body></html>

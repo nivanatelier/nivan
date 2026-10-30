@@ -1,0 +1,2688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap" rel="stylesheet">
+  
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nivan">
+    <link rel="icon" type="image/png" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <title>Nivan - Marketplace de Ropa</title>
+
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/feed-perfil.css">
+    <link rel="stylesheet" href="css/premium.css">
+    <link rel="stylesheet" href="css/patronaje.css">
+    <link rel="stylesheet" href="css/gestion-pedidos.css">
+    <link rel="stylesheet" href="css/tutorial.css">
+    <link rel="stylesheet" href="css/legal.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+<header class="headerNivan">
+    <div class="logoNivan">
+    <img src="https://i.imgur.com/zOEARC7.jpg" alt="NIVAN">
+    </div>
+</header>
+  
+<main class="contenedor">
+
+<section class="pagina pagina-home activa" id="paginaHome">
+  <button type="button" id="carritoBtn">
+    <img src="https://i.imgur.com/VnzUHDc.png" alt="Carrito">
+    <span id="cantidadCarrito">0</span>
+  </button>
+  <button type="button" id="perfilLateralBtn" onclick="abrirPerfilLateral()" aria-label="Configuración">
+    <span class="lineaMenu"></span>
+    <span class="lineaMenu"></span>
+    <span class="lineaMenu"></span>
+  </button>
+    <div class="homeHero" id="homeHero">
+        <div class="heroMarca"></div>
+        <div class="heroTexto">
+            <h2>Calidad, distinción, elegancia.</h2>
+            <p>Marketplace de moda independiente.</p>
+        </div>
+    </div>
+
+    <div class="buscadorRapidoHome">
+        <input
+            type="text"
+            id="buscadorRapido"
+            placeholder="🔍 Buscar vestidos, tops, camperas..."
+            autocomplete="off"
+        >
+    </div>
+
+    <div class="separadorHome"></div>
+
+    <section
+    class="carruselAnuncios"
+    id="carruselAnuncios">
+
+
+    <!-- ANUNCIO 1 -->
+
+    <div class="anuncio activo">
+
+        <div class="anuncioIcono">
+            👗
+        </div>
+
+        <h3>
+            Tu talle también merece verse increíble.
+        </h3>
+
+        <p>
+            No importa si necesitás un talle más pequeño,
+            más grande o diferente. La moda también puede
+            adaptarse a vos.
+        </p>
+
+        <button type="button"
+            class="anuncioBtn"
+            onclick="irAMedida()">
+
+            Conocé NIVAN A MEDIDA →
+
+        </button>
+
+    </div>
+
+        <!-- ANUNCIO HERRAMIENTAS AVANZADAS -->
+
+    <div class="anuncio">
+
+        <div class="anuncioIcono">
+            ✂️
+        </div>
+
+        <h3>
+            ¿Buscabas herramientas para tus patronajes?
+            <span class="patPildoraBeta">BETA</span>
+        </h3>
+
+        <p>
+            Diseñá, trazá y descargá los patrones de tus prendas.
+            Todo en una sola app y totalmente gratis. Eso que no
+            encontrabas en ningún lado, ahora está en NIVAN.
+        </p>
+
+        <button type="button"
+            class="anuncioBtn"
+            onclick="abrirHerramientasAvanzadasNivan()">
+
+            Probar herramientas gratis →
+
+        </button>
+
+    </div>
+    <!-- ANUNCIO 2 -->
+
+    <div class="anuncio">
+
+        <div class="anuncioIcono">
+            📏
+        </div>
+
+        <h3>
+            ¿No encontrás tu talle?
+        </h3>
+
+        <p>
+            Solicitá prendas hechas especialmente según
+            tus medidas. No todas las personas deberían
+            tener que adaptarse a un talle estándar.
+        </p>
+
+        <button type="button"
+            class="anuncioBtn"
+            onclick="irAMedida()">
+
+            Pedí tu prenda a medida →
+
+        </button>
+
+    </div>
+
+
+    <!-- ANUNCIO 3 -->
+
+    <div class="anuncio">
+
+        <div class="anuncioIcono">
+            🎁
+        </div>
+
+        <h3>
+            Invitá, compartí y ganá.
+        </h3>
+
+        <p>
+            Compartí tu código con alguien y obtené
+            beneficios para futuras compras.
+        </p>
+
+        <button type="button"
+            class="anuncioBtn"
+            onclick="mostrarMensajeReferidos()">
+
+            Invitar a alguien →
+
+        </button>
+
+    </div>
+
+
+    <!-- ANUNCIO 4 -->
+
+    <div class="anuncio">
+
+        <div class="anuncioIcono">
+            🛍️
+        </div>
+
+        <h3>
+            Tu primera compra tiene beneficios.
+        </h3>
+
+        <p>
+            Registrate en NIVAN y accedé a promociones
+            exclusivas, descuentos y beneficios especiales.
+        </p>
+
+        <button type="button"
+            class="anuncioBtn"
+            onclick="abrirCuenta()">
+
+            Crear mi cuenta →
+
+        </button>
+
+    </div>
+
+
+    <!-- ANUNCIO 5 -->
+
+    <div class="anuncio">
+
+        <div class="anuncioIcono">
+            🎨
+        </div>
+
+        <h3>
+            ¿Lo imaginás?, podemos crearlo.
+        </h3>
+
+        <p>
+            Elegí un diseño, subí una referencia o
+            contanos qué imaginás.
+        </p>
+
+        <button type="button"
+            class="anuncioBtn"
+            onclick="irAMedida()">
+
+            Crear una prenda →
+
+        </button>
+
+    </div>
+
+
+    <!-- ANUNCIO 6 -->
+
+    <div class="anuncio">
+
+        <div class="anuncioIcono">
+            🖤
+        </div>
+
+        <h3>
+            Moda diferente, creada por personas diferentes.
+        </h3>
+
+        <p>
+            Descubrí prendas, marcas y diseños independientes.
+            Encontrá algo que no vas a ver puesto en todo
+            el mundo.
+        </p>
+
+        <button type="button"
+            class="anuncioBtn"
+            onclick="explorarDisenos()">
+
+            Explorar diseños →
+
+        </button>
+
+    </div>
+
+
+    <!-- INDICADORES -->
+
+    <div
+        class="indicadoresAnuncios"
+        id="indicadoresAnuncios">
+
+    </div>
+
+</section>
+
+    <button type="button"
+    class="seccionMedidaBtn"
+    onclick="toggleSeccionMedida()">
+
+    ✨ Sección a medida
+
+</button>
+  <section
+    class="aMedida"
+    id="aMedida">
+
+    <div class="aMedidaTitulo">
+
+        <h2>NIVAN A MEDIDA</h2>
+
+        <p>
+            ¿No encontrás lo que estás buscando?
+            Si podés imaginarlo, podés tenerlo.
+        </p>
+
+    </div>
+
+
+    <div class="opcionesMedida">
+
+
+        <button type="button"
+            class="opcionMedida"
+            onclick="abrirMedida('disenador')">
+
+            🎨
+            <strong>Quiero que me diseñen algo</strong>
+
+            <span>
+                Contanos tu idea y te diseñaremos algo.
+            </span>
+
+        </button>
+
+<button type="button"
+            class="opcionMedida"
+            onclick="abrirMedida('idea')">
+
+            📸
+            <strong>Subir mi idea</strong>
+
+            <span>
+                Subí una imagen o referencia
+                de lo que querés, para que te diseñemos
+                algo similar o mejorado.
+            </span>
+
+</button>
+      
+    </div>
+
+
+    <!-- FORMULARIO -->
+
+    <div
+        class="formularioMedida"
+        id="formularioMedida">
+
+
+        <h3 id="tituloFormularioMedida">
+            Solicitud a medida
+        </h3>
+
+        <div
+            class="bannerInspiracionReventa"
+            id="bannerInspiracionReventa"
+            style="display:none;">
+
+            Tomamos esta prenda como inspiración. Te vamos a cotizar una
+            versión similar a medida, con su moldería y telas.
+
+        </div>
+
+
+        <!-- TIPO DE PRENDA -->
+
+        <div class="campo">
+
+            <label for="tipoPrendaMedida">
+                ¿Qué querés crear?
+            </label>
+
+            <select id="tipoPrendaMedida">
+
+                <option value="">
+                    Elegí una opción
+                </option>
+
+                <option value="Vestido">
+                    Vestido
+                </option>
+
+                <option value="Remera">
+                    Remera
+                </option>
+
+                <option value="Blusa">
+                    Blusa
+                </option>
+
+                <option value="Pantalón">
+                    Pantalón
+                </option>
+
+                <option value="Falda">
+                    Falda
+                </option>
+
+                <option value="Campera">
+                    Campera
+                </option>
+
+                <option value="Otro">
+                    Otro
+                </option>
+
+            </select>
+
+        </div>
+      <div
+    class="presupuestoMinimo"
+    id="presupuestoMinimo"
+>
+
+    <strong id="textoPresupuestoMinimo">
+        Presupuesto mínimo
+    </strong>
+
+    <span id="detallePresupuestoMinimo">
+        El presupuesto final se confirma después de revisar tu solicitud.
+    </span>
+
+      </div>
+
+
+        <!-- DISEÑO EXISTENTE -->
+
+        <div
+            class="campo opcionFormulario"
+            id="campoDisenoExistente">
+
+            <label for="disenoElegido">
+                Diseño que te interesa
+            </label>
+
+            <input
+                type="text"
+                id="disenoElegido"
+                placeholder="Ej: Vestido Moonlight"
+            >
+
+        </div>
+
+
+        <!-- FOTO -->
+
+        <div
+            class="campo opcionFormulario"
+            id="campoFotoReferencia">
+
+            <label for="fotoReferencia">
+                Subí una imagen de referencia
+            </label>
+
+            <input
+                type="file"
+                id="fotoReferencia"
+                accept="image/*"
+            >
+
+        </div>
+
+
+        <!-- DESCRIPCIÓN -->
+
+        <div
+            class="campo opcionFormulario"
+            id="campoDescripcionIdea">
+
+            <label for="descripcionIdea">
+                Contanos tu idea
+            </label>
+
+            <textarea
+                id="descripcionIdea"
+                maxlength="300"
+                data-contador="1"
+                placeholder="Describí la prenda que imaginás..."
+            ></textarea>
+
+        </div>
+
+
+        <!-- MEDIDAS -->
+
+<div class="campo">
+
+    <label for="tipoCuerpo">
+        ¿Para quién estás buscando ropa?
+    </label>
+
+    <select id="tipoCuerpo">
+
+        <option value="">
+            Seleccioná una opción
+        </option>
+
+        <option value="Mujer">
+            Mujer
+        </option>
+
+        <option value="Hombre">
+            Hombre
+        </option>
+
+        <option value="Niña">
+            Niña
+        </option>
+
+        <option value="Niño">
+            Niño
+        </option>
+
+    </select>
+
+</div>
+      
+        <h3 class="tituloMedidas">
+            📏 Tus medidas
+        </h3>
+
+
+        <div class="medidasGrid">
+
+
+            <div class="campo">
+
+                <label for="bustoMedida">
+                    Busto / pecho (cm)
+                </label>
+
+                <input
+                    type="number"
+                    id="bustoMedida"
+                    placeholder="Ej: 90"
+                    min= "1"
+                    max= "250"
+                >
+              <div
+    class="mensajeErrorMedida"
+    id="errorBustoMedida">
+              </div>
+
+            </div>
+
+
+            <div class="campo">
+
+                <label for="cinturaMedida">
+                    Cintura (cm)
+                </label>
+
+                <input
+                    type="number"
+                    id="cinturaMedida"
+                    placeholder="Ej: 70"
+                    min= "1"
+                    max= "250"
+                >
+              <div
+    class="mensajeErrorMedida"
+    id="errorCinturaMedida">
+              </div>
+
+            </div>
+
+
+            <div class="campo">
+
+                <label for="caderaMedida">
+                    Cadera (cm)
+                </label>
+
+                <input
+                    type="number"
+                    id="caderaMedida"
+                    placeholder="Ej: 98"
+                    min= "1"
+                    max= "250"
+                >
+              <div
+    class="mensajeErrorMedida"
+    id="errorCaderaMedida">
+              </div>
+
+            </div>
+
+
+            <div class="campo">
+
+                <label for="alturaMedida">
+                    Altura (cm)
+                </label>
+
+                <input
+                    type="number"
+                    id="alturaMedida"
+                    placeholder="Ej: 170"
+                    min= "1"
+                    max= "250"
+                >
+              <div
+    class="mensajeErrorMedida"
+    id="errorAlturaMedida">
+              </div>
+
+            </div>
+
+
+        </div>
+
+      <!-- PREFERENCIAS -->
+
+        <div class="campo">
+
+            <label for="colorMedida">
+                Color preferido
+            </label>
+
+            <input
+                type="text"
+                id="colorMedida"
+                placeholder="Ej: Negro"
+            >
+
+        </div>
+<div class="campo">
+
+    <label for="presupuestoMedida">
+        Presupuesto mínimo
+    </label>
+
+    <input
+        type="number"
+        id="presupuestoMedida"
+        placeholder="Ej: 80000"
+    >
+
+    <div
+        class="mensajeErrorPresupuesto"
+        id="mensajeErrorPresupuesto">
+    </div>
+
+</div>
+
+<div class="campo">
+
+    <label for="emailMedida">
+        Correo electrónico
+    </label>
+
+    <input
+        type="email"
+        id="emailMedida"
+        placeholder="Ej: ejemplo@gmail.com"
+    >
+
+</div>
+
+
+        <button type="button"
+            id="enviarSolicitudMedida">
+
+            Enviar solicitud
+
+        </button>
+
+
+        <div
+            id="resultadoMedida"
+            class="resultadoMedida">
+
+        </div>
+
+
+    </div>
+
+  </section>
+  
+    
+
+    <!-- Depósito oculto: el JS inserta estas dos secciones dentro de la grilla
+         de publicaciones (después de 2 filas y de 4 filas). -->
+    <div id="depositoFeedsHome" style="display:none;">
+
+        <section class="feedNivan" id="feedNivan">
+            <div class="feedTabs">
+                <button type="button" class="feedTab activo" id="feedTabVendidos" onclick="cambiarFeedNivan('vendidos')">🔥 Más vendidos</button>
+                <button type="button" class="feedTab" id="feedTabTendencia" onclick="cambiarFeedNivan('tendencia')">📈 Tendencia</button>
+            </div>
+            <div class="feedLista" id="feedLista"></div>
+        </section>
+
+        <section class="recomendadosNivan" id="recomendadosNivan">
+            <h3>Recomendaciones para vos</h3>
+            <div class="feedLista" id="recomendadosGrid"></div>
+        </section>
+
+    </div>
+
+    <section class="productos" id="productos"></section>
+
+
+
+    
+</section>
+
+<section class="pagina pagina-buscador" id="paginaBuscador">
+    <div class="tituloPagina">
+        <h2>Buscador y categorías</h2>
+        <p>Encontrá exactamente lo que buscás.</p>
+    </div>
+    <input
+        type="text"
+        id="buscador"
+        placeholder="Buscar vestidos, tops, camperas..."
+        max="250"
+    >
+
+    <div class="filtrosCategorias">
+
+    <button type="button" class="categoriaBtn activo" onclick="filtrarCategoria('Todo', this)">
+        Todo
+    </button>
+
+    <button type="button" class="categoriaBtn" onclick="filtrarCategoria('Vestidos', this)">
+        Vestidos
+    </button>
+
+    <button type="button" class="categoriaBtn" onclick="filtrarCategoria('Remeras', this)">
+        Remeras
+    </button>
+
+    <button type="button" class="categoriaBtn" onclick="filtrarCategoria('Blusas', this)">
+        Blusas
+    </button>
+
+    <button type="button" class="categoriaBtn" onclick="filtrarCategoria('Pantalones', this)">
+        Pantalones
+    </button>
+
+    <button type="button" class="categoriaBtn" onclick="filtrarCategoria('Faldas', this)">
+        Faldas
+    </button>
+
+    <button type="button" class="categoriaBtn" onclick="filtrarCategoria('Camperas', this)">
+        Camperas
+    </button>
+
+    <button type="button" class="categoriaBtn" onclick="filtrarCategoria('Tops', this)">
+        Tops
+    </button>
+
+    <button type="button" class="categoriaBtn" onclick="filtrarCategoria('Conjuntos', this)">
+        Conjuntos
+    </button>
+
+    <button type="button" class="categoriaBtn" onclick="filtrarCategoria('Accesorios', this)">
+        Accesorios
+    </button>
+
+</div>
+
+    <button type="button" class="categoriaBtn botonVistosRecientementeBuscador" id="botonVistosRecientementeBuscador" onclick="toggleVistosRecientementeBuscador()" style="display:none;">
+        🕓 Vistos recientemente
+    </button>
+
+    <div class="panelVistosRecientemente" id="panelVistosRecientemente" style="display:none;">
+        <div class="listaVistosRecientemente" id="listaVistosRecientemente"></div>
+    </div>
+
+    <div class="ordenBuscadorContenedor">
+        <label for="ordenBuscador">Ordenar por:</label>
+        <select id="ordenBuscador" onchange="cambiarOrden(this.value)">
+            <option value="relevancia">Relevancia</option>
+            <option value="precio_asc">Menor precio</option>
+            <option value="precio_desc">Mayor precio</option>
+            <option value="nuevos">Más nuevos</option>
+        </select>
+        <button type="button" class="botonFiltrosBuscador" id="botonFiltrosBuscador" onclick="toggleFiltrosBuscador()">
+            Filtros
+        </button>
+    </div>
+
+    <div class="panelFiltrosBuscador" id="panelFiltrosBuscador">
+        <div class="grupoFiltroBuscador">
+            <h4>Precio</h4>
+            <div class="filtroPrecioFila">
+                <input type="number" id="filtroPrecioMin" min="0" inputmode="numeric" placeholder="Mínimo" oninput="cambiarFiltroPrecio()">
+                <span>a</span>
+                <input type="number" id="filtroPrecioMax" min="0" inputmode="numeric" placeholder="Máximo" oninput="cambiarFiltroPrecio()">
+            </div>
+        </div>
+        <div class="grupoFiltroBuscador">
+            <h4>Talle</h4>
+            <div class="chipsFiltroBuscador" id="chipsFiltroTalle"></div>
+        </div>
+        <div class="grupoFiltroBuscador">
+            <h4>Color</h4>
+            <div class="chipsFiltroBuscador" id="chipsFiltroColor"></div>
+        </div>
+        <button type="button" class="limpiarFiltrosBuscador" onclick="limpiarFiltrosBuscador()">Limpiar filtros</button>
+    </div>
+
+    <section class="productos" id="productosBusqueda"></section>
+</section>
+
+<section class="pagina" id="paginaNotificaciones">
+    <div class="tituloPagina">
+        <h2>🔔 Notificaciones</h2>
+        <p>Acá aparecerán tus novedades, pedidos y mensajes.</p>
+    </div>
+    <div class="filaAccionesNotificacionesNivan">
+        <button type="button" class="marcarLeidasBtn" id="marcarLeidasBtn" onclick="marcarTodasLasNotificacionesLeidas()" style="display:none;">
+            Marcar todas como leídas
+        </button>
+        <button type="button" class="borrarNotifBtn" id="borrarNotifBtn" onclick="confirmarEliminarTodasLasNotificaciones()" style="display:none;">
+            Borrar todas
+        </button>
+    </div>
+    <div id="listaNotificacionesNivan"></div>
+</section>
+
+<section class="pagina" id="paginaMedidas">
+
+    <div class="medidasCard" id="medidasCard">
+
+        <div class="barraMedidas">
+            <button type="button" class="tabMedidas tabTipoCuerpo" id="botonTipoCuerpoBarra"
+                    aria-expanded="false" onclick="toggleTipoCuerpoBarra()">Tipo de cuerpo <span class="chevronMedidas"></span></button>
+            <button type="button" class="tabMedidas tabGenero" id="botonGeneroBarra"
+                    onclick="toggleGeneroMenu(event)">Género <span class="chevronMedidas"></span></button>
+            <button type="button" class="tabMedidas tabMedidasPanel" id="botonMedidasBarra"
+                    onclick="toggleMedidasPanel()">Medidas <span class="chevronMedidas"></span></button>
+
+            <div class="generoMenu" id="generoMenu">
+                <button type="button" class="generoOpcion" data-genero="Mujer" onclick="elegirGenero('Mujer')">Mujer</button>
+                <button type="button" class="generoOpcion" data-genero="Hombre" onclick="elegirGenero('Hombre')">Hombre</button>
+            </div>
+        </div>
+
+        <div class="medidasEscena">
+            <div class="visor3D" id="visor3D">
+                <div class="modelo3DPlaceholder">
+
+                </div>
+            </div>
+
+            <div class="panelMedidasLateral">
+                <div class="panelMedidasInterior">
+                    <h3>Mis medidas</h3>
+                    <select id="perfilTipoCuerpo" style="display:none;">
+                        <option value="">Seleccioná una opción</option>
+                        <option value="Mujer">Mujer</option>
+                        <option value="Hombre">Hombre</option>
+                        <option value="Niña">Niña</option>
+                        <option value="Niño">Niño</option>
+                    </select>
+                    <div class="medidasGrid">
+                        <div class="campo"><label for="perfilBusto">Busto / pecho (cm)</label><input type="number" id="perfilBusto" min="1" max="250" placeholder="Ej: 90"></div>
+                        <div class="campo"><label for="perfilCintura">Cintura (cm)</label><input type="number" id="perfilCintura" min="1" max="250" placeholder="Ej: 70"></div>
+                        <div class="campo"><label for="perfilCadera">Cadera (cm)</label><input type="number" id="perfilCadera" min="1" max="250" placeholder="Ej: 98"></div>
+                        <div class="campo"><label for="perfilAltura">Altura (cm)</label><input type="number" id="perfilAltura" min="1" max="250" placeholder="Ej: 170"></div>
+                    </div>
+                    <button type="button" class="guardarMedidasBtn" onclick="guardarPerfilCorporal()">💾 Guardar mis medidas</button>
+                    <div id="estadoMedidas" class="estadoMedidas"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controlesMedidas">
+            <div class="controlesCuerpo">
+                <div class="controlesCuerpoInterior">
+                    <label for="sliderMusculatura">Musculatura</label>
+                    <input type="range" class="sliderCuerpo" id="sliderMusculatura" min="0" max="100" value="50">
+                    <label for="sliderGrasaCorporal">Grasa corporal</label>
+                    <input type="range" class="sliderCuerpo" id="sliderGrasaCorporal" min="0" max="100" value="50">
+                </div>
+            </div>
+            <div class="controlesDivisor"></div>
+            <div class="controlesRopa">
+                <h4>Elegí tu ropa</h4>
+                <button type="button" class="botonArmario" onclick="alert('Próximamente: tu armario.')">Armario</button>
+            </div>
+        </div>
+
+    </div>
+
+    <p class="notaMedidas">Nota: En NIVAN ATELIER Tu personaje 3D por el momento es una herramienta de previsualización. Al moldear el cuerpo vos misma/o, la representación es orientativa y no constituye una garantía exacta de cómo quedará la prenda.</p>
+</section>
+
+<section class="pagina" id="paginaFavoritos">
+    <button type="button" class="volverFavoritosNivan" onclick="cerrarFavoritosSobreCarritoNivan()">← Volver</button>
+    <div class="tituloPagina">
+        <h2>♡ Favoritos</h2>
+        <p>Las prendas que guardaste.</p>
+    </div>
+    <section class="productos" id="productosFavoritos"></section>
+</section>
+
+<section class="pagina" id="paginaPerfil">
+    <div class="cabeceraFeedPersonalNivan">
+        <input type="search" id="buscadorPersonasNivan" placeholder="Buscar perfiles, personas" autocomplete="off" oninput="renderizarFeedPersonalNivan()">
+        <div class="envolturaMiPerfilNivan">
+            <button type="button" id="botonMiPerfilNivan" onclick="abrirMiPerfilNivan()" aria-label="Mi perfil">👤</button>
+            <span id="badgeMiPerfilNivan"></span>
+        </div>
+    </div>
+
+    <div class="filtrosBusquedaPerfilNivan" id="filtrosBusquedaPerfilNivan">
+        <button type="button" id="chipPostsNivan" onmousedown="event.preventDefault()" onclick="elegirFiltroBusquedaPerfilNivan('posts')">posts</button>
+        <button type="button" id="chipUsuariosNivan" onmousedown="event.preventDefault()" onclick="elegirFiltroBusquedaPerfilNivan('usuarios')">usuarios</button>
+    </div>
+
+    <div id="resultadosPersonasNivan"></div>
+    <div id="feedPersonalNivan"></div>
+</section>
+  
+<footer class="piePaginaNivan">
+    <p>© 2026 NIVAN. Todos los derechos reservados.</p>
+    <p>¿Necesitás ayuda? Escribinos.</p>
+    <p>📞 Número de contacto: <em>(a completar)</em></p>
+    <p>✉️ Email: <em>(a completar)</em>@gmail.com</p>
+    <p><span class="enlaceTerminos" onclick="abrirTerminos()">Leer términos y condiciones</span></p>
+    <p><button type="button" class="botonPoliticaPrivacidadNivan" onclick="abrirPoliticaPrivacidadNivan()">Política de privacidad</button></p>
+    <p><a id="enlaceDefensaConsumidorNivan" class="enlaceTerminos" href="https://www.argentina.gob.ar/produccion/defensadelconsumidor" target="_blank" rel="noopener noreferrer">Defensa del Consumidor</a></p>
+    <p><span class="enlaceTerminos" onclick="abrirTutorialNivan()">Tutorial de uso</span></p>
+    <p><span class="enlaceTerminos" onclick="abrirCentroAyudaNivan()">Centro de ayuda / FAQ</span></p>
+    <p><span class="enlaceTerminos" onclick="abrirReportarErrorNivan()">¿Encontraste algún error? Infórmanoslo. / Sugerencias</span></p>
+</footer>
+
+</main>
+
+<nav class="barraNavegacion" id="barraNavegacion">
+    <button type="button" class="navItem activo" data-pagina="paginaHome" onclick="cambiarPagina('paginaHome', this)">
+      <span>
+    <img src="https://i.imgur.com/tDsD7yK.png" alt="Inicio">
+    </span>
+      <small>Home</small>
+    </button>
+    <button type="button" class="navItem" data-pagina="paginaBuscador" onclick="cambiarPagina('paginaBuscador', this)">
+      <span>
+    <img src="https://i.imgur.com/yMf8BtR.png" alt="Inicio">
+      </span>
+      <small>Buscar</small>
+    </button>
+    <button type="button" class="navItem" data-pagina="paginaMedidas" onclick="cambiarPagina('paginaMedidas', this)">
+      <span>
+    <img src="https://i.imgur.com/iyI4D77.png" alt="Inicio">
+      </span>
+      <small>Modelo 3D outfits</small>
+    </button>
+  <button type="button" class="navItem" data-pagina="paginaNotificaciones" onclick="cambiarPagina('paginaNotificaciones', this)">
+      <span id="badgeNotificaciones" class="badgeNotificaciones"></span>
+      <span>
+    <img src="https://i.imgur.com/eGUeuGy.png" alt="Inicio">
+      </span>
+      <small>Notificaciones</small>
+  </button>
+    <button type="button" class="navItem" data-pagina="paginaPerfil" onclick="cambiarPagina('paginaPerfil', this)">
+      <span>
+    <img src="https://i.imgur.com/elxL8Jj.png" alt="Inicio">
+      </span>
+      <small>Perfiles</small>
+    </button>
+</nav>
+
+<!-- PANEL "MI PERFIL" (se abre tocando la foto de la pestaña Perfil) -->
+<div class="overlayPerfilLateral" id="overlayMiPerfilNivan" onclick="cerrarMiPerfilNivan()"></div>
+<div class="panelPerfilLateral" id="panelMiPerfilNivan">
+    <button type="button" class="cerrarPerfilLateralBtn" onclick="cerrarMiPerfilNivan()" aria-label="Cerrar">✕</button>
+    <div class="contenidoPerfilLateralScroll" id="contenidoPerfilLateral"></div>
+    <div class="piePerfilLateral" id="piePerfilLateral"></div>
+</div>
+
+<!-- Ver una publicación del feed (foto/video + autor) -->
+<div class="overlayPosteoPerfil" id="overlayPosteoFeedNivan">
+    <div class="cajaPosteoPerfil">
+        <div id="mediaPosteoFeedNivan"></div>
+        <div class="cuerpoPosteoPerfil">
+            <button type="button" class="cerrarPosteoPerfilBtn" onclick="cerrarPostFeedNivan()" aria-label="Cerrar">✕</button>
+            <div class="autorPostFeedNivan" id="autorPostFeedNivan" onclick="irAlAutorPostFeedNivan()"></div>
+            <p id="textoPosteoFeedNivan"></p>
+            <button type="button" class="botonPerfilLateral" id="botonEditarPostFeedNivan" onclick="editarPostFeedNivan()" style="display:none;">✏️ Editar</button>
+            <button type="button" class="botonPerfilLateral" id="botonBorrarPostFeedNivan" onclick="borrarPostFeedNivan()" style="display:none;">🗑 Borrar publicación</button>
+        </div>
+    </div>
+</div>
+
+<!-- PANEL LATERAL DE CONFIGURACIÓN (cuenta, vender, mensajes, actividad, etc.) -->
+<div class="overlayPerfilLateral" id="overlayPerfilLateral" onclick="cerrarPerfilLateral()"></div>
+<div class="panelPerfilLateral" id="panelPerfilLateral">
+    <button type="button" class="cerrarPerfilLateralBtn" onclick="cerrarPerfilLateral()" aria-label="Cerrar">✕</button>
+    <div class="contenidoPerfilLateralScroll" id="contenidoConfigLateral"></div>
+    <div class="piePerfilLateral" id="pieConfigLateral"></div>
+</div>
+
+<!-- PANEL: Configuración (cosas de la app, de uso) -->
+<div class="overlayPerfilLateral" id="overlayConfigAppNivan" onclick="cerrarConfigAppNivan()"></div>
+<div class="panelPerfilLateral" id="panelConfigAppNivan">
+    <button type="button" class="cerrarPerfilLateralBtn" onclick="cerrarConfigAppNivan()" aria-label="Cerrar">✕</button>
+    <div class="contenidoPerfilLateralScroll" id="contenidoConfigAppNivan"></div>
+</div>
+
+<!-- PANEL: Privacidad y seguridad (cosas sensibles del usuario) -->
+<div class="overlayPerfilLateral" id="overlayPrivacidadNivan" onclick="cerrarPrivacidadSeguridadNivan()"></div>
+<div class="panelPerfilLateral" id="panelPrivacidadNivan">
+    <button type="button" class="cerrarPerfilLateralBtn" onclick="cerrarPrivacidadSeguridadNivan()" aria-label="Cerrar">✕</button>
+    <div class="contenidoPerfilLateralScroll" id="contenidoPrivacidadNivan"></div>
+</div>
+
+<!-- Ver una publicación personal del perfil (foto/video + texto) -->
+<div class="overlayPosteoPerfil" id="overlayPosteoPerfil">
+    <div class="cajaPosteoPerfil">
+        <div id="mediaPosteoPerfil"></div>
+        <div class="cuerpoPosteoPerfil">
+            <button type="button" class="cerrarPosteoPerfilBtn" onclick="cerrarPosteoPerfilLateral()" aria-label="Cerrar">✕</button>
+            <p id="textoPosteoPerfil"></p>
+            <button type="button" class="botonPerfilLateral" id="botonEditarPosteoPerfil" onclick="editarPostNivan(indicePosteoPerfilAbierto)" style="display:none;">✏️ Editar</button>
+            <button type="button" class="botonPerfilLateral" onclick="borrarPosteoPersonalPerfil()">🗑 Borrar publicación</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmación propia de la app (reemplaza al confirm() nativo) -->
+<div class="overlayConfirmacionNivan" id="overlayConfirmacionNivan">
+    <div class="cajaConfirmacionNivan">
+        <p id="mensajeConfirmacionNivan"></p>
+        <div class="botonesConfirmacionNivan">
+            <button type="button" class="botonConfirmacionCancelar" onclick="cerrarConfirmacionNivan()">Cancelar</button>
+            <button type="button" class="botonConfirmacionAceptar" id="botonAceptarConfirmacionNivan">Borrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MENSAJES (lista de chats) -->
+<div class="overlayChatNivan" id="overlayListaChatsNivan">
+    <div class="cabeceraChatNivan" id="cabeceraListaChatsNivan"></div>
+    <div class="listaChatsNivan" id="listaChatsNivan"></div>
+</div>
+
+<!-- CHAT COMPRADOR - VENDEDOR (conversación) -->
+<div class="overlayChatNivan" id="overlayChatNivan">
+    <div class="cabeceraChatNivan" id="cabeceraChatNivan"></div>
+  <div class="avisoSeguridadNuevoNivan" id="avisoSeguridadNuevoNivan">
+    <button
+        type="button"
+        class="cerrarAvisoSeguridadNuevoNivan"
+        onclick="cerrarAvisoSeguridadNuevoNivan()"
+        aria-label="Cerrar aviso">
+        ×
+    </button>
+
+    <div class="iconoAvisoSeguridadNuevoNivan">🛡️</div>
+
+    <div>
+        <strong>Antes de empezar</strong>
+
+        <p id="textoAvisoSeguridadNuevoNivan">
+            No se pueden pasar números de teléfono. Si detectamos que mandaste
+            alguna red social teniendo tienda, tu cuenta se puede suspender de forma
+            permanente o temporal.
+        </p>
+
+    </div>
+  </div>
+  <div class="mensajesChatNivan" id="mensajesChatNivan"></div>
+    <div class="pieChatNivan">
+        <div class="avisoErrorNivan" id="avisoErrorChatNivan"></div>
+        <div class="identidadEnvioChatNivan" id="identidadEnvioChatNivan" style="display:none;"></div>
+        <button type="button" class="botonPropuestaChatNivan" id="botonPropuestaChatNivan" style="display:none;" onclick="abrirPropuestaChatNivan()">📋 Sugerir cantidades y presupuesto</button>
+        <div class="filaEnviarChatNivan">
+            <textarea id="inputChatNivan" rows="1" maxlength="1000" placeholder="Escribí tu mensaje..." oninput="mostrarAvisoChatNivan(''); this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,110)+'px';"></textarea>
+            <button type="button" onclick="enviarMensajeChatNivan()">Enviar</button>
+        </div>
+    </div>
+</div>
+
+<!-- CALIFICAR AL VENDEDOR (después de una compra entregada) -->
+<div class="overlayPropuestaChatNivan" id="overlayPropuestaChatNivan" onclick="if (event.target === this) cerrarPropuestaChatNivan();">
+    <div class="hojaPropuestaChatNivan" id="hojaPropuestaChatNivan"></div>
+</div>
+
+<div class="overlayAccionChatNivan" id="overlayAccionChatNivan" onclick="if (event.target === this) cerrarAccionChatNivan();">
+    <div class="hojaAccionChatNivan" id="hojaAccionChatNivan"></div>
+</div>
+
+<div class="overlayDocumentacionNivan" id="overlayDocumentacionNivan">
+    <div class="cajaDocumentacionNivan" role="dialog" aria-modal="true" aria-labelledby="tituloDocumentacionNivan">
+        <h3 id="tituloDocumentacionNivan">¿Continuar sin cargar <span class="docIdNivan">DNI</span>?</h3>
+        <p>Podrás ver el marketplace, añadir a favoritos y al carrito pero no podrás comprar ni vender nada hasta que no lo cargués. Podés hacerlo más tarde.</p>
+        <button type="button" class="btnDocContinuarNivan" id="btnDocContinuarNivan">Continuar sin cargar <span class="docIdNivan">DNI</span></button>
+        <button type="button" class="btnDocCargarNivan" id="btnDocCargarNivan">Cargar <span class="docIdNivan">DNI</span> ahora</button>
+    </div>
+</div>
+
+<div class="overlayCalifNivan" id="overlayCalifNivan">
+    <div class="cajaCalifNivan">
+        <h3 id="tituloCalifNivan">Calificá al vendedor</h3>
+        <p class="subCalifNivan" id="subCalifNivan"></p>
+        <div class="estrellasElegirCalifNivan" id="estrellasElegirCalifNivan">
+            <button type="button" onclick="elegirEstrellasCalifNivan(1)" aria-label="1 estrella">★</button>
+            <button type="button" onclick="elegirEstrellasCalifNivan(2)" aria-label="2 estrellas">★</button>
+            <button type="button" onclick="elegirEstrellasCalifNivan(3)" aria-label="3 estrellas">★</button>
+            <button type="button" onclick="elegirEstrellasCalifNivan(4)" aria-label="4 estrellas">★</button>
+            <button type="button" onclick="elegirEstrellasCalifNivan(5)" aria-label="5 estrellas">★</button>
+        </div>
+        <p class="textoEstrellasCalifNivan" id="textoEstrellasCalifNivan"></p>
+        <textarea id="comentarioCalifNivan" maxlength="250" placeholder="Contá cómo fue tu experiencia (opcional)"></textarea>
+        <div class="avisoErrorNivan" id="avisoErrorCalifNivan"></div>
+        <div class="botonesCalifNivan">
+            <button type="button" class="cancelar" onclick="cerrarCalificarVendedorNivan()">Ahora no</button>
+            <button type="button" class="enviar" onclick="enviarCalificacionVendedorNivan()">Enviar</button>
+        </div>
+    </div>
+</div>
+
+<!-- SEGUIDORES / SEGUIDOS -->
+
+<div class="pantallaCompleta" id="pantallaSeguidoresNivan">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaSeguidoresNivan')">← Volver</button>
+        <h2 id="tituloListaSeguidoresNivan">👥 Seguidores</h2>
+    </div>
+
+    <div class="tabsSeguidoresNivan">
+        <button type="button" id="tabSeguidoresNivan" onclick="cambiarTabSeguidoresNivan('seguidores')">Seguidores</button>
+        <button type="button" id="tabSeguidosNivan" onclick="cambiarTabSeguidoresNivan('seguidos')">Seguidos</button>
+    </div>
+
+    <input type="text" id="buscadorSeguidoresNivan" class="buscadorSeguidoresNivan" placeholder="Buscar por nombre o ID" oninput="renderizarListaSeguidoresNivan()">
+
+    <div id="listaSeguidoresNivan"></div>
+
+</div>
+
+<!-- QUIÉN PUEDE RECLAMAR UN CUPÓN (editar) -->
+<div
+    class="overlayMasOpcionesPerfilVendedorNivan"
+    id="overlayAudienciaCuponNivan"
+    onclick="if (event.target === this) cerrarAudienciaCuponNivan();"
+>
+    <div class="panelMasOpcionesPerfilVendedorNivan">
+        <div class="agarraderaMasOpcionesNivan"></div>
+        <p id="tituloAudienciaCuponNivan"></p>
+        <div id="audienciaCuponEditarNivan"></div>
+        <button type="button" class="opcionMasOpcionesPerfilVendedorNivan reportar" onclick="guardarAudienciaCuponNivan()">Guardar</button>
+        <button type="button" class="opcionMasOpcionesPerfilVendedorNivan cancelar" onclick="cerrarAudienciaCuponNivan()">Cancelar</button>
+    </div>
+</div>
+
+<!-- ENVIAR CUPÓN A CLIENTES / SEGUIDORES -->
+<div
+    class="overlayMasOpcionesPerfilVendedorNivan"
+    id="overlayEnviarCuponNivan"
+    onclick="if (event.target === this) cerrarEnviarCuponNivan();"
+>
+    <div class="panelMasOpcionesPerfilVendedorNivan">
+        <div class="agarraderaMasOpcionesNivan"></div>
+        <p id="tituloEnviarCuponNivan"></p>
+        <button type="button" class="opcionMasOpcionesPerfilVendedorNivan reportar" id="botonEnviarCuponClientesNivan" onclick="enviarCuponNivan('clientes')"></button>
+        <button type="button" class="opcionMasOpcionesPerfilVendedorNivan reportar" id="botonEnviarCuponSeguidoresNivan" onclick="enviarCuponNivan('seguidores')"></button>
+        <button type="button" class="opcionMasOpcionesPerfilVendedorNivan reportar" id="botonEnviarCuponAmbosNivan" onclick="enviarCuponNivan('ambos')"></button>
+        <button type="button" class="opcionMasOpcionesPerfilVendedorNivan cancelar" onclick="cerrarEnviarCuponNivan()">Cancelar</button>
+    </div>
+</div>
+
+<!-- MÁS OPCIONES DEL PERFIL DE VENDEDOR (bloquear / reportar) -->
+<div
+    class="overlayMasOpcionesPerfilVendedorNivan"
+    id="overlayMasOpcionesPerfilVendedorNivan"
+    onclick="if (event.target === this) cerrarMasOpcionesPerfilVendedorNivan();"
+>
+    <div class="panelMasOpcionesPerfilVendedorNivan">
+        <div class="agarraderaMasOpcionesNivan"></div>
+        <button type="button" class="opcionMasOpcionesPerfilVendedorNivan bloquear" onclick="bloquearDesdeMasOpcionesPerfilVendedorNivan()">🚫 Bloquear</button>
+        <button type="button" class="opcionMasOpcionesPerfilVendedorNivan reportar" onclick="reportarDesdeMasOpcionesPerfilVendedorNivan()">🚩 Reportar</button>
+        <button type="button" class="opcionMasOpcionesPerfilVendedorNivan cancelar" onclick="cerrarMasOpcionesPerfilVendedorNivan()">Cancelar</button>
+    </div>
+</div>
+
+<!-- MI TIPO DE TRABAJO -->
+
+<div class="pantallaCompleta" id="pantallaTipoTrabajo">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaTipoTrabajo')">← Volver</button>
+        <h2>🧵 Mi tipo de trabajo</h2>
+        <p>Elegí qué hacés en NIVAN.</p>
+    </div>
+
+    <div class="bloqueTipoTrabajo">
+
+        <h3>¿Qué tipo de trabajo tenés?</h3>
+
+        <p class="textoAyudaTipoTrabajo">
+            Elegí lo que hacés o lo que querés buscar. Según lo que
+            marques, se arma tu tienda o tu perfil de búsqueda de empleo.
+        </p>
+
+        <div class="listaTiposTrabajo" id="listaTiposTrabajo">
+
+            <label class="opcionTipoTrabajo">
+                <input type="checkbox" value="disenador" name="tipoTrabajo">
+                <span>
+                    <strong>Diseñador/a</strong>
+                    <span>Podés buscar taller para que fabriquen tus moldes, corten y/o confeccionen tus diseños. </span>
+                </span>
+            </label>
+
+            <label class="opcionTipoTrabajo">
+                <input type="checkbox" value="disenador_taller" name="tipoTrabajo">
+                <span>
+                    <strong>Diseñador/a con taller</strong>
+                    <span>Tenés equipo. Podés vender estándar y ofrecer a medida.</span>
+                </span>
+            </label>
+
+        <label class="opcionTipoTrabajo">
+                <input type="checkbox" value="modista" name="tipoTrabajo">
+                <span>
+                    <strong>Modista/o</strong>
+                  <span>Confección y arreglos de vestidos, faldas, blusas, etc. Prendas a medida.</span>
+                </span>
+            </label>
+
+            <label class="opcionTipoTrabajo">
+                <input type="checkbox" value="sastre" name="tipoTrabajo">
+                <span>
+                    <strong>Sastre/a</strong>
+                  <span>Confección y arreglos de trajes, sacos, pantalones de vestir, etc. Prendas estructuradas.</span>
+                </span>
+            </label>
+
+          <label class="opcionTipoTrabajo">
+    <input type="checkbox" value="marroquineria_cuero" name="tipoTrabajo">
+    <span>
+        <strong>Marroquinería / Cuero</strong>
+        <span>Trabajo en cuero.</span>
+    </span>
+          </label>
+
+            <label class="opcionTipoTrabajo">
+                <input type="checkbox" value="revendedor" name="tipoTrabajo">
+                <span>
+                    <strong>Revendedor/a</strong>
+                    <span>Vendés ropa ya hecha. Solo talle estándar. No podés ofrecer a medida.</span>
+                </span>
+            </label>
+
+          <label class="opcionTipoTrabajo">
+                <input type="checkbox" value="costurero" name="tipoTrabajo">
+                <span>
+                    <strong>Costurero/a</strong>
+                    <span>Ofrecés tu mano de obra. Podés cargar tu cv en tu perfil. </span>
+                </span>
+          </label>
+
+            <label class="opcionTipoTrabajo">
+                <input type="checkbox" value="molderista" name="tipoTrabajo">
+                <span>
+                    <strong>Molderista / Patronista</strong>
+                    <span>Hacés moldes. Podés cargar tu cv en tu perfil. </span>
+                </span>
+            </label>
+
+            <label class="opcionTipoTrabajo">
+                <input type="checkbox" value="proveedor_telas" name="tipoTrabajo">
+                <span>
+                    <strong>Proveedor de telas / Insumos</strong>
+                    <span>Ofreces telas, insumos para otras tiendas en la app. Por menor y mayor</span>
+                </span>
+            </label>
+
+            <label class="opcionTipoTrabajo">
+                <input type="checkbox" value="modelo_influencer" name="tipoTrabajo">
+                <span>
+                    <strong>Modelo / Influencer</strong>
+                    <span>Si sos modelo, te derivamos a talleres que busquen modelos. Si sos influencer a partir de 100k de seguidores podés promocionar una tienda a cambio de canje o pago según la tienda.</span>
+                </span>
+            </label>
+
+            <label class="opcionTipoTrabajo">
+                <input type="checkbox" value="cliente_mayorista" name="tipoTrabajo">
+                <span>
+                    <strong>Cliente mayorista / Comprador para tienda</strong>
+                    <span>Comprás por mayor a tiendas.</span>
+                </span>
+            </label>
+
+          <label class="opcionTipoTrabajo">
+    <input type="checkbox" value="taller_confeccion" name="tipoTrabajo">
+    <span>
+        <strong>Taller de confección</strong>
+        <span>Taller con máquinas. Confeccionás para terceros por mayor.</span>
+    </span>
+</label>
+
+<label class="opcionTipoTrabajo">
+    <input type="checkbox" value="bordador_estampador" name="tipoTrabajo">
+    <span>
+        <strong>Bordado / Estampado / Sublimado</strong>
+        <span>Bordás, estampás o sublimás prendas para otras marcas.</span>
+    </span>
+</label>
+         
+        <label class="opcionTipoTrabajo">
+    <input type="checkbox" value="cortador" name="tipoTrabajo">
+    <span>
+        <strong>Cortador/a</strong>
+        <span>Corte de telas por mayor y por menor, con moldes propios o del cliente. Precisión y prolijidad.</span>
+    </span>
+        </label>
+
+        </div>
+
+        <button type="button" id="guardarTipoTrabajoBtn" onclick="guardarTipoTrabajo()">
+            Guardar
+        </button>
+
+        <p class="notaTipoTrabajo">
+            Podés cambiar tu tipo de trabajo cuantas veces quieras y tildar
+            varias opciones si te especificás en varios trabajos. Pero ANTES de publicar
+            cada prenda tenés que aclarar si esa prenda es tuya o es reventa.
+        </p>
+
+    </div>
+
+</div>
+
+<!-- VENDER -->
+
+<div class="pantallaCompleta" id="pantallaVender">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaVender')">← Volver</button>
+        <h2>🛍️ Panel de Vendedor</h2>
+        <p>Elegí qué querés hacer.</p>
+    </div>
+
+    <div class="listaVender">
+        <button type="button" onclick="abrirMiTiendaNivan()">🏪 Mi tienda</button>
+        <button type="button" onclick="abrirCrearPublicacion()">🧾 Crear publicación nueva</button>
+        <button type="button" onclick="irAMisPublicaciones()">📋 Mis publicaciones</button>
+        <button type="button" onclick="abrirGestionPedidosNivan()">📦 Gestión <span class="badgeGestionNivan" id="badgeGestionNivan" hidden></span></button>
+        <button type="button" onclick="abrirMisVentas()">📦 Mis ventas</button>
+        <button type="button" onclick="abrirEstadisticasVentaNivan()">📊 Estadísticas de venta</button>
+        <button type="button" onclick="irATipoTrabajo()">🧵 Mi tipo de trabajo</button>
+        <button type="button" onclick="abrirPanelVacantesNivan()">👥 Vacantes disponibles de mi negocio</button>
+        <button type="button" id="botonHerramientasPremiumNivan" class="metalOroNivan" style="display:none;" onclick="abrirHerramientasPremiumNivan()">⭐ Herramientas premium</button>
+        <button type="button" id="botonMisCuponesVenderNivan" style="display:none;" onclick="abrirMisCuponesNivan()">🎟️ Mis cupones</button>
+                <button type="button" onclick="abrirHerramientasAvanzadasNivan()">Herramientas avanzadas <span class="patPildoraBeta">BETA</span></button>
+    </div>
+
+</div>
+
+<!-- MIS CUPONES (vendedor) -->
+
+<div class="pantallaCompleta" id="pantallaMisCupones">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaMisCupones')">← Volver</button>
+        <h2>🎟️ Mis cupones</h2>
+        <p>Creá códigos de descuento para tu tienda.</p>
+    </div>
+
+    <div class="avisoComisionCuponNivan" role="note">
+        <p class="tituloAvisoCuponNivan">ℹ️ Cómo impactan los cupones en tus cobros</p>
+        <ul>
+            <li><strong>El descuento lo asume tu tienda.</strong> Cada cupón se resta del total de la compra, por lo que el cliente paga ese monto reducido.</li>
+            <li><strong>La comisión se calcula sobre lo que efectivamente cobrás.</strong> Del total ya con el descuento aplicado se deduce el porcentaje de comisión de NIVAN, y el resto es tu ingreso neto.</li>
+            <li>Tené en cuenta este margen al definir el valor de cada cupón para mantener la rentabilidad de tus ventas.</li>
+        </ul>
+    </div>
+
+    <form id="formCuponNivan" class="formCuponNivan" onsubmit="event.preventDefault(); crearCuponNivan();">
+        <div class="campo">
+            <label for="codigoCuponNivan">Código</label>
+            <input type="text" id="codigoCuponNivan" placeholder="Ej: BIENVENIDA10" maxlength="20">
+        </div>
+
+        <div class="filaDosCamposCuponNivan">
+            <div class="campo">
+                <label for="tipoCuponNivan">Tipo de descuento</label>
+                <select id="tipoCuponNivan">
+                    <option value="porcentaje">Porcentaje (%)</option>
+                    <option value="monto">Monto fijo ($)</option>
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="valorCuponNivan">Valor</label>
+                <input type="number" id="valorCuponNivan" min="1" placeholder="Ej: 10">
+            </div>
+        </div>
+
+        <div class="filaDosCamposCuponNivan">
+            <div class="campo">
+                <label for="vigenciaCuponNivan">Vence el (opcional)</label>
+                <input type="date" id="vigenciaCuponNivan">
+            </div>
+
+            <div class="campo">
+                <label for="usosCuponNivan">Usos máximos (opcional)</label>
+                <input type="number" id="usosCuponNivan" min="1" placeholder="Sin límite">
+            </div>
+        </div>
+
+        <div class="campo">
+            <label for="alcanceCuponNivan">¿En qué publicaciones aplica?</label>
+            <select id="alcanceCuponNivan" onchange="alternarAlcanceCuponNivan()">
+                <option value="todas">En todas las publicaciones de mi tienda</option>
+                <option value="una">En una publicación específica</option>
+            </select>
+        </div>
+
+        <div class="campo" id="campoProductoCuponNivan" style="display:none;">
+            <label for="productoCuponNivan">Elegí la publicación</label>
+            <select id="productoCuponNivan"></select>
+        </div>
+
+        <div class="campo">
+            <label>¿Quién puede reclamarlo?</label>
+            <div id="audienciaCuponFormNivan"></div>
+        </div>
+
+        <button type="submit">Crear cupón</button>
+    </form>
+
+    <p class="etiquetaSeccionPerfilLateral">Tus cupones</p>
+    <div id="listaMisCuponesNivan"></div>
+
+</div>
+
+<!-- ESTADÍSTICAS DE VENTA -->
+
+<div class="pantallaCompleta" id="pantallaEstadisticasVenta">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaEstadisticasVenta')">← Volver</button>
+        <h2>📊 Estadísticas de venta</h2>
+        <p>Cuánto vendiste y cuánto visitan tus publicaciones.</p>
+    </div>
+
+    <div class="filaPeriodoEstadisticasNivan">
+        <button type="button" class="botonPeriodoEstadNivan" id="periodoEstad_7" onclick="cambiarPeriodoEstadisticasVentaNivan('7')">7 días</button>
+        <button type="button" class="botonPeriodoEstadNivan" id="periodoEstad_30" onclick="cambiarPeriodoEstadisticasVentaNivan('30')">30 días</button>
+        <button type="button" class="botonPeriodoEstadNivan" id="periodoEstad_todo" onclick="cambiarPeriodoEstadisticasVentaNivan('todo')">Todo</button>
+    </div>
+
+    <div id="contenidoEstadisticasVentaNivan"></div>
+
+</div>
+
+<!-- TUS CUPONES (comprador) -->
+
+<div class="pantallaCompleta" id="pantallaTusCupones">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaTusCupones')">← Volver</button>
+        <h2>🎟️ Tus cupones</h2>
+        <p>Guardá los códigos que te den tus vendedores favoritos.</p>
+    </div>
+
+    <div class="filaCuponGuardarNivan">
+        <input type="text" id="codigoCuponGuardarNivan" placeholder="Código de cupón" maxlength="20" onkeydown="if(event.key==='Enter'){event.preventDefault(); agregarCuponGuardadoNivan();}">
+        <button type="button" onclick="agregarCuponGuardadoNivan()">Guardar</button>
+    </div>
+
+    <div id="listaTusCuponesNivan"></div>
+
+</div>
+
+<!-- MIS PUBLICACIONES -->
+
+<div class="pantallaCompleta" id="pantallaMisPublicaciones">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaMisPublicaciones')">← Volver</button>
+        <h2>📋 Mis publicaciones</h2>
+        <p>Elegí qué publicaciones querés ver.</p>
+    </div>
+
+    <div class="filtroMisPublicaciones">
+        <button type="button" class="filtroMisPubBtn" id="filtroActivasBtn" onclick="filtrarMisPublicaciones('activas')">
+            Publicaciones activas
+        </button>
+        <button type="button" class="filtroMisPubBtn" id="filtroInactivasBtn" onclick="filtrarMisPublicaciones('inactivas')">
+            Publicaciones inactivas
+        </button>
+    </div>
+
+    <div id="listaMisPublicaciones"></div>
+
+    <p id="misPublicacionesVacio" class="misPublicacionesVacio">
+        No tenés publicaciones acá.
+    </p>
+
+</div>
+
+<!-- MIS COMENTARIOS (se abre desde Configuración) -->
+
+<div class="pantallaCompleta" id="pantallaActividad">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaActividad')">← Volver</button>
+        <h2>Mis comentarios</h2>
+    </div>
+
+    <div class="listaActividadNivan" id="listaActividadNivan"></div>
+
+</div>
+
+<!-- MIS COMPRAS -->
+
+<div class="pantallaCompleta" id="pantallaMisCompras">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaMisCompras')">← Volver</button>
+        <h2>🧾 Mis compras</h2>
+        <p>Seguí el estado de tus pedidos.</p>
+    </div>
+
+    <div class="listaVender">
+        <button type="button" onclick="abrirTusCuponesNivan()">🎟️ Tus cupones</button>
+    </div>
+
+    <div class="listaPedidosNivan" id="listaMisCompras"></div>
+
+</div>
+
+<!-- MIS VENTAS -->
+
+<div class="pantallaCompleta" id="pantallaMisVentas">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaMisVentas')">← Volver</button>
+        <h2>📦 Mis ventas</h2>
+        <p>Pedidos que te hicieron. Marcalos como enviados cuando los despaches.</p>
+    </div>
+
+    <div class="listaPedidosNivan" id="listaMisVentas"></div>
+
+</div>
+
+<!-- GESTIÓN DE PEDIDOS -->
+
+<div class="pantallaCompleta" id="pantallaGestionPedidos">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaGestionPedidos')">← Volver</button>
+        <h2>📦 Gestión</h2>
+        <p id="resumenGestionNivan"></p>
+    </div>
+
+    <div class="tabsGestionNivan" id="tabsGestionNivan" role="tablist"></div>
+
+    <div class="filtrosGestionNivan">
+        <input type="search" id="buscadorGestionNivan" placeholder="Buscar pedido o comprador" oninput="filtrarGestionNivan(this.value)">
+        <select id="ordenGestionNivan" onchange="ordenarGestionNivan(this.value)" aria-label="Ordenar">
+            <option value="recientes">Más recientes</option>
+            <option value="antiguos">Más antiguos</option>
+            <option value="monto">Mayor monto</option>
+        </select>
+    </div>
+
+    <div class="listaPedidosNivan" id="listaGestionNivan"></div>
+
+</div>
+
+<!-- PERFIL DE VENDEDOR -->
+
+<div class="pantallaCompleta" id="pantallaPerfilVendedor">
+
+    <div class="tituloPantallaCompleta filaTituloPerfilVendedorNivan">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaPerfilVendedor')">← Volver</button>
+        <button
+            type="button"
+            class="botonMasOpcionesPerfilVendedorNivan"
+            id="botonMasOpcionesPerfilVendedorNivan"
+            onclick="abrirMasOpcionesPerfilVendedorNivan()"
+            aria-label="Más opciones"
+            style="display:none;"
+        >⋮</button>
+    </div>
+
+    <div class="cabeceraPerfilVendedor" id="cabeceraFotoPerfilVendedor"></div>
+
+    <div>
+        <h2 id="nombrePerfilVendedor">Vendedor</h2>
+        <p id="idPerfilVendedor" class="subTextoPerfilLateral"></p>
+        <p id="reputacionPerfilVendedor" class="subTextoPerfilLateral"></p>
+        <p id="cantidadProductosVendedor"></p>
+        <p id="contadoresSeguidoresPerfilVendedorNivan" class="contadoresSeguidoresNivan"></p>
+    </div>
+
+    <div class="bioPerfilLateralContenedor" id="bioPerfilVendedorContenedor" style="display:none;">
+        <p class="bioPerfilLateralTexto">
+            <span class="etiquetaBioPerfilLateral">Bio de la tienda:</span>
+            <span id="bioPerfilVendedorTexto"></span>
+        </p>
+    </div>
+
+    <div class="accionesPerfilVendedorNivan" id="accionesPerfilVendedor"></div>
+
+    <div class="seccionCuponesPerfilNivan" id="cuponesPerfilVendedorNivan" style="display:none;"></div>
+
+    <div id="vacantesPerfilVendedorNivan"></div>
+
+    <section class="productos" id="productosVendedor"></section>
+
+    <div id="calificacionesPerfilVendedor"></div>
+
+</div>
+
+<!-- PERFIL PERSONAL (se abre desde la tienda si el dueño lo muestra) -->
+
+<div class="pantallaCompleta" id="pantallaPerfilPersonalNivan">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaPerfilPersonalNivan')">← Volver</button>
+    </div>
+
+    <div class="cabeceraPerfilVendedor" id="cabeceraPerfilPersonalNivan"></div>
+
+    <div>
+        <h2 id="nombrePerfilPersonalNivan">Perfil personal</h2>
+        <p id="idPerfilPersonalNivan" class="subTextoPerfilLateral"></p>
+    </div>
+
+    <div class="bioPerfilLateralContenedor" id="bioPerfilPersonalContenedorNivan" style="display:none;">
+        <p class="bioPerfilLateralTexto">
+            <span class="etiquetaBioPerfilLateral">Bio:</span>
+            <span id="bioPerfilPersonalTextoNivan"></span>
+        </p>
+    </div>
+
+    <div class="accionesPerfilVendedorNivan" id="accionesPerfilPersonalNivan"></div>
+
+    <p class="tituloPublicacionesPerfilLateral" id="tituloPortafolioPerfilPersonalNivan">Publicaciones</p>
+    <div id="portafolioPerfilPersonalNivan"></div>
+
+</div>
+
+<!-- CREAR PUBLICACIÓN -->
+
+<div class="pantallaCompleta" id="pantallaCrearPublicacion">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaCrearPublicacion')">← Volver</button>
+        <h2>🧾 Crear publicación nueva</h2>
+        <p>Completá los datos de tu prenda.</p>
+    </div>
+
+    <div class="avisoTipoTrabajoPublicacion" id="avisoTipoTrabajoPublicacion">
+        Cargá tu tipo de trabajo primero para saber qué talles podés ofrecer.
+    </div>
+
+    <div class="avisoObligatorioPublicacion">
+        ⚠️ Solo se pueden publicar prendas nuevas y en excelentes condiciones. No se venden prendas usadas.
+    </div>
+
+    <div class="campoPublicacion" id="campoOrigenPrendaPublicacion" style="display:none;">
+        <label for="origenPrendaPublicacion">Esta prenda, ¿es reventa o la fabricás vos?</label>
+        <select id="origenPrendaPublicacion" onchange="actualizarTallesSegunOrigenPublicacion()">
+            <option value="">Elegí una opción</option>
+            <option value="reventa">Es reventa (la compré para revenderla)</option>
+            <option value="fabricacion">La fabrico yo / mi taller</option>
+        </select>
+    </div>
+
+    <div class="campoPublicacion">
+        <label for="fotoPublicacion">Fotos y videos de la prenda</label>
+        <input type="file" id="fotoPublicacion" accept="image/*,video/*" multiple onchange="previsualizarFotoPublicacion(this)">
+        <p class="pistaEtiquetasPublicacion">
+            Podés subir varias fotos y también videos. Se pueden ir agregando de a uno o varios juntos; la primera foto va a ser la principal.
+        </p>
+        <div class="previewMediosPublicacion" id="previewMediosPublicacion"></div>
+    </div>
+
+    <div class="campoPublicacion">
+        <label for="nombrePublicacion">Nombre de la prenda</label>
+        <input type="text" id="nombrePublicacion" placeholder="Ej: Vestido Moonlight">
+    </div>
+
+    <div class="campoPublicacion">
+        <label for="marcaPublicacion">¿Qué marca es lo que estás vendiendo?</label>
+        <input type="text" id="marcaPublicacion" placeholder="Ej: Nivan Atelier">
+    </div>
+
+    <div class="campoPublicacion">
+        <label for="categoriaPublicacion">Categoría</label>
+        <select id="categoriaPublicacion">
+            <option value="">Elegí una opción</option>
+            <option value="Vestidos">Vestidos</option>
+            <option value="Tops">Tops</option>
+            <option value="Remeras">Remeras</option>
+            <option value="Pantalones">Pantalones</option>
+            <option value="Faldas">Faldas</option>
+            <option value="Camperas">Camperas</option>
+            <option value="Otro">Otro</option>
+        </select>
+    </div>
+
+    <div class="campoPublicacion">
+        <label for="precioPublicacion" id="etiquetaPrecioPublicacionNivan">Precio por menor / unidad (ARS)</label>
+        <input type="text" inputmode="numeric" id="precioPublicacion" placeholder="Ej: 45.000" oninput="formatearPrecioPublicacionInput(this)">
+    </div>
+
+    <div class="campoPublicacion">
+        <label for="tipoVentaPublicacion">¿Cómo vendés este producto?</label>
+        <select id="tipoVentaPublicacion" onchange="actualizarVisibilidadMayorPublicacion()">
+            <option value="menor">Por menor solamente</option>
+            <option value="menor_mayor">Por menor y por mayor</option>
+            <option value="mayor">Por mayor solamente</option>
+        </select>
+        <p class="pistaEtiquetasPublicacion">
+            Esto va a aparecer en tu publicación para que el comprador sepa cómo puede comprarte.
+        </p>
+    </div>
+
+    <div class="campoPublicacion" id="campoMayorPublicacion" style="display:none;">
+        <label for="cantidadMinimaMayorPublicacion">Cantidad mínima para venta mayorista</label>
+        <input type="number" id="cantidadMinimaMayorPublicacion" min="1" placeholder="Ej: 10">
+
+        <p class="pistaEtiquetasPublicacion pistaTramosMayorPublicacionNivan">
+            Agregá tramos de precio mayorista: a partir de cuántas unidades baja el precio por unidad, y cuántos días tardás en tener lista esa cantidad. Podés cargar varios tramos (ej: desde 10 unidades a $X en 3 días, desde 50 unidades a $Y en 15 días).
+            <span class="avisoLimitePrecioMayor" id="avisoLimitePrecioMayorNivan">Precio máximo por unidad: ARS 250.000</span>
+        </p>
+
+        <div class="filaTramoMayorPublicacion">
+            <input type="number" id="tramoCantidadInput" min="1" placeholder="Desde cuántas unid.">
+            <input type="text" inputmode="numeric" id="tramoPrecioInput" placeholder="Precio c/u" oninput="formatearPrecioPublicacionInput(this)">
+            <input type="number" id="tramoDiasInput" min="0" placeholder="Días para tenerla">
+            <button type="button" class="botonAgregarTramoMayor" onclick="agregarTramoMayorPublicacion()">Agregar</button>
+        </div>
+
+        <div class="listaTramosMayorPublicacion" id="listaTramosMayorPublicacion"></div>
+    </div>
+
+    <div class="campoPublicacion">
+        <label for="stockPublicacion">Stock disponible (unidades)</label>
+        <input type="number" id="stockPublicacion" min="0" placeholder="Ej: 5">
+    </div>
+
+    <div class="campoPublicacion">
+        <label for="diasPublicacion">¿Cuántos días tardás en tenerla lista?</label>
+        <input type="number" id="diasPublicacion" min="0" placeholder="Ej: 7">
+    </div>
+
+    <div class="campoPublicacion">
+        <label>Talles que ofrecés</label>
+        <div class="listaTallesPublicacion" id="listaTallesPublicacion">
+            <!-- Se arma con JS según el tipo de trabajo del usuario -->
+        </div>
+    </div>
+
+    <div class="campoPublicacion">
+        <label>Colores disponibles</label>
+
+        <p class="subtituloColoresPublicacion">Predeterminados</p>
+        <div class="listaColoresPublicacion" id="listaColoresPredeterminados">
+            <!-- Se arma con JS -->
+        </div>
+
+        <div id="bloqueColoresRecientes">
+            <p class="subtituloColoresPublicacion">Usados recientemente</p>
+            <div class="listaColoresPublicacion" id="listaColoresRecientes">
+                <!-- Se arma con JS -->
+            </div>
+        </div>
+
+        <p class="subtituloColoresPublicacion">O elegí cualquier tono</p>
+        <button
+            type="button"
+            class="ruedaColorBoton"
+            title="Elegir cualquier color"
+            onclick="abrirRuedaColorPublicacion()"
+        ></button>
+
+        <p class="subtituloColoresPublicacion">Colores elegidos para esta publicación</p>
+        <div class="chipsColoresElegidos" id="chipsColoresElegidosPublicacion">
+            <!-- Se arma con JS -->
+        </div>
+    </div>
+
+    <div class="campoPublicacion">
+        <label>Tabla de medidas</label>
+        <table class="tablaMedidasPublicacion" id="tablaMedidasPublicacion">
+            <thead>
+                <tr>
+                    <th>Talle</th>
+                    <th>Busto (cm)</th>
+                    <th>Cintura (cm)</th>
+                    <th>Cadera (cm)</th>
+                    <th>Largo (cm)</th>
+                </tr>
+            </thead>
+            <tbody id="cuerpoTablaMedidasPublicacion">
+                <!-- Se arma con JS según los talles tildados -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="campoPublicacion">
+        <label for="etiquetasPublicacion">Etiquetas / estilo (opcional)</label>
+        <input
+            type="text"
+            id="etiquetasPublicacion"
+            placeholder="Ej: #gotico #goticstyle #vestido"
+            oninput="forzarAlmohadillaEtiquetasPublicacion(this)"
+        >
+        <p class="pistaEtiquetasPublicacion">
+            Separalas con un espacio. Todas tienen que empezar con #: si escribís
+            una palabra sin #, se lo agregamos automáticamente. Se usan para
+            recomendar tu publicación en otras del mismo estilo.
+        </p>
+    </div>
+
+    <div class="campoPublicacion">
+        <label for="descripcionPublicacion">Descripción (opcional)</label>
+        <textarea id="descripcionPublicacion" maxlength="500" data-contador="1" placeholder="Contanos sobre esta prenda..."></textarea>
+        <p class="pistaEtiquetasPublicacion">No incluyas teléfonos, mails, redes sociales ni links: los compradores te escriben por el chat de NIVAN.</p>
+    </div>
+
+    <div class="campoPublicacion bloqueHistoriaPublicacionNivan">
+        <label>📜 Historia de esta prenda (opcional)</label>
+
+        <input type="text" id="historiaDisenadaPor" placeholder="Diseñada por">
+        <input type="text" id="historiaFabricadaPor" placeholder="Fabricada por">
+        <input type="text" id="historiaMateriales" placeholder="Materiales (Ej: algodón orgánico, lino)">
+        <label for="historiaFecha" class="subtituloHistoriaPublicacionNivan">Fecha de creación</label>
+        <input type="month" id="historiaFecha">
+        <input type="text" id="historiaTecnica" placeholder="Técnica (Ej: patchwork, crochet, bordado)">
+        <select id="historiaProduccion">
+            <option value="">Hecha a mano / producción / reventa</option>
+            <option value="mano">Hecha a mano</option>
+            <option value="produccion">Producción</option>
+            <option value="reventa">Reventa</option>
+        </select>
+    </div>
+
+    <button type="button" class="botonPantallaCompleta" onclick="publicarProducto()">
+        Publicar
+    </button>
+
+</div>
+
+<!-- RUEDA DE COLOR (elegir cualquier tono, estilo ibis paint) -->
+
+<div class="modalRuedaColor" id="modalRuedaColor">
+    <div class="contenidoRuedaColor">
+        <button type="button" class="cerrarRuedaColor" onclick="cerrarRuedaColorPublicacion()">×</button>
+        <h3>Elegí cualquier color</h3>
+
+        <div class="wrapRuedaColor">
+            <canvas id="canvasRuedaColor" width="220" height="220"></canvas>
+            <div class="marcadorRuedaColor" id="marcadorRuedaColor"></div>
+        </div>
+
+        <label class="labelBrilloRuedaColor" for="brilloRuedaColor">Brillo</label>
+        <input
+            type="range"
+            id="brilloRuedaColor"
+            min="0"
+            max="100"
+            value="85"
+            oninput="cambiarBrilloRuedaColor(this.value)"
+        >
+
+        <div class="previewRuedaColor">
+            <span class="puntoPreviewRuedaColor" id="puntoPreviewRuedaColor"></span>
+            <input
+                type="text"
+                id="hexRuedaColorInput"
+                maxlength="7"
+                placeholder="#RRGGBB"
+                oninput="actualizarDesdeHexRuedaColor(this.value)"
+            >
+        </div>
+
+        <input
+            type="text"
+            id="nombreRuedaColorInput"
+            placeholder="Nombre del color (opcional, se sugiere solo)"
+        >
+
+        <button type="button" class="botonAgregarRuedaColor" onclick="confirmarColorDeRueda()">
+            + Agregar este color
+        </button>
+    </div>
+</div>
+
+<!-- TÉRMINOS Y CONDICIONES -->
+
+<div class="pantallaCompleta" id="pantallaTerminos">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaTerminos')">← Volver</button>
+        <h2>📄 Términos y condiciones</h2>
+    </div>
+
+    <div class="textoLegalNivan" id="contenidoTerminosNivan"></div>
+
+</div>
+
+<!-- POLÍTICA DE PRIVACIDAD -->
+
+<div class="pantallaCompleta" id="pantallaPoliticaPrivacidadNivan">
+
+    <div class="tituloPantallaCompleta">
+        <button type="button" class="volverAtras" onclick="cerrarPantallaCompleta('pantallaPoliticaPrivacidadNivan')">← Volver</button>
+        <h2>🔒 Política de privacidad</h2>
+    </div>
+
+    <div class="textoLegalNivan" id="contenidoPoliticaPrivacidadNivan"></div>
+
+</div>
+
+<!-- CUENTA -->
+
+<div
+    class="modalCuenta"
+    id="modalCuenta">
+
+    <div class="contenidoCuenta">
+
+
+        <button type="button"
+            class="cerrarCuenta"
+            onclick="cerrarCuenta()">
+
+            ×
+
+        </button>
+
+
+        <div id="vistaLogin">
+
+
+            <h2>
+                Bienvenido a NIVAN
+            </h2>
+
+
+            <p>
+                Iniciá sesión para continuar.
+            </p>
+
+
+            <div class="campo">
+
+                <label>
+                    Email
+                </label>
+
+                <input
+                    type="email"
+                    id="loginEmail"
+                    placeholder="tu@email.com"
+                >
+
+            </div>
+
+
+            <div class="campo">
+
+                <label>
+                    Contraseña
+                </label>
+
+                <input
+                    type="password"
+                    id="loginPassword"
+                    placeholder="Tu contraseña"
+                >
+
+            </div>
+
+            <button
+                type="button"
+                class="linkOlvidoNivan"
+                onclick="mostrarRecuperarNivan()">
+                ¿Olvidaste tu contraseña?
+            </button>
+
+
+            <button type="button"
+                class="botonCuenta"
+                onclick="iniciarSesion()">
+
+                Iniciar sesión
+
+            </button>
+
+
+            <p class="textoCuenta">
+
+                ¿No tenés cuenta?
+
+                <button type="button"
+                    onclick="mostrarRegistro()">
+
+                    Registrarme
+
+                </button>
+
+            </p>
+
+        </div>
+
+
+
+
+        <!-- RECUPERAR CONTRASEÑA -->
+
+        <div id="vistaRecuperar" style="display:none;">
+
+            <h2>Recuperar contraseña</h2>
+
+            <div id="pasoRecuperar1">
+                <p>Escribí el email de tu cuenta y te damos un código para crear una contraseña nueva.</p>
+                <div class="campo">
+                    <label>Email</label>
+                    <input type="email" id="recuperarEmail" placeholder="tu@email.com" maxlength="60" autocomplete="email">
+                </div>
+                <button class="botonCuenta" type="button" onclick="enviarCodigoRecuperacionNivan()">Enviar código</button>
+            </div>
+
+            <div id="pasoRecuperar2" style="display:none;">
+                <div class="avisoCodigoNivan" id="avisoCodigoRecuperarNivan"></div>
+                <div class="campo">
+                    <label>Código de 6 dígitos</label>
+                    <input type="text" id="recuperarCodigo" inputmode="numeric" placeholder="000000" maxlength="6" autocomplete="one-time-code">
+                    <span class="pistaRecuperarNivan" id="avisoCodigoErrorNivan"></span>
+                </div>
+                <button class="botonCuenta" type="button" onclick="verificarCodigoRecuperacionNivan()">Verificar código</button>
+                <p class="textoCuenta"><button type="button" onclick="enviarCodigoRecuperacionNivan()">Reenviar código</button></p>
+            </div>
+
+            <div id="pasoRecuperar3" style="display:none;">
+                <p>Elegí tu contraseña nueva. Tiene que tener 8 caracteres, una mayúscula, un número y un símbolo.</p>
+                <div class="campo">
+                    <label>Contraseña nueva</label>
+                    <input type="password" id="recuperarPassNueva" maxlength="128" autocomplete="new-password" oninput="actualizarAvisosRecuperarNivan()">
+                    <span class="pistaRecuperarNivan" id="avisoRecuperarNuevaNivan"></span>
+                </div>
+                <div class="campo">
+                    <label>Repetir contraseña nueva</label>
+                    <input type="password" id="recuperarPassRepetir" maxlength="128" autocomplete="new-password" oninput="actualizarAvisosRecuperarNivan()">
+                    <span class="pistaRecuperarNivan" id="avisoRecuperarRepetirNivan"></span>
+                </div>
+                <button class="botonCuenta" type="button" id="botonRecuperarNivan" onclick="restablecerPasswordNivan()">Cambiar contraseña</button>
+            </div>
+
+            <p class="textoCuenta"><button type="button" onclick="mostrarLogin()">← Volver a iniciar sesión</button></p>
+
+        </div>
+
+
+        <!-- VERIFICACIÓN EN 2 PASOS (al iniciar sesión) -->
+
+        <div id="vistaDosPasos" style="display:none;">
+
+            <h2>Verificación en 2 pasos</h2>
+            <p>Abrí tu app de autenticación y escribí el código de 6 dígitos de NIVAN. Si no tenés el celular, usá un código de respaldo.</p>
+
+            <div class="campo">
+                <label>Código</label>
+                <input type="text" id="dosPasosCodigoLogin" placeholder="123456 o código de respaldo" maxlength="12" autocomplete="one-time-code" autocapitalize="characters">
+                <span class="pistaRecuperarNivan" id="avisoDosPasosLoginNivan"></span>
+            </div>
+
+            <button class="botonCuenta" type="button" onclick="verificarLogin2PasosNivan()">Verificar</button>
+
+            <p class="textoCuenta"><button type="button" onclick="cancelarVerificacion2PasosNivan()">← Cancelar</button></p>
+
+        </div>
+
+        <!-- REGISTRO -->
+
+        <div
+            id="vistaRegistro"
+            style="display:none;">
+
+
+            <h2>
+                Crear cuenta
+            </h2>
+
+
+            <div class="campo">
+
+                <label>
+                    Nombre y apellido
+                </label>
+
+                <input
+                    type="text"
+                    id="registroNombre"
+                    placeholder="Tu nombre completo"
+                >
+
+                <p class="avisoNombreDniNivan">⚠️ Poné tu nombre tal cual figura en tu <span class="docIdNivan">DNI</span>.</p>
+
+            </div>
+
+
+            <div class="campo">
+
+                <label>
+                    Email
+                </label>
+
+                <input
+                    type="email"
+                    id="registroEmail"
+                    placeholder="tu@email.com"
+                >
+
+            </div>
+
+
+            <div class="campo">
+
+                <label>
+                    Contraseña
+                </label>
+
+                <input
+                    type="password"
+                    id="registroPassword"
+                    placeholder="Creá una contraseña"
+                    oninput="actualizarMedidorPasswordNivan()"
+                >
+
+                <div class="medidorPasswordNivan" id="medidorPasswordNivan">
+                    <div class="barraPasswordNivan"><span id="barraPasswordNivan"></span></div>
+                    <span class="textoPasswordNivan" id="textoPasswordNivan"></span>
+                    <span class="faltaPasswordNivan" id="faltaPasswordNivan"></span>
+                </div>
+
+            </div>
+
+
+            <div class="campo">
+
+                <label>
+                    Foto de perfil
+                </label>
+
+                <input
+                    type="file"
+                    id="registroFoto"
+                    accept="image/*"
+                >
+
+            </div>
+
+
+            <p class="notaDocumentacionRegistroNivan">Documentación (opcional por ahora): podés cargar tu <span class="docIdNivan">DNI</span> y tu biometría facial ahora o más tarde.</p>
+
+            <div class="campo">
+                <label><span class="docIdNivan" data-mayus="1">DNI</span> (frente)</label>
+                <input type="file" id="registroFoto_dniFrente" accept="image/*" onchange="elegirFotoRegistroNivan('dniFrente', this)">
+                <span class="okFotoNivan" id="okFotoReg_dniFrente"></span>
+            </div>
+
+            <div class="campo">
+                <label><span class="docIdNivan" data-mayus="1">DNI</span> (dorso)</label>
+                <input type="file" id="registroFoto_dniDorso" accept="image/*" onchange="elegirFotoRegistroNivan('dniDorso', this)">
+                <span class="okFotoNivan" id="okFotoReg_dniDorso"></span>
+            </div>
+
+            <div class="campo">
+                <label>Biometría facial: sacate una selfie ahora</label>
+                <input type="file" id="registroFoto_rostro" accept="image/*" capture="user" onchange="elegirFotoRegistroNivan('rostro', this)">
+                <span class="okFotoNivan" id="okFotoReg_rostro"></span>
+            </div>
+
+
+            <button type="button"
+                class="botonCuenta"
+                id="botonCrearCuentaNivan"
+                disabled
+                onclick="registrarUsuario()">
+
+                Crear cuenta
+
+            </button>
+
+
+            <p class="textoCuenta">
+
+                ¿Ya tenés cuenta?
+
+                <button type="button"
+                    onclick="mostrarLogin()">
+
+                    Iniciar sesión
+
+                </button>
+
+            </p>
+
+
+        </div>
+
+
+        <!-- PERFIL -->
+
+        <div
+            id="vistaPerfil"
+            style="display:none;">
+
+
+            <h2>
+                Mi cuenta
+            </h2>
+
+
+            <div id="informacionUsuario">
+
+            </div>
+
+
+            <button type="button"
+                class="botonCuenta"
+                onclick="cerrarSesion()">
+
+                Cerrar sesión
+
+            </button>
+
+
+        </div>
+
+
+    </div>
+
+</div>
+  
+<div id="toastNivan"></div>
+
+  <!-- ==============================
+     EDITAR TALLE/COLOR DE UN ITEM DEL CARRITO
+     (pestaña más chica que sube desde abajo)
+================================ -->
+
+<div
+    class="overlayEditorCarrito"
+    id="overlayEditorCarrito"
+    onclick="if (event.target === this) cerrarEditorItemCarrito();"
+>
+    <div class="panelEditorCarrito" id="panelEditorCarrito">
+        <!-- Contenido armado dinámicamente por abrirEditorItemCarrito() -->
+    </div>
+</div>
+
+  <!-- ==============================
+     PREGUNTAS AL VENDEDOR
+================================ -->
+
+<div
+    class="overlayPreguntaVendedor"
+    id="overlayPreguntaVendedor"
+    onclick="if (event.target === this) cerrarPreguntaVendedor();"
+>
+    <div class="panelPreguntaVendedor">
+        <button type="button" class="cerrarPreguntaVendedorBtn" onclick="cerrarPreguntaVendedor()">×</button>
+
+        <h3>❓ Preguntas</h3>
+        <p class="nombreProductoPreguntaVendedor" id="nombreProductoPreguntaVendedor"></p>
+
+        <div id="listaPreguntasVendedor" class="listaPreguntasVendedor"></div>
+
+        <div class="formPreguntaVendedor" id="formPreguntaVendedor">
+            <textarea id="textoPreguntaVendedor" placeholder="Escribí tu pregunta para el vendedor..."></textarea>
+            <button type="button" onclick="enviarPreguntaVendedor()">Enviar pregunta</button>
+        </div>
+    </div>
+</div>
+
+  <!-- ==============================
+     REPORTAR PUBLICACIÓN O USUARIO
+================================ -->
+
+<div
+    class="overlayReporteNivan"
+    id="overlayReporteNivan"
+    onclick="if (event.target === this) cerrarReporteNivan();"
+>
+    <div class="panelReporteNivan">
+        <h3>🚩 Reportar</h3>
+        <p class="subReporteNivan" id="subReporteNivan"></p>
+
+        <div class="listaMotivosReporte" id="listaMotivosReporte"></div>
+
+        <textarea
+            id="detalleReporteNivan"
+            maxlength="300"
+            placeholder="Contanos más detalles (opcional)"
+        ></textarea>
+
+        <p class="avisoErrorReporteNivan" id="avisoErrorReporteNivan"></p>
+
+        <div class="botonesReporteNivan">
+            <button type="button" class="botonCancelarReporte" onclick="cerrarReporteNivan()">Cancelar</button>
+            <button type="button" class="botonEnviarReporte" onclick="enviarReporteNivan()">Enviar reporte</button>
+        </div>
+    </div>
+</div>
+
+  <!-- ==============================
+     COMPARTIR PUBLICACIÓN (respaldo manual)
+================================ -->
+
+<div
+    class="overlayCompartirNivan"
+    id="overlayCompartirNivan"
+    onclick="if (event.target === this) cerrarCompartirManual();"
+>
+    <div class="panelCompartirNivan">
+        <button type="button" class="cerrarCompartirBtn" onclick="cerrarCompartirManual()">×</button>
+
+        <h3>↗ Compartir publicación</h3>
+
+        <input type="text" id="textoCompartirManual" readonly onclick="this.select();">
+
+        <button type="button" class="botonCompartirWhatsapp" id="botonCompartirWhatsapp">📱 Compartir por WhatsApp</button>
+        <button type="button" onclick="copiarTextoCompartirManual()">📋 Copiar</button>
+    </div>
+</div>
+
+  <!-- ==============================
+     MODAL DETALLE DEL PRODUCTO
+================================ -->
+
+<div
+    class="modalProducto"
+    id="modalProducto"
+>
+
+    <div
+        class="contenidoProducto"
+        id="contenidoProducto"
+    >
+
+        <button type="button"
+            class="cerrarProducto"
+            onclick="cerrarProducto()"
+        >
+            ×
+        </button>
+
+        <!-- EL CONTENIDO SE GENERA CON JAVASCRIPT -->
+
+    </div>
+
+</div>
+
+<aside class="carrito" id="carrito">
+
+    <div class="carritoHeader">
+        <h2>Tu carrito</h2>
+
+        <button type="button" class="cerrar" id="cerrarCarrito">
+            ←
+        </button>
+    </div>
+
+    <div class="carritoAccionesNivan">
+        <div class="envolturaMenuCarritoNivan">
+            <button type="button" class="botonPuntosCarritoNivan" id="botonPuntosCarritoNivan" onclick="alternarMenuCarritoNivan()" aria-label="Más opciones" aria-haspopup="true">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="menuCarritoNivan" id="menuCarritoNivan">
+                <button type="button" onclick="abrirGuardadosDesdeCarritoNivan('pagos')">💳 Métodos de pago guardados</button>
+                <button type="button" onclick="abrirGuardadosDesdeCarritoNivan('direcciones')">📦 Direcciones de envío guardadas</button>
+            </div>
+        </div>
+        <button type="button" class="botonFavoritosCarritoNivan" onclick="irAFavoritosDesdeCarritoNivan()" aria-label="Favoritos">
+            <img src="https://i.imgur.com/i1upXhL.png" alt="">
+            <small>Favoritos (<span id="cantidadFavoritos">0</span>)</small>
+        </button>
+    </div>
+
+    <div id="carritoVacio">
+    <img src="https://i.imgur.com/vQByWDp.png" alt="Carrito vacío">
+
+    <div>
+        <h2>No tenés nada añadido al carrito</h2>
+        <p>Explorá NIVAN y encontrá algo que te guste.</p>
+    </div>
+    </div>
+
+    <div id="itemsCarrito"></div>
+
+    <div class="filaCuponCarritoNivan" id="filaCuponCarritoNivan" style="display:none;">
+        <input type="text" id="codigoCuponCarritoNivan" placeholder="Código de cupón" maxlength="20" onkeydown="if(event.key==='Enter'){event.preventDefault(); aplicarCuponCarritoNivan();}">
+        <button type="button" onclick="aplicarCuponCarritoNivan()">Aplicar</button>
+    </div>
+    <div class="cuponAplicadoCarritoNivan" id="cuponAplicadoCarritoNivan" style="display:none;"></div>
+    <p class="avisoCuponCarritoNivan" id="avisoCuponCarritoNivan" style="display:none;"></p>
+    <p class="lineaSinDescuentoNivan" id="lineaSinDescuentoNivan" style="display:none;"></p>
+    <p class="lineaDescuentoCuponNivan" id="lineaDescuentoCuponNivan" style="display:none;"></p>
+
+    <div class="total" id="totalContenedor">
+        Precio final: <span id="simboloTotalNivan">ARS </span><span id="total">0</span>
+    </div>
+    <p class="precioSinImpuestosNivan" id="precioSinImpuestosCarritoNivan" style="display:none;"></p>
+
+    <button type="button" id="comprarBtn">
+        Finalizar compra
+    </button>
+    <div class="checkoutForm" id="checkoutForm">
+
+        <div class="checkoutFormHeader">
+            <h3>Datos de compra</h3>
+
+            <button type="button" id="cerrarCheckout">
+                ×
+            </button>
+        </div>
+
+        <div class="campo">
+
+            <label for="nombreCompra">
+                Nombre y apellido
+            </label>
+
+            <input
+                type="text"
+                id="nombreCompra"
+                placeholder="Ej: Juan Pérez"
+            >
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="telefonoCompra">
+                Teléfono
+            </label>
+
+            <div class="telefonoCompraWrap">
+                <span class="prefijoTelefonoCompra" id="prefijoTelefonoCompra">+54 9</span>
+                <input
+                    type="tel"
+                    id="telefonoCompra"
+                    placeholder="Ej: 264 555 1234"
+                    autocomplete="off"
+                >
+            </div>
+            <small class="pistaTelefonoCompra" id="pistaTelefonoCompra"></small>
+            <small class="avisoTelefonoCompra" id="avisoTelefonoCompra"></small>
+
+        </div>
+
+
+<div class="campo">
+
+    <label for="emailCompra">
+        Correo electrónico
+    </label>
+
+    <input
+        type="email"
+        id="emailCompra"
+        placeholder="Ej: ejemplo@gmail.com"
+    >
+
+</div>
+     
+
+<div class="campo" id="campoDireccionGuardadaNivan" style="display:none;">
+            <label for="direccionGuardadaCompra">
+                Direcciones guardadas
+            </label>
+            <select id="direccionGuardadaCompra" onchange="aplicarDireccionGuardadaCompraNivan(this.value)">
+                <option value="">Escribir otra dirección</option>
+            </select>
+        </div>
+
+<div class="campo">
+            <label for="direccionCompra">
+                Dirección
+            </label>
+
+            <input
+                type="text"
+                id="direccionCompra"
+                placeholder="Calle y número"
+            >
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="ciudadCompra">
+                Ciudad
+            </label>
+
+            <input
+                type="text"
+                id="ciudadCompra"
+            >
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="codigoPostal">
+                Código postal
+            </label>
+
+            <input
+                type="text"
+                id="codigoPostal"
+            >
+
+        </div>
+
+
+        <button type="button" id="guardarDatosCompraBtn">
+            Guardar datos
+        </button>
+
+        <div class="estadoDatosCompra" id="estadoDatosCompra"></div>
+
+
+        <div class="campo">
+
+            <label for="envioCompra">
+                Método de envío
+            </label>
+
+            <select id="envioCompra">
+
+                <option value="">
+                    Elegir método de envío
+                </option>
+
+                <option value="Domicilio">
+                    Envío a domicilio
+                </option>
+
+                <option value="Retiro">
+                    Retiro en punto
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <div class="campo" id="campoMetodoPagoGuardadoNivan" style="display:none;">
+            <label for="metodoPagoGuardadoCompra">
+                Métodos de pago guardados
+            </label>
+            <select id="metodoPagoGuardadoCompra" onchange="aplicarMetodoPagoGuardadoCompraNivan(this.value)">
+                <option value="">Elegir uno guardado</option>
+            </select>
+        </div>
+
+<div class="campo">
+
+            <label for="pagoCompra">
+                Método de pago
+            </label>
+
+            <select id="pagoCompra">
+
+                <option value="">
+                    Elegir método de pago
+                </option>
+
+                <option value="Mercado Pago">
+                    Mercado Pago
+                </option>
+
+                <option value="Tarjeta">
+                    Tarjeta
+                </option>
+
+                <option value="Transferencia">
+                    Transferencia bancaria
+                </option>
+
+                <option value="Efectivo">
+                    Efectivo
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="notasCompra">
+                Notas del pedido
+            </label>
+
+            <textarea
+                id="notasCompra"
+                placeholder="Alguna indicación para el vendedor..."
+            ></textarea>
+
+        </div>
+
+
+        <button type="button" id="confirmarCompraBtn">
+            Confirmar compra
+        </button>
+
+
+        <div
+            class="pedidoExitoso"
+            id="pedidoExitoso">
+        </div>
+
+    </div>
+</aside>
+
+<!-- Selector de país: aparece la primera vez, antes de ver cualquier cosa -->
+<div id="selectorPaisNivan" class="selectorPaisNivan" role="dialog" aria-modal="true" aria-labelledby="tituloSelectorPaisNivan">
+    <div class="cajaSelectorPaisNivan">
+        <h2 id="tituloSelectorPaisNivan">Bienvenido a NIVAN</h2>
+        <p>Elegí tu país para ver las publicaciones de tu zona.</p>
+        <div class="opcionesPaisNivan">
+            <button type="button" class="sinSonidoClickNivan" onclick="elegirPaisNivan('AR')">
+                <span class="banderaPaisNivan">🇦🇷</span>
+                <span><strong>Argentina</strong><small>Pesos argentinos (ARS)</small></span>
+            </button>
+            <button type="button" class="sinSonidoClickNivan" onclick="elegirPaisNivan('UY')">
+                <span class="banderaPaisNivan">🇺🇾</span>
+                <span><strong>Uruguay</strong><small>Pesos uruguayos (UYU)</small></span>
+            </button>
+        </div>
+        <p class="notaSelectorPaisNivan">Después lo podés cambiar en Configuración › Moneda / País.</p>
+    </div>
+</div>
+
+
+<script src="js/01-base.js"></script>
+<script src="js/02-pedidos.js"></script>
+<script src="js/03-chat.js"></script>
+<script src="js/04-carrito-buscador.js"></script>
+<script src="js/05-seguidores-feed.js"></script>
+<script src="js/06-a-medida.js"></script>
+<script src="js/07-cuenta-config.js"></script>
+<script src="js/08-privacidad-chats.js"></script>
+<script src="js/09-verificacion-cuenta.js"></script>
+<script src="js/19-herramientas-premium.js"></script>
+<script src="js/20-mi-tienda.js"></script>
+<script src="js/21-patronaje-nucleo.js"></script>
+<script src="js/22-patronaje-pdf.js"></script>
+<script src="js/23-patronaje-ui.js"></script>
+<script src="js/10-publicaciones.js"></script>
+<script src="js/11-interfaz-resenas.js"></script>
+<script src="js/12-limites-archivos.js"></script>
+<script src="js/13-feed-perfil.js"></script>
+<script src="js/14-posts-edicion.js"></script>
+<script src="js/15-vacantes.js"></script>
+<script src="js/16-extras-nivan.js"></script>
+<script src="js/17-busqueda-perfiles-nivan.js"></script>
+<script src="js/18-notificaciones-nivan.js"></script>
+<script src="js/24-filtro-contacto-chat.js"></script>
+<script src="js/25-gestion-pedidos.js"></script>
+<script src="js/26-tutorial.js"></script>
+<script src="js/27-legal.js"></script>
+<script src="js/28-servidor.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); });
+}
+</script>
+
+
+</body>
+</html>
