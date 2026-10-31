@@ -21,3 +21,5 @@ services:
         sync: false
       - key: ADMIN_EMAILS
         sync: false
+      - key: ADMIN_CLAVE
+        sync: false

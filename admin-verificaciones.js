@@ -1,5 +1,5 @@
 // Página para que las personas de Nivan aprueben o rechacen identidades.
-// Hay que haber iniciado sesión en la app con un email que esté en ADMIN_EMAILS.
+// Hay que haber iniciado sesión en la app con un email que esté en ADMIN_EMAILS y además ingresar la clave del panel (ADMIN_CLAVE).
 async function api(ruta, cuerpo) {
     try {
         const r = await fetch(ruta, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo || {}) });
@@ -10,15 +10,36 @@ async function api(ruta, cuerpo) {
 }
 const NOMBRES = { dniFrente: "Documento (frente)", dniDorso: "Documento (dorso)", rostro: "Selfie" };
 const estado = document.getElementById("estado"), lista = document.getElementById("lista");
+const formClave = document.getElementById("formClave"), barra = document.getElementById("barra");
+
+formClave.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const campo = document.getElementById("clave");
+    const r = await api("/api/admin/entrar", { clave: campo.value });
+    campo.value = "";
+    if (!r.ok) { estado.textContent = r.error || "No se pudo entrar."; return; }
+    cargar();
+});
+document.getElementById("botonActualizar").onclick = function () { cargar(); };
+document.getElementById("botonMail").onclick = async function () {
+    estado.textContent = "Enviando mail de prueba…";
+    const r = await api("/api/admin/probar-email");
+    if (!r.ok) { estado.textContent = r.error || "No se pudo probar."; return; }
+    estado.textContent = (r.enviado ? "✅ " : "❌ ") + r.explicacion + (r.enviado ? " (enviado a " + r.para + ")" : "");
+};
+document.getElementById("botonSalir").onclick = async function () { await api("/api/admin/salir"); cargar(); };
 
 function texto(el, t) { el.textContent = t; return el; }
 
 async function cargar() {
     lista.innerHTML = "";
+    formClave.hidden = true; barra.hidden = true;
     const r = await api("/api/admin/verificaciones");
+    if (r.estado === 423) { estado.textContent = "Panel bloqueado."; formClave.hidden = false; document.getElementById("clave").focus(); return; }
     if (r.estado === 401) { estado.textContent = "Primero iniciá sesión en la app de Nivan con tu cuenta de administradora y volvé a esta página."; return; }
     if (r.estado === 403) { estado.textContent = "Esta cuenta no tiene permiso para revisar identidades."; return; }
     if (!r.ok) { estado.textContent = r.error || "Error."; return; }
+    barra.hidden = false;
     estado.textContent = r.pendientes.length ? r.pendientes.length + " pendiente(s)" : "No hay verificaciones pendientes.";
     r.pendientes.forEach(function (p) { lista.appendChild(tarjeta(p)); });
 }
@@ -26,7 +47,8 @@ async function cargar() {
 function tarjeta(p) {
     const div = document.createElement("div"); div.className = "tarjeta";
     const info = document.createElement("div");
-    info.textContent = p.email + " · enviada el " + new Date(p.enviada).toLocaleString("es-UY");
+    const horas = Math.floor((Date.now() - p.enviada) / 3600000);
+    info.textContent = p.email + " · enviada el " + new Date(p.enviada).toLocaleString("es-UY") + (horas >= 1 ? " (hace " + horas + " h)" : " (hace menos de 1 h)");
     const fotos = document.createElement("div"); fotos.className = "fotos";
     const acciones = document.createElement("div"); acciones.className = "acciones";
     const ver = document.createElement("button"); ver.className = "ver"; ver.textContent = "Ver fotos";

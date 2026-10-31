@@ -79,6 +79,18 @@ function emailValido(e) { return e.length <= 60 && e.indexOf('..') < 0 && REGEX_
 // Quiénes pueden revisar identidades: emails separados por coma en la variable ADMIN_EMAILS.
 const ADMINS = String(process.env.ADMIN_EMAILS || '').toLowerCase().split(',').map(function (x) { return x.trim(); }).filter(Boolean);
 function esAdmin(u) { return !!u && ADMINS.indexOf(String(u.email).toLowerCase()) >= 0; }
+
+// Segunda llave del panel: además de ser admin, hay que saber ADMIN_CLAVE (una clave compartida solo entre ustedes).
+// Sin ADMIN_CLAVE (mínimo 10 caracteres) el panel queda apagado. El desbloqueo dura 20 minutos desde el último uso.
+const ADMIN_CLAVE = String(process.env.ADMIN_CLAVE || '');
+const DESBLOQUEO_ADMIN = 20 * 60 * 1000;
+const desbloqueos = new Map();   // hash de la sesión → hasta cuándo está desbloqueado (se pierde si el servidor se reinicia: se vuelve a pedir la clave)
+function hashClave(t) { return crypto.createHash('sha256').update(String(t)).digest(); }
+function claveAdminCorrecta(t) { return ADMIN_CLAVE.length >= 10 && crypto.timingSafeEqual(hashClave(t), hashClave(ADMIN_CLAVE)); }
+setInterval(function () {
+    const ahora = Date.now();
+    desbloqueos.forEach(function (v, k) { if (v < ahora) desbloqueos.delete(k); });
+}, 600 * 1000).unref();
 function verificacionPublica(u) {
     const v = u.verificacion;
     return v ? { estado: v.estado, enviada: v.enviada, revisada: v.revisada || null, motivo: v.motivo || '', bloqueoReclamos: !!v.bloqueoReclamos } : null;
@@ -219,17 +231,45 @@ RUTAS['POST /api/password'] = async function (req, res) {
 const CODIGOS = new Map();
 const MIN_CODIGO = 10;
 function emailConfigurado() { return !!(process.env.BREVO_API_KEY && process.env.MAIL_DE); }
-async function enviarEmail(para, asunto, texto) {
-    if (!emailConfigurado()) return false;
+const BREVO_URL = process.env.BREVO_URL || 'https://api.brevo.com/v3/smtp/email';
+// Devuelve { ok, estado, detalle }. estado = código HTTP de Brevo (0 si ni siquiera se pudo conectar).
+async function enviarEmailDetalle(para, asunto, texto) {
+    if (!emailConfigurado()) return { ok: false, estado: -1, detalle: 'faltan variables' };
     try {
-        const r = await fetch('https://api.brevo.com/v3/smtp/email', {
+        const r = await fetch(BREVO_URL, {
             method: 'POST',
             headers: { 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify({ sender: { name: 'Nivan', email: process.env.MAIL_DE }, to: [{ email: para }], subject: asunto, textContent: texto })
+            body: JSON.stringify({ sender: { name: 'Nivan', email: process.env.MAIL_DE }, to: [{ email: para }], subject: asunto, textContent: texto }),
+            signal: AbortSignal.timeout(15000)
         });
-        if (!r.ok) console.error('Brevo respondió', r.status, await r.text().catch(function () { return ''; }));
-        return r.ok;
-    } catch (e) { console.error('No se pudo enviar el email:', e.message); return false; }
+        if (r.ok) return { ok: true, estado: r.status, detalle: '' };
+        const t = await r.text().catch(function () { return ''; });
+        console.error('Brevo respondió', r.status, t);
+        return { ok: false, estado: r.status, detalle: t.slice(0, 300) };
+    } catch (e) {
+        console.error('No se pudo enviar el email:', e.message);
+        return { ok: false, estado: 0, detalle: e.message };
+    }
+}
+async function enviarEmail(para, asunto, texto) { return (await enviarEmailDetalle(para, asunto, texto)).ok; }
+
+// Traduce el error de Brevo a algo que se pueda arreglar.
+function explicarFalloEmail(d) {
+    if (d.ok) return 'El mail se envió bien. Si no te llega, revisá spam/promociones.';
+    if (d.estado === -1) {
+        const faltan = ['BREVO_API_KEY', 'MAIL_DE'].filter(function (k) { return !process.env[k]; });
+        return 'Faltan variables en Render → Environment: ' + faltan.join(' y ') + '. Después de agregarlas hay que esperar a que Render vuelva a desplegar.';
+    }
+    if (d.estado === 0) return 'El servidor no pudo conectarse con Brevo (' + d.detalle + ').';
+    if (d.estado === 401 && /ip/i.test(d.detalle)) return 'Brevo está bloqueando la IP de Render. En Brevo: Security → Authorized IPs → "Deactivate blocking". (Render usa IPs que cambian, por eso conviene desactivarlo.)';
+    if (d.estado === 401) {
+        const k = String(process.env.BREVO_API_KEY || '');
+        return 'Brevo no acepta la API key.' + (k.indexOf('xkeysib-') === 0 ? ' Revisá que no haya espacios ni comillas al pegarla en Render, o creá otra.' : ' Tiene que ser una API key (empieza con "xkeysib-"), no una clave SMTP (empieza con "xsmtpsib-"). Se crea en Brevo → SMTP & API → pestaña "API Keys".');
+    }
+    if (d.estado === 400 && /sender/i.test(d.detalle)) return 'Brevo no acepta el remitente: MAIL_DE (' + process.env.MAIL_DE + ') tiene que estar agregado y verificado en Brevo → Senders, domains & dedicated IPs → Senders.';
+    if (d.estado === 402 || d.estado === 403) return 'Brevo no deja enviar: la cuenta todavía no está activada o tiene el envío bloqueado. Revisá el mail de Brevo y el aviso dentro de su panel.';
+    if (d.estado === 429) return 'Brevo dice que se pasaron del límite de envíos por ahora.';
+    return 'Brevo respondió ' + d.estado + ': ' + d.detalle;
 }
 function igualesSeguro(a, b) {
     const x = crypto.createHash('sha256').update(String(a)).digest(), y = crypto.createHash('sha256').update(String(b)).digest();
@@ -252,6 +292,7 @@ RUTAS['POST /api/recuperar/pedir'] = async function (req, res) {
         const enviado = await enviarEmail(email, 'Tu código de Nivan',
             'Tu código para recuperar la contraseña de Nivan es: ' + codigo + '\n\nVale ' + MIN_CODIGO + ' minutos. Si no lo pediste vos, ignorá este mensaje: tu cuenta sigue segura.');
         if (!enviado && !EN_RENDER) console.log('[desarrollo] Código de recuperación para ' + email + ': ' + codigo);
+        if (!enviado && EN_RENDER) console.error('[email] No se pudo enviar el código de recuperación. Probá el envío desde el panel de administración para ver el motivo.');
     } else {
         await seg.gastarTiempo(email);   // mismo tiempo de respuesta exista o no la cuenta
     }
@@ -322,12 +363,54 @@ RUTAS['POST /api/verificacion'] = async function (req, res) {
     responder(res, 200, { ok: true, verificacion: verificacionPublica({ verificacion: nueva }) });
 };
 
-async function soloAdmin(req, res) {
-    const u = await usuarioDeSesion(req);
+// sinClave=true solo lo usa la ruta que pide la clave. Todo lo demás exige: sesión + ser admin + panel desbloqueado.
+async function soloAdmin(req, res, sinClave) {
+    const sesion = await seg.sesionDe(req);
+    const u = sesion ? await db.usuarioPorId(sesion.usuarioId) : null;
     if (!u) { error(res, 401, 'No iniciaste sesión.'); return null; }
     if (!esAdmin(u)) { error(res, 403, 'No tenés permiso para esto.'); return null; }
+    if (!sinClave) {
+        const vence = desbloqueos.get(sesion.h);
+        if (!vence || vence < Date.now()) {
+            desbloqueos.delete(sesion.h);
+            responder(res, 423, { ok: false, bloqueado: true, error: 'Ingresá la clave del panel.' });
+            return null;
+        }
+        desbloqueos.set(sesion.h, Date.now() + DESBLOQUEO_ADMIN);
+    }
     return u;
 }
+RUTAS['POST /api/admin/entrar'] = async function (req, res) {
+    const u = await soloAdmin(req, res, true);
+    if (!u) return;
+    if (ADMIN_CLAVE.length < 10) return error(res, 503, 'El panel está apagado: falta configurar ADMIN_CLAVE (mínimo 10 caracteres) en Render.');
+    const espera = seg.limitar('adminclave:' + u.id, 5, 15 * 60 * 1000) || seg.limitar('adminclave-ip:' + seg.ipDe(req), 10, 15 * 60 * 1000);
+    if (espera) return error(res, 429, 'Demasiados intentos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' minuto(s).');
+    const b = await leerJSON(req);
+    if (!claveAdminCorrecta(String(b.clave == null ? '' : b.clave).slice(0, 200))) {
+        console.warn('[admin] clave incorrecta de ' + u.email + ' desde ' + seg.ipDe(req));
+        return error(res, 403, 'Clave incorrecta.');
+    }
+    seg.olvidar('adminclave:' + u.id);
+    const sesion = await seg.sesionDe(req);
+    desbloqueos.set(sesion.h, Date.now() + DESBLOQUEO_ADMIN);
+    console.log('[admin] ' + u.email + ' entró al panel');
+    responder(res, 200, { ok: true });
+};
+// Manda un mail de prueba SOLO a la cuenta del admin y le dice, en palabras, por qué falla si falla.
+RUTAS['POST /api/admin/probar-email'] = async function (req, res) {
+    const admin = await soloAdmin(req, res);
+    if (!admin) return;
+    const espera = seg.limitar('probarmail:' + admin.id, 5, 10 * 60 * 1000);
+    if (espera) return error(res, 429, 'Probaste muchas veces. Esperá unos minutos.');
+    const d = await enviarEmailDetalle(admin.email, 'Prueba de Nivan', 'Si estás leyendo esto, el envío de mails de Nivan funciona.');
+    responder(res, 200, { ok: true, enviado: d.ok, para: admin.email, explicacion: explicarFalloEmail(d) });
+};
+RUTAS['POST /api/admin/salir'] = async function (req, res) {
+    const sesion = await seg.sesionDe(req);
+    if (sesion) desbloqueos.delete(sesion.h);
+    responder(res, 200, { ok: true });
+};
 RUTAS['POST /api/admin/verificaciones'] = async function (req, res) {
     if (!(await soloAdmin(req, res))) return;
     responder(res, 200, { ok: true, pendientes: await db.verificacionesPendientes() });
@@ -340,7 +423,8 @@ RUTAS['POST /api/admin/verificacion/ver'] = async function (req, res) {
     responder(res, 200, { ok: true, fotos: fotos });
 };
 RUTAS['POST /api/admin/verificacion/resolver'] = async function (req, res) {
-    if (!(await soloAdmin(req, res))) return;
+    const admin = await soloAdmin(req, res);
+    if (!admin) return;
     const b = await leerJSON(req);
     const id = String(b.usuarioId || '');
     if (b.decision !== 'aprobada' && b.decision !== 'rechazada') return error(res, 400, 'Decisión inválida.');
@@ -352,6 +436,7 @@ RUTAS['POST /api/admin/verificacion/resolver'] = async function (req, res) {
         bloqueoReclamos: !!u.verificacion.bloqueoReclamos
     };
     await db.resolverVerificacion(id, nueva);
+    console.log('[admin] ' + admin.email + ' ' + b.decision + ' a ' + u.email);
     responder(res, 200, { ok: true });
 };
 

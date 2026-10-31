@@ -795,6 +795,7 @@ function mostrarPerfil() {
     `;
 
     actualizarBadgeNotificaciones();
+    mostrarBotonAdminNivan();
 }
 
 // ==============================

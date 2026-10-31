@@ -65,3 +65,14 @@ document.addEventListener("visibilitychange", function () {
 // Al abrir la app: si el servidor ya no reconoce la sesión, se cierra acá también.
 // Sin internet no se cierra nada: la app sigue abierta hasta que haya conexión.
 window.addEventListener("load", function () { refrescarSesionNivan(); });
+
+// Muestra "Revisar identidades" en Mi cuenta solo si el servidor dice que esta cuenta es de administración.
+// Es solo comodidad: el permiso real lo revisa el servidor en cada pedido.
+async function mostrarBotonAdminNivan() {
+    const b = document.getElementById("botonAdminNivan");
+    if (!b) return;
+    b.style.display = "none";
+    if (!usuarioActual) return;
+    const r = await apiNivan("/api/yo");
+    if (r.ok && r.usuario && r.usuario.admin && usuarioActual) b.style.display = "block";
+}

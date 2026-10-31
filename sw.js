@@ -1,6 +1,6 @@
 // NIVAN · Service worker: la app abre rápido y muestra algo aunque no haya internet.
 // Al cambiar archivos de la app, subí el número de VERSION para que todos reciban lo nuevo.
-const VERSION = 'nivan-v4';
+const VERSION = 'nivan-v5';
 const BASICOS = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', function (e) {
@@ -16,9 +16,12 @@ self.addEventListener('activate', function (e) {
 self.addEventListener('fetch', function (e) {
     const req = e.request, url = new URL(req.url);
     if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.indexOf('/api/') === 0) return;
+    if (url.pathname.indexOf('/admin-verificaciones') === 0) return;   // el panel de administración nunca se guarda ni se sirve sin internet
     if (req.mode === 'navigate') {   // páginas: primero internet, si falla lo guardado
+        const esInicio = url.pathname === '/' || url.pathname === '/index.html';
         e.respondWith(fetch(req).then(function (r) {
-            const copia = r.clone(); caches.open(VERSION).then(function (c) { c.put('/index.html', copia); }); return r;
+            if (esInicio) { const copia = r.clone(); caches.open(VERSION).then(function (c) { c.put('/index.html', copia); }); }
+            return r;
         }).catch(function () { return caches.match('/index.html'); }));
         return;
     }

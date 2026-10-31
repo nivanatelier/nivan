@@ -95,8 +95,22 @@ Las cuentas viejas creadas solo en un celular no pueden entrar: hay que registra
 Sin esas dos variables, "Olvidé mi contraseña" avisa que el envío no está configurado.
 En tu computadora (sin Render) el código aparece en la consola del servidor.
 
+## Si los mails de "Olvidé mi contraseña" no llegan
+La app siempre responde "te mandamos un código" aunque el envío falle (así nadie puede averiguar qué emails tienen cuenta).
+Para ver el error real: **Mi cuenta → Revisar identidades → clave del panel → "Probar envío de mails"**. Manda un mail de prueba a tu propio email y explica el motivo si falla. Causas más comunes:
+1. **Brevo bloquea la IP de Render** (error 401 "unrecognised IP"): Brevo → Security → Authorized IPs → *Deactivate blocking*.
+2. `BREVO_API_KEY` tiene que ser una **API key** (`xkeysib-...`), no una clave SMTP (`xsmtpsib-...`).
+3. `MAIL_DE` tiene que estar agregado y verificado en Brevo → Senders.
+4. Después de cambiar variables en Render hay que esperar a que termine de desplegar.
+5. Con un remitente @gmail.com Brevo cambia la dirección por una propia y el mail suele caer en **spam/promociones**. Para que llegue bien, usar un remitente de dominio propio.
+
 ## Revisar identidades (verificación manual)
 La app no analiza las fotos: las recibe y quedan "pendientes". Mientras tanto la persona ya puede vender.
-1. En Render → Environment agregá `ADMIN_EMAILS` con el email (o varios, separados por coma) de las cuentas de Nivan que van a revisar.
-2. Iniciá sesión en la app con esa cuenta y abrí `https://TU-APP.onrender.com/admin-verificaciones.html`.
-3. "Ver fotos" → Aprobar o Rechazar (con motivo). Al resolver, las fotos se borran del servidor.
+Para entrar al panel hacen falta **tres cosas**: cuenta con sesión iniciada, que su email esté en `ADMIN_EMAILS`, y la clave del panel (`ADMIN_CLAVE`).
+1. En Render → Environment agregá:
+   - `ADMIN_EMAILS` = los emails de las cuentas de Nivan que van a revisar, separados por coma (los dos).
+   - `ADMIN_CLAVE` = una clave larga (mínimo 10 caracteres) que sepan solo ustedes dos. Sin esta variable el panel queda apagado.
+2. Iniciá sesión en la app con tu cuenta → **Mi cuenta → Revisar identidades** (el botón solo aparece si sos admin).
+3. Ingresá la clave del panel. Queda abierto 20 minutos desde el último uso; "Cerrar panel" lo bloquea ya.
+4. "Ver fotos" → Aprobar o Rechazar (con motivo). Al resolver, las fotos se borran del servidor.
+5. Cada ingreso, clave incorrecta y decisión queda en los logs de Render. 5 claves incorrectas = bloqueo de 15 minutos.
