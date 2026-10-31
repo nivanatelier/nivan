@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Nivan · Revisar identidades</title>
+<style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0b0b0b; color: #f2f2f2; padding: 16px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    p.aviso { color: #aaa; margin: 4px 0 16px; font-size: 14px; }
+    .tarjeta { background: #161616; border: 1px solid #2a2a2a; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+    .tarjeta strong { display: block; font-size: 16px; }
+    .fotos { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+    .fotos figure { margin: 0; flex: 1 1 200px; }
+    .fotos img { width: 100%; border-radius: 8px; background: #000; }
+    .fotos figcaption { font-size: 12px; color: #aaa; margin-top: 4px; }
+    button { border: 0; border-radius: 8px; padding: 10px 16px; font-size: 15px; cursor: pointer; }
+    .ver { background: #2d2d2d; color: #fff; }
+    .si { background: #2e7d32; color: #fff; }
+    .no { background: #b3261e; color: #fff; }
+    .acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<h1>Revisar identidades</h1>
+<p class="aviso" id="estado">Cargando…</p>
+<div id="lista"></div>
+<script src="admin-verificaciones.js"></script>
+</body>
+</html>

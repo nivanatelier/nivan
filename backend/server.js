@@ -76,11 +76,19 @@ const REGEX_EMAIL = /^[a-z0-9](?:[a-z0-9._%+\-]*[a-z0-9])?@[a-z0-9](?:[a-z0-9\-]
 function emailValido(e) { return e.length <= 60 && e.indexOf('..') < 0 && REGEX_EMAIL.test(e); }
 
 // Lo único que sale del servidor: nunca el hash de la contraseña.
+// Quiénes pueden revisar identidades: emails separados por coma en la variable ADMIN_EMAILS.
+const ADMINS = String(process.env.ADMIN_EMAILS || '').toLowerCase().split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+function esAdmin(u) { return !!u && ADMINS.indexOf(String(u.email).toLowerCase()) >= 0; }
+function verificacionPublica(u) {
+    const v = u.verificacion;
+    return v ? { estado: v.estado, enviada: v.enviada, revisada: v.revisada || null, motivo: v.motivo || '', bloqueoReclamos: !!v.bloqueoReclamos } : null;
+}
 function usuarioPublico(u) {
     return {
         id: u.id, nombre: u.nombre, apodo: u.apodo || '', idPublico: u.idPublico, nombreTienda: u.nombreTienda || '',
         email: u.email, foto: u.foto || '', bio: u.bio || '', bioTrabajo: u.bioTrabajo || '', pais: u.pais || 'AR',
-        verificado: !!(u.verificacion && u.verificacion.estado === 'aprobada')
+        verificado: !!(u.verificacion && u.verificacion.estado === 'aprobada'),
+        verificacion: verificacionPublica(u), admin: esAdmin(u)
     };
 }
 async function usuarioDeSesion(req) {
@@ -288,6 +296,65 @@ RUTAS['POST /api/recuperar/restablecer'] = async function (req, res) {
     responder(res, 200, { ok: true });
 };
 
+// ------------------------------
+// Verificación de identidad: la app no analiza nada, solo recibe las fotos y una persona las aprueba o rechaza.
+// Mientras está "pendiente" ya se puede vender. Las fotos se borran al resolver.
+// ------------------------------
+const REGEX_FOTO_VERIF = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/;
+const FOTOS_VERIF = ['dniFrente', 'dniDorso', 'rostro'];
+
+RUTAS['POST /api/verificacion'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const espera = seg.limitar('verif:' + u.id, 6, 24 * 3600 * 1000);
+    if (espera) return error(res, 429, 'Enviaste muchas veces tus fotos. Probá de nuevo más tarde.');
+    if (u.verificacion && u.verificacion.estado === 'aprobada') return error(res, 400, 'Tu identidad ya está verificada.');
+    const b = await leerJSON(req, 14 * 1024 * 1024);
+    const fotos = {};
+    for (const k of FOTOS_VERIF) {
+        const v = b.fotos && b.fotos[k];
+        if (typeof v !== 'string' || v.length > 4500000 || !REGEX_FOTO_VERIF.test(v)) return error(res, 400, 'Falta una foto o el archivo no es una imagen válida.');
+        fotos[k] = v;
+    }
+    const previa = u.verificacion || {};
+    const nueva = { estado: 'pendiente', enviada: Date.now(), bloqueoReclamos: !!previa.bloqueoReclamos };
+    await db.guardarVerificacion(u.id, nueva, fotos);
+    responder(res, 200, { ok: true, verificacion: verificacionPublica({ verificacion: nueva }) });
+};
+
+async function soloAdmin(req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) { error(res, 401, 'No iniciaste sesión.'); return null; }
+    if (!esAdmin(u)) { error(res, 403, 'No tenés permiso para esto.'); return null; }
+    return u;
+}
+RUTAS['POST /api/admin/verificaciones'] = async function (req, res) {
+    if (!(await soloAdmin(req, res))) return;
+    responder(res, 200, { ok: true, pendientes: await db.verificacionesPendientes() });
+};
+RUTAS['POST /api/admin/verificacion/ver'] = async function (req, res) {
+    if (!(await soloAdmin(req, res))) return;
+    const b = await leerJSON(req);
+    const fotos = await db.fotosVerificacion(String(b.usuarioId || ''));
+    if (!fotos) return error(res, 404, 'Ya no hay fotos para esa persona.');
+    responder(res, 200, { ok: true, fotos: fotos });
+};
+RUTAS['POST /api/admin/verificacion/resolver'] = async function (req, res) {
+    if (!(await soloAdmin(req, res))) return;
+    const b = await leerJSON(req);
+    const id = String(b.usuarioId || '');
+    if (b.decision !== 'aprobada' && b.decision !== 'rechazada') return error(res, 400, 'Decisión inválida.');
+    const u = await db.usuarioPorId(id);
+    if (!u || !u.verificacion || u.verificacion.estado !== 'pendiente') return error(res, 404, 'Esa verificación ya no está pendiente.');
+    const nueva = {
+        estado: b.decision, enviada: u.verificacion.enviada, revisada: Date.now(),
+        motivo: b.decision === 'rechazada' ? String(b.motivo || 'No pudimos validar tus fotos.').slice(0, 200) : '',
+        bloqueoReclamos: !!u.verificacion.bloqueoReclamos
+    };
+    await db.resolverVerificacion(id, nueva);
+    responder(res, 200, { ok: true });
+};
+
 RUTAS['POST /api/eliminar-cuenta'] = async function (req, res) {
     const ip = seg.ipDe(req);
     const b = await leerJSON(req);
@@ -362,6 +429,9 @@ RUTAS['POST /api/publicaciones/guardar'] = async function (req, res) {
     if (!u) return error(res, 401, 'No iniciaste sesión.');
     const espera = seg.limitar('pub:' + u.id, 120, 3600 * 1000);
     if (espera) return error(res, 429, 'Demasiados cambios seguidos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+
+    const estadoVerif = u.verificacion && u.verificacion.estado;
+    if (estadoVerif !== 'aprobada' && estadoVerif !== 'pendiente') return error(res, 403, 'Primero enviá tu documentación para poder vender.');
 
     const b = await leerJSON(req, 40 * 1024 * 1024);
     const entrada = b.publicacion;

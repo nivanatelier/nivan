@@ -65,7 +65,13 @@ const MIGRACIONES = [
         datos      BYTEA NOT NULL,
         creado     BIGINT NOT NULL
     );
-    CREATE INDEX medios_usuario_idx ON medios (usuario_id);`
+    CREATE INDEX medios_usuario_idx ON medios (usuario_id);`,
+    // 3 · fotos de verificación de identidad (privadas: solo las ve quien revisa; se borran al resolver)
+    `CREATE TABLE verificaciones_fotos (
+        usuario_id TEXT PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+        fotos      JSONB NOT NULL,
+        enviada    BIGINT NOT NULL
+    );`
 ];
 
 async function migrar() {
@@ -154,6 +160,24 @@ async function sesionPorHash(h) {
 async function borrarSesion(h) { await pool.query('DELETE FROM sesiones WHERE h = $1', [h]); }
 async function limpiarVencidas() { await pool.query('DELETE FROM sesiones WHERE vence < $1', [Date.now()]); }
 async function borrarSesionesDeUsuario(id) { await pool.query('DELETE FROM sesiones WHERE usuario_id = $1', [id]); }
+async function guardarVerificacion(id, estado, fotos) {
+    await pool.query('UPDATE usuarios SET verificacion = $2 WHERE id = $1', [id, JSON.stringify(estado)]);
+    if (fotos) await pool.query(
+        'INSERT INTO verificaciones_fotos (usuario_id, fotos, enviada) VALUES ($1,$2,$3) ON CONFLICT (usuario_id) DO UPDATE SET fotos = $2, enviada = $3',
+        [id, JSON.stringify(fotos), Date.now()]);
+}
+async function verificacionesPendientes() {
+    const r = await pool.query("SELECT id, nombre, email, id_publico, verificacion FROM usuarios WHERE verificacion->>'estado' = 'pendiente' ORDER BY (verificacion->>'enviada')::bigint ASC LIMIT 200");
+    return r.rows.map(function (f) { return { id: f.id, nombre: f.nombre, email: f.email, idPublico: f.id_publico, enviada: f.verificacion.enviada }; });
+}
+async function fotosVerificacion(id) {
+    const r = await pool.query('SELECT fotos FROM verificaciones_fotos WHERE usuario_id = $1', [id]);
+    return r.rows[0] ? r.rows[0].fotos : null;
+}
+async function resolverVerificacion(id, estado) {
+    await pool.query('UPDATE usuarios SET verificacion = $2 WHERE id = $1', [id, JSON.stringify(estado)]);
+    await pool.query('DELETE FROM verificaciones_fotos WHERE usuario_id = $1', [id]);
+}
 async function cambiarPassword(id, hash) { await pool.query('UPDATE usuarios SET password_hash = $1 WHERE id = $2', [hash, id]); }
 // Borra la cuenta; las sesiones se van solas por ON DELETE CASCADE.
 async function eliminarUsuario(id) { await pool.query('DELETE FROM usuarios WHERE id = $1', [id]); }
@@ -204,6 +228,8 @@ module.exports = {
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,
     guardarMedio: guardarMedio, medioPorId: medioPorId, borrarMediosSobrantes: borrarMediosSobrantes,
     eliminarUsuario: eliminarUsuario,
+    guardarVerificacion: guardarVerificacion, verificacionesPendientes: verificacionesPendientes,
+    fotosVerificacion: fotosVerificacion, resolverVerificacion: resolverVerificacion,
     cambiarPassword: cambiarPassword, borrarSesionesDeUsuario: borrarSesionesDeUsuario,
     tipo: 'postgres', listo: listo, cerrar: cerrar,
     usuarioPorEmail: usuarioPorEmail, usuarioPorId: usuarioPorId, crearUsuario: crearUsuario,

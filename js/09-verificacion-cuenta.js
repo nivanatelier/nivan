@@ -172,35 +172,12 @@ async function compararRostroConDniNivan(fotoDni, fotoSelfie) {
 
 let fallosRostroNivan = {};
 
-// Analiza las fotos. { ok:true, verificacion, sinAnalisis? } o { ok:false, mensaje, repetir:[claves] }
+// La app no analiza las fotos: cualquier imagen se acepta y queda "pendiente" hasta que una persona de Nivan la revise.
 async function evaluarVerificacionNivan(fotos, previa) {
-    const analisis = await compararRostroConDniNivan(fotos.dniFrente, fotos.rostro);
-    const base = { estado: "pendiente", enviada: Date.now(), bloqueoReclamos: !!(previa && previa.bloqueoReclamos) };
-
-    if (analisis.resultado === "coincide") {
-        return { ok: true, verificacion: Object.assign(base, { biometria: "aprobada" }) };
-    }
-    if (analisis.resultado === "no_disponible") {
-        return { ok: true, sinAnalisis: true, verificacion: base };
-    }
-    if (analisis.resultado === "sin_rostro_dni" || analisis.resultado === "sin_rostro_selfie") {
-        const clave = analisis.resultado;
-        fallosRostroNivan[clave] = (fallosRostroNivan[clave] || 0) + 1;
-        if (fallosRostroNivan[clave] >= 2) {
-            fallosRostroNivan = {};
-            return { ok: true, revisionManual: true, verificacion: Object.assign(base, { biometria: "revision_manual" }) };
-        }
-        const dondeFalla = clave === "sin_rostro_dni"
-            ? "la foto de tu " + nombreDocumentoNivan() + " (frente)"
-            : "tu selfie";
-        return {
-            ok: false,
-            mensaje: "No pudimos encontrar tu cara en " + dondeFalla + ". Sacala de frente, con buena luz, sin gorra, anteojos oscuros ni reflejos, y que la cara ocupe buena parte de la foto. " +
-                "Si te vuelve a pasar, la enviamos para revisión manual.",
-            repetir: [clave === "sin_rostro_dni" ? "dniFrente" : "rostro"]
-        };
-    }
-    return { ok: false, mensaje: "Tu rostro no coincide con el de tu " + nombreDocumentoNivan() + ". Repetí la biometría facial.", repetir: ["rostro"] };
+    return {
+        ok: true, sinAnalisis: true,
+        verificacion: { estado: "pendiente", enviada: Date.now(), bloqueoReclamos: !!(previa && previa.bloqueoReclamos) }
+    };
 }
 
 function guardarFotosVerificacionDeNivan(idUsuario, fotos) {
@@ -250,15 +227,14 @@ function exigirVerificacionNivan() {
         abrirCuenta();
         return false;
     }
-    if (usuarioPuedeComprarNivan(usuarioActual.id)) return true;
 
     const u = obtenerUsuarioPorIdNivan(usuarioActual.id) || {};
-    if (u.verificacion && u.verificacion.estado === "pendiente") {
-        alert("Tu identidad está pendiente de revisión. Cuando se apruebe vas a poder publicar.");
-        return false;
-    }
+    const estado = u.verificacion ? u.verificacion.estado : "ninguna";
+    if (estado === "aprobada" || estado === "pendiente") return true;
 
-    alert("Para continuar tenés que verificar tu identidad.");
+    alert(estado === "rechazada"
+        ? "Tu verificación fue rechazada. Volvé a enviar tus fotos para poder vender."
+        : "Para vender tenés que enviar tu documentación.");
     abrirEstadoVerificacionNivan();
     return false;
 }
@@ -324,7 +300,6 @@ function abrirEstadoVerificacionNivan() {
         </div>
         <p class="subTextoPerfilLateral"><strong>¿Para qué sirve?</strong> Confirma que sos una persona real. Hace falta para comprar y publicar, y mantiene a NIVAN libre de cuentas falsas. Acá ves si tu ${nombreDocumentoNivan()} está pendiente, aprobado o rechazado.</p>
         ${cuerpo}
-        ${estado === "pendiente" ? htmlRevisionTemporalNivan() /* TEMPORAL */ : ""}
     `);
 }
 
@@ -365,30 +340,16 @@ async function enviarVerificacionNivan() {
     const idUsuario = usuarioActual.id;
     const fotos = Object.assign({}, fotosVerifNuevasNivan);
     const boton = document.getElementById("botonEnviarVerifNivan");
-    if (boton) { boton.disabled = true; boton.textContent = "Analizando…"; }
+    if (boton) { boton.disabled = true; boton.textContent = "Enviando…"; }
 
-    const previa = (obtenerUsuarioPorIdNivan(idUsuario) || {}).verificacion || null;
-    const evaluacion = await evaluarVerificacionNivan(fotos, previa);
-    if (!usuarioActual || usuarioActual.id !== idUsuario) return;
-
+    const r = await apiNivan("/api/verificacion", { fotos: fotos });
     if (boton) { boton.disabled = false; boton.textContent = "Enviar para revisión"; }
+    if (!usuarioActual || usuarioActual.id !== idUsuario) return;
+    if (!r.ok) { alert(r.error); return; }
 
-    if (!evaluacion.ok) {
-        alert(evaluacion.mensaje);
-        evaluacion.repetir.forEach(function(clave) {
-            limpiarFotoNivan("fotoVerif_" + clave, "okFoto_" + clave, fotosVerifNuevasNivan, clave);
-        });
-        return;
-    }
-
-    if (!guardarFotosVerificacionDeNivan(idUsuario, fotos)) {
-        alert("No se pudieron guardar las fotos: el almacenamiento del dispositivo está lleno.");
-        return;
-    }
-
-    actualizarUsuarioListaNivan(idUsuario, { verificacion: evaluacion.verificacion });
+    actualizarUsuarioListaNivan(idUsuario, { verificacion: r.verificacion });
     fotosVerifNuevasNivan = {};
-    if (evaluacion.sinAnalisis) alert("Recibimos tus fotos: quedaron pendientes de revisión.");
+    alert("Recibimos tus fotos. Ya podés vender mientras las revisamos.");
     abrirEstadoVerificacionNivan();
 }
 
@@ -417,39 +378,6 @@ function revisarVerificacionNivan(idUsuario, resultado, motivo) {
     });
     return true;
 }
-
-// ===== TEMPORAL: BORRAR CUANDO HAYA BACKEND (aceptar/rechazar la verificación desde la app) =====
-// También borrá la línea marcada con /* TEMPORAL */ en abrirEstadoVerificacionNivan.
-function htmlRevisionTemporalNivan() {
-    if (!usuarioActual) return "";
-    const f = fotosVerificacionDeNivan(usuarioActual.id) || {};
-    const fotos = FOTOS_VERIFICACION_NIVAN.map(function(x) {
-        return f[x.clave] ? `<img src="${f[x.clave]}" alt="${escaparHTMLNivan(x.titulo)}" style="width:32%;border-radius:8px;">` : "";
-    }).join("");
-    return `<div class="estadoVerificacionNivan" style="border-style:dashed;margin-top:16px;">
-        <strong>🛠️ Revisión (temporal)</strong>
-        <div style="display:flex;gap:6px;margin-top:8px;">${fotos}</div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-            <button type="button" class="botonAgregarGuardadoNivan" onclick="aprobarVerificacionTemporalNivan()">Aceptar</button>
-            <button type="button" class="botonAgregarGuardadoNivan zonaPeligroNivan" onclick="rechazarVerificacionTemporalNivan()">Rechazar</button>
-        </div>
-    </div>`;
-}
-
-function aprobarVerificacionTemporalNivan() {
-    if (!usuarioActual) return;
-    revisarVerificacionNivan(usuarioActual.id, "aprobada");
-    abrirEstadoVerificacionNivan();
-}
-
-function rechazarVerificacionTemporalNivan() {
-    if (!usuarioActual) return;
-    const motivo = prompt("Motivo del rechazo:", "las fotos no se pueden validar");
-    if (motivo === null) return;
-    revisarVerificacionNivan(usuarioActual.id, "rechazada", motivo);
-    abrirEstadoVerificacionNivan();
-}
-// ===== FIN TEMPORAL =====
 
 // ==============================
 // PERMISOS (ubicación, cámara y galería)

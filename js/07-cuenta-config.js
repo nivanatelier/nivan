@@ -617,7 +617,13 @@ async function registrarUsuario() {
         };
 
         usuarios.push(usuario);
-        if (!sinDocumentacion) guardarFotosVerificacionDeNivan(usuario.id, fotosRegistroNivan);
+        if (!sinDocumentacion) {
+            const rv = await apiNivan("/api/verificacion", { fotos: fotosRegistroNivan });
+            if (!rv.ok) {
+                usuario.verificacion = null;
+                alert("Tu cuenta se creó, pero no pudimos enviar las fotos: " + rv.error + " Enviálas de nuevo desde Privacidad y seguridad.");
+            }
+        }
         fotosRegistroNivan = {};
         guardarUsuariosNivan(usuarios);
         usuarioActual = {
@@ -691,6 +697,9 @@ async function iniciarSesion() {
         guardarUsuariosNivan(usuarios);
         usuario = obtenerUsuariosNivan().find(u => u.id === s.id);
     }
+    // El estado de la verificación lo decide el servidor (lo aprueba o rechaza una persona de Nivan).
+    sincronizarVerificacionNivan(r.usuario);
+    usuario = obtenerUsuariosNivan().find(u => u.id === r.usuario.id) || usuario;
 
     // Cuentas creadas antes de tener identificación única / apodo /
     // tienda: les completamos esos campos ahora, la primera vez que

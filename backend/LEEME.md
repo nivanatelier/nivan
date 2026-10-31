@@ -94,3 +94,9 @@ Las cuentas viejas creadas solo en un celular no pueden entrar: hay que registra
 4. En Render → tu servicio → Environment: `BREVO_API_KEY` = la clave, `MAIL_DE` = ese email verificado.
 Sin esas dos variables, "Olvidé mi contraseña" avisa que el envío no está configurado.
 En tu computadora (sin Render) el código aparece en la consola del servidor.
+
+## Revisar identidades (verificación manual)
+La app no analiza las fotos: las recibe y quedan "pendientes". Mientras tanto la persona ya puede vender.
+1. En Render → Environment agregá `ADMIN_EMAILS` con el email (o varios, separados por coma) de las cuentas de Nivan que van a revisar.
+2. Iniciá sesión en la app con esa cuenta y abrí `https://TU-APP.onrender.com/admin-verificaciones.html`.
+3. "Ver fotos" → Aprobar o Rechazar (con motivo). Al resolver, las fotos se borran del servidor.

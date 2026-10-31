@@ -9,7 +9,7 @@ const path = require('path');
 
 const DIR = process.env.NIVAN_DATOS || path.join(__dirname, 'datos');
 const ARCHIVO = path.join(DIR, 'db.json');
-const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [] };
+const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {} };
 const MAX_SESIONES_POR_USUARIO = 10;
 
 fs.mkdirSync(DIR, { recursive: true });
@@ -85,12 +85,32 @@ async function borrarSesionesDeUsuario(id) {
     datos.sesiones = datos.sesiones.filter(function (s) { return s.usuarioId !== id; });
     guardar();
 }
+async function guardarVerificacion(id, estado, fotos) {
+    const u = datos.usuarios.find(function (x) { return x.id === id; });
+    if (!u) return;
+    u.verificacion = estado;
+    if (fotos) datos.fotosVerif[id] = fotos;
+    guardar();
+}
+async function verificacionesPendientes() {
+    return datos.usuarios.filter(function (u) { return u.verificacion && u.verificacion.estado === 'pendiente'; })
+        .sort(function (a, b) { return a.verificacion.enviada - b.verificacion.enviada; }).slice(0, 200)
+        .map(function (u) { return { id: u.id, nombre: u.nombre, email: u.email, idPublico: u.idPublico, enviada: u.verificacion.enviada }; });
+}
+async function fotosVerificacion(id) { return datos.fotosVerif[id] || null; }
+async function resolverVerificacion(id, estado) {
+    const u = datos.usuarios.find(function (x) { return x.id === id; });
+    if (u) u.verificacion = estado;
+    delete datos.fotosVerif[id];
+    guardar();
+}
 async function cambiarPassword(id, hash) {
     const u = datos.usuarios.find(function (x) { return x.id === id; });
     if (u) { u.passwordHash = hash; guardar(); }
 }
 // Borra la cuenta, sus sesiones, publicaciones y fotos.
 async function eliminarUsuario(id) {
+    delete datos.fotosVerif[id];
     datos.usuarios = datos.usuarios.filter(function (u) { return u.id !== id; });
     datos.sesiones = datos.sesiones.filter(function (s) { return s.usuarioId !== id; });
     datos.publicaciones = datos.publicaciones.filter(function (p) { return p.vendedorId !== id; });
@@ -139,6 +159,8 @@ module.exports = {
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,
     guardarMedio: guardarMedio, medioPorId: medioPorId, borrarMediosSobrantes: borrarMediosSobrantes,
     eliminarUsuario: eliminarUsuario,
+    guardarVerificacion: guardarVerificacion, verificacionesPendientes: verificacionesPendientes,
+    fotosVerificacion: fotosVerificacion, resolverVerificacion: resolverVerificacion,
     cambiarPassword: cambiarPassword, borrarSesionesDeUsuario: borrarSesionesDeUsuario,
     tipo: 'archivo', DIR: DIR, listo: Promise.resolve(), cerrar: cerrar,
     usuarioPorEmail: usuarioPorEmail, usuarioPorId: usuarioPorId, crearUsuario: crearUsuario,
