@@ -95,6 +95,22 @@ Las cuentas viejas creadas solo en un celular no pueden entrar: hay que registra
 Sin esas dos variables, "Olvidé mi contraseña" avisa que el envío no está configurado.
 En tu computadora (sin Render) el código aparece en la consola del servidor.
 
+## Fotos y videos en Cloudinary (para que la base no se llene)
+La base gratis de Neon tiene 0,5 GB. Si se llena, Neon pausa **toda** la app (también el login). Por eso las fotos y videos de las
+publicaciones van a Cloudinary (plan gratis: 25 créditos al mes entre espacio, ancho de banda y transformaciones; no pide tarjeta).
+1. Creá una cuenta gratis en cloudinary.com.
+2. En su panel, buscá **API Keys** (Settings → API Keys) y copiá la línea **API environment variable**: `CLOUDINARY_URL=cloudinary://clave:secreto@nombre`.
+3. En Render → Environment agregá `CLOUDINARY_URL` con el valor `cloudinary://clave:secreto@nombre` (sin el `CLOUDINARY_URL=`). **No lo pegues en chats ni en GitHub: el secreto da acceso a tu cuenta.**
+4. Cuando Render termine de desplegar, publicá algo con foto: en Cloudinary tiene que aparecer en la carpeta `nivan`.
+- Si Cloudinary falla o no está configurado, las fotos se guardan en la base como respaldo.
+- Si se borra la publicación o la cuenta, sus fotos/videos se borran también de Cloudinary.
+- Las fotos del documento de identidad NUNCA van a Cloudinary: quedan en la base hasta que las revisan.
+- Las fotos que ya estaban en la base siguen funcionando; solo las nuevas van a Cloudinary.
+
+### Freno de seguridad del espacio
+Como red de seguridad, al pasar `LIMITE_ALMACEN_MB` (por defecto 350) la base deja de aceptar fotos/videos nuevos. Todo lo demás
+sigue andando. El panel de administración muestra cuántos MB se usan. Neon puede contar el espacio un poco distinto: revisá también su panel.
+
 ## Si los mails de "Olvidé mi contraseña" no llegan
 La app siempre responde "te mandamos un código" aunque el envío falle (así nadie puede averiguar qué emails tienen cuenta).
 Para ver el error real: **Mi cuenta → Revisar identidades → clave del panel → "Probar envío de mails"**. Manda un mail de prueba a tu propio email y explica el motivo si falla. Causas más comunes:

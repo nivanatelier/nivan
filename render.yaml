@@ -23,3 +23,7 @@ services:
         sync: false
       - key: ADMIN_CLAVE
         sync: false
+      - key: LIMITE_ALMACEN_MB
+        value: "350"
+      - key: CLOUDINARY_URL
+        sync: false

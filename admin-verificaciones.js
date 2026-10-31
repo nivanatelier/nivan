@@ -40,6 +40,11 @@ async function cargar() {
     if (r.estado === 403) { estado.textContent = "Esta cuenta no tiene permiso para revisar identidades."; return; }
     if (!r.ok) { estado.textContent = r.error || "Error."; return; }
     barra.hidden = false;
+    const espacio = document.getElementById("espacio");
+    if (r.almacen && r.almacen.esPostgres) {
+        espacio.textContent = "Espacio de la base: " + r.almacen.usadoMB + " MB usados. Al llegar a " + r.almacen.limiteMB + " MB se frena la subida de fotos y videos (la base gratis se llena a los ~512 MB).";
+        espacio.style.color = r.almacen.usadoMB > r.almacen.limiteMB * 0.8 ? "#ffb74d" : "#aaa";
+    } else { espacio.textContent = ""; }
     estado.textContent = r.pendientes.length ? r.pendientes.length + " pendiente(s)" : "No hay verificaciones pendientes.";
     r.pendientes.forEach(function (p) { lista.appendChild(tarjeta(p)); });
 }

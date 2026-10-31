@@ -413,7 +413,8 @@ RUTAS['POST /api/admin/salir'] = async function (req, res) {
 };
 RUTAS['POST /api/admin/verificaciones'] = async function (req, res) {
     if (!(await soloAdmin(req, res))) return;
-    responder(res, 200, { ok: true, pendientes: await db.verificacionesPendientes() });
+    const usado = await tamanoAlmacen();
+    responder(res, 200, { ok: true, pendientes: await db.verificacionesPendientes(), almacen: { usadoMB: Math.round(usado / 1048576), limiteMB: LIMITE_ALMACEN_MB, esPostgres: db.tipo === 'postgres' } });
 };
 RUTAS['POST /api/admin/verificacion/ver'] = async function (req, res) {
     if (!(await soloAdmin(req, res))) return;
@@ -457,6 +458,7 @@ RUTAS['POST /api/eliminar-cuenta'] = async function (req, res) {
     else await seg.gastarTiempo(password);
     if (!ok) return error(res, 401, 'Email o contraseña incorrectos.');
 
+    borrarQuitadosDeNube(await db.borrarMediosSobrantes(usuario.id, []));   // sus fotos/videos en Cloudinary también se borran
     await db.eliminarUsuario(usuario.id);
     seg.olvidar(claveEmail);
     responder(res, 200, { ok: true }, { 'Set-Cookie': seg.cookieBorrar(HTTPS) });
@@ -471,22 +473,105 @@ const MAX_PUBLICACIONES_POR_USUARIO = 200;
 const REGEX_DATA_URL = /^data:((?:image\/(?:png|jpeg|webp|gif))|(?:video\/(?:mp4|webm|quicktime)));base64,([A-Za-z0-9+\/=]+)$/;
 const REGEX_URL_MEDIO = /^\/api\/medio\/([a-f0-9]{24})$/;
 
-// Si es una foto/video en base64, la guarda aparte y devuelve su dirección corta.
+// Freno de seguridad del espacio: la base gratis (Neon) tiene 0,5 GB y al llenarse se pausa TODA la app (también el login).
+// Por eso, al pasar LIMITE_ALMACEN_MB (por defecto 350) ya no se aceptan fotos/videos nuevos; todo lo demás sigue andando.
+const LIMITE_ALMACEN_MB = Number(process.env.LIMITE_ALMACEN_MB || 350);
+let tamanoCache = { t: 0, bytes: 0 };
+async function tamanoAlmacen() {
+    if (Date.now() - tamanoCache.t > 60 * 1000) {
+        try { tamanoCache = { t: Date.now(), bytes: await db.tamanoBytes() }; }
+        catch (e) { console.error('No se pudo medir el espacio de la base:', e.message); tamanoCache.t = Date.now(); }
+    }
+    return tamanoCache.bytes;
+}
+async function almacenLleno() { return (await tamanoAlmacen()) > LIMITE_ALMACEN_MB * 1024 * 1024; }
+
+// ---- Cloudinary (fotos y videos fuera de la base) ----
+// Variables en Render: CLOUDINARY_URL (la que muestra el panel de Cloudinary, con forma cloudinary://clave:secreto@nombre)
+// o por separado CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET.
+// Sin eso, las fotos/videos se guardan en la base como antes (con el freno de espacio de arriba).
+// Las fotos del documento de identidad NUNCA van a Cloudinary: son privadas y quedan en la base hasta que se revisan.
+function leerConfigNube() {
+    let nombre = process.env.CLOUDINARY_CLOUD_NAME, clave = process.env.CLOUDINARY_API_KEY, secreto = process.env.CLOUDINARY_API_SECRET;
+    if (process.env.CLOUDINARY_URL) {
+        try {
+            const u = new URL(process.env.CLOUDINARY_URL.trim());
+            nombre = nombre || u.hostname; clave = clave || decodeURIComponent(u.username); secreto = secreto || decodeURIComponent(u.password);
+        } catch (e) { console.error('CLOUDINARY_URL no tiene el formato cloudinary://clave:secreto@nombre'); }
+    }
+    return nombre && clave && secreto ? { nombre: String(nombre).trim(), clave: String(clave).trim(), secreto: String(secreto).trim() } : null;
+}
+const NUBE = leerConfigNube();
+const NUBE_API = process.env.CLOUDINARY_API_BASE || 'https://api.cloudinary.com/v1_1';
+const REGEX_URL_NUBE = NUBE ? new RegExp('^https://res\\.cloudinary\\.com/' + NUBE.nombre.replace(/[^a-zA-Z0-9_-]/g, '') + '/(?:image|video)/upload/(?:v\\d+/)?nivan/([a-f0-9]{24})(?:\\.[a-z0-9]+)?$') : null;
+function firmarNube(params) {
+    const texto = Object.keys(params).sort().map(function (k) { return k + '=' + params[k]; }).join('&');
+    return crypto.createHash('sha1').update(texto + NUBE.secreto).digest('hex');
+}
+function tipoRecursoNube(mime) { return String(mime).indexOf('video/') === 0 ? 'video' : 'image'; }
+async function pedirANube(recurso, accion, params, extraForm) {
+    params.timestamp = Math.floor(Date.now() / 1000);
+    const fd = new FormData();
+    Object.keys(extraForm || {}).forEach(function (k) { fd.append(k, extraForm[k]); });
+    Object.keys(params).forEach(function (k) { fd.append(k, String(params[k])); });
+    fd.append('api_key', NUBE.clave);
+    fd.append('signature', firmarNube(params));
+    const r = await fetch(NUBE_API + '/' + NUBE.nombre + '/' + recurso + '/' + accion, { method: 'POST', body: fd, signal: AbortSignal.timeout(60000) });
+    const j = await r.json().catch(function () { return {}; });
+    return { ok: r.ok, estado: r.status, json: j };
+}
+async function subirANube(id, mime, b64) {
+    try {
+        const r = await pedirANube(tipoRecursoNube(mime), 'upload', { public_id: 'nivan/' + id }, { file: 'data:' + mime + ';base64,' + b64 });
+        if (!r.ok || !r.json.secure_url) { console.error('[nube] Cloudinary respondió', r.estado, JSON.stringify(r.json).slice(0, 300)); return null; }
+        return String(r.json.secure_url);
+    } catch (e) { console.error('[nube] No se pudo subir a Cloudinary:', e.message); return null; }
+}
+async function borrarDeNube(id, mime) {
+    if (!NUBE) return;
+    try {
+        const r = await pedirANube(tipoRecursoNube(mime), 'destroy', { public_id: 'nivan/' + id });
+        if (!r.ok) console.error('[nube] No se pudo borrar', id, r.estado, JSON.stringify(r.json).slice(0, 200));
+    } catch (e) { console.error('[nube] No se pudo borrar', id + ':', e.message); }
+}
+// Borra de Cloudinary lo que ya no usa ninguna publicación (sin hacer esperar a la persona).
+function borrarQuitadosDeNube(quitados) {
+    (quitados || []).forEach(function (m) { if (m.enNube) borrarDeNube(m.id, m.tipo); });
+}
+
+// Si es una foto/video en base64, la guarda aparte y devuelve su dirección.
 async function guardarMedioDesde(src, usuarioId, cuenta) {
     if (typeof src !== 'string' || !src) return '';
     if (REGEX_URL_MEDIO.test(src)) return src;
+    if (REGEX_URL_NUBE && REGEX_URL_NUBE.test(src)) return src;
     const m = REGEX_DATA_URL.exec(src);
     if (!m) return '';                                        // otra cosa (URL externa, texto): se descarta
     if (++cuenta.n > MAX_MEDIOS_POR_PUBLICACION) return '';
     const bytes = Buffer.from(m[2], 'base64');
     if (bytes.length > MAX_MEDIO || bytes.length === 0) return '';
     const id = crypto.randomBytes(12).toString('hex');
+    if (NUBE) {
+        const url = await subirANube(id, m[1], m[2]);
+        if (url && REGEX_URL_NUBE.test(url)) {
+            await db.guardarMedio({ id: id, usuarioId: usuarioId, tipo: m[1], b64: '', creado: Date.now() });   // registro vacío: sirve para saber de quién es y borrarlo después
+            return url;
+        }
+        console.error('[nube] Se guarda en la base como respaldo.');
+    }
+    if (await almacenLleno()) {
+        console.error('[almacenamiento] Base casi llena (límite ' + LIMITE_ALMACEN_MB + ' MB): se rechazó una foto/video.');
+        throw { estado: 507, mensaje: 'Por ahora no se pueden subir más fotos o videos. Probá de nuevo más tarde.' };
+    }
     await db.guardarMedio({ id: id, usuarioId: usuarioId, tipo: m[1], b64: m[2], creado: Date.now() });
     return '/api/medio/' + id;
 }
 function idsDeMedios(pub) {
     const ids = [];
-    const ver = function (s) { const m = typeof s === 'string' && REGEX_URL_MEDIO.exec(s); if (m) ids.push(m[1]); };
+    const ver = function (s) {
+        if (typeof s !== 'string') return;
+        const a = REGEX_URL_MEDIO.exec(s), b = REGEX_URL_NUBE && REGEX_URL_NUBE.exec(s);
+        if (a) ids.push(a[1]); else if (b) ids.push(b[1]);
+    };
     ver(pub.datos && pub.datos.imagen);
     ((pub.datos && pub.datos.medios) || []).forEach(function (x) { ver(x && x.src); });
     return ids;
@@ -495,7 +580,7 @@ async function limpiarMedios(usuarioId) {
     const todas = await db.publicacionesDeUsuario(usuarioId);
     const usados = [];
     todas.forEach(function (p) { idsDeMedios(p).forEach(function (i) { usados.push(i); }); });
-    await db.borrarMediosSobrantes(usuarioId, usados);
+    borrarQuitadosDeNube(await db.borrarMediosSobrantes(usuarioId, usados));
 }
 
 RUTAS['GET /api/publicaciones'] = async function (req, res) {
@@ -564,7 +649,7 @@ RUTAS['POST /api/publicaciones/eliminar'] = async function (req, res) {
 
 async function servirMedio(req, res, id) {
     const m = await db.medioPorId(id);
-    if (!m) return error(res, 404, 'No encontrado.');
+    if (!m || !m.bytes || !m.bytes.length) return error(res, 404, 'No encontrado.');
     res.writeHead(200, Object.assign({ 'Content-Type': m.tipo, 'Content-Length': m.bytes.length }, CABECERAS_SEGURIDAD,
         { 'Cache-Control': 'public, max-age=31536000, immutable' }));
     res.end(req.method === 'HEAD' ? undefined : m.bytes);

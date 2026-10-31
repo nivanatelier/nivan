@@ -215,8 +215,14 @@ async function medioPorId(id) {
     const r = await pool.query('SELECT tipo, datos FROM medios WHERE id = $1', [id]);
     return r.rows[0] ? { tipo: r.rows[0].tipo, bytes: r.rows[0].datos } : null;
 }
+// Devuelve lo que borró. enNube = el archivo vive en Cloudinary (en la base solo queda un registro vacío).
 async function borrarMediosSobrantes(usuarioId, usados) {
-    await pool.query('DELETE FROM medios WHERE usuario_id = $1 AND NOT (id = ANY($2::text[]))', [usuarioId, usados]);
+    const r = await pool.query('DELETE FROM medios WHERE usuario_id = $1 AND NOT (id = ANY($2::text[])) RETURNING id, tipo, octet_length(datos) AS n', [usuarioId, usados]);
+    return r.rows.map(function (f) { return { id: f.id, tipo: f.tipo, enNube: +f.n === 0 }; });
+}
+async function tamanoBytes() {
+    const r = await pool.query('SELECT pg_database_size(current_database()) AS n');
+    return +r.rows[0].n;
 }
 async function cerrar() { await pool.end(); }
 
@@ -231,7 +237,7 @@ module.exports = {
     guardarVerificacion: guardarVerificacion, verificacionesPendientes: verificacionesPendientes,
     fotosVerificacion: fotosVerificacion, resolverVerificacion: resolverVerificacion,
     cambiarPassword: cambiarPassword, borrarSesionesDeUsuario: borrarSesionesDeUsuario,
-    tipo: 'postgres', listo: listo, cerrar: cerrar,
+    tipo: 'postgres', listo: listo, cerrar: cerrar, tamanoBytes: tamanoBytes,
     usuarioPorEmail: usuarioPorEmail, usuarioPorId: usuarioPorId, crearUsuario: crearUsuario,
     crearSesion: crearSesion, sesionPorHash: sesionPorHash, borrarSesion: borrarSesion, limpiarVencidas: limpiarVencidas
 };

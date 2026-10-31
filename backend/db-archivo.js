@@ -150,11 +150,18 @@ async function medioPorId(id) {
     return m ? { tipo: m.tipo, bytes: Buffer.from(m.b64, 'base64') } : null;
 }
 async function borrarMediosSobrantes(usuarioId, usados) {
-    const antes = datos.medios.length;
-    datos.medios = datos.medios.filter(function (m) { return m.usuarioId !== usuarioId || usados.indexOf(m.id) >= 0; });
-    if (datos.medios.length !== antes) guardar();
+    const quitados = datos.medios.filter(function (m) { return m.usuarioId === usuarioId && usados.indexOf(m.id) < 0; });
+    if (quitados.length) {
+        datos.medios = datos.medios.filter(function (m) { return quitados.indexOf(m) < 0; });
+        guardar();
+    }
+    return quitados.map(function (m) { return { id: m.id, tipo: m.tipo, enNube: !m.b64 }; });
 }
+// Tamaño aproximado de los datos (en esta modalidad solo sirve para probar).
+async function tamanoBytes() { return Buffer.byteLength(JSON.stringify(datos)); }
+
 module.exports = {
+    tamanoBytes: tamanoBytes,
     publicacionPorId: publicacionPorId, publicacionesDeUsuario: publicacionesDeUsuario, publicacionesPorPais: publicacionesPorPais,
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,
     guardarMedio: guardarMedio, medioPorId: medioPorId, borrarMediosSobrantes: borrarMediosSobrantes,
