@@ -9,7 +9,7 @@ const path = require('path');
 
 const DIR = process.env.NIVAN_DATOS || path.join(__dirname, 'datos');
 const ARCHIVO = path.join(DIR, 'db.json');
-const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [], chats: [], chatMensajes: [] };
+const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [], chats: [], chatMensajes: [], resenias: [] };
 const MAX_SESIONES_POR_USUARIO = 10;
 
 fs.mkdirSync(DIR, { recursive: true });
@@ -113,11 +113,36 @@ async function fijarBaneo(id, baneo) {
     if (baneo) u.baneo = baneo; else delete u.baneo;
     guardar();
 }
+async function fijarDesactivada(id, ts) {
+    const u = datos.usuarios.find(function (x) { return x.id === id; });
+    if (!u) return;
+    if (ts) u.desactivada = ts; else delete u.desactivada;
+    guardar();
+}
 async function idsBaneados() {
     const ahora = Date.now();
     return datos.usuarios.filter(function (u) {
+        if (u.desactivada) return true;   // desactivada por su dueña/o: sus publicaciones no se muestran
         return u.baneo && u.baneo.alcance !== 'comprar' && (u.baneo.permanente || (u.baneo.hasta || 0) > ahora);   // suspensión solo para comprar: no oculta publicaciones
     }).map(function (u) { return u.id; });
+}
+// ---- Reseñas ----
+// Reseña: { id, publicacionId, usuarioId, nombre, estrellas, texto, fecha, borrada }
+async function reseniasPublicas(pais, limite) {
+    return datos.resenias.filter(function (x) {
+        if (x.borrada) return false;
+        const p = datos.publicaciones.find(function (q) { return q.id === x.publicacionId; });
+        return !!p && (!pais || p.pais === pais);
+    }).sort(function (a, b) { return a.fecha - b.fecha; }).slice(0, limite);
+}
+async function reseniasDeUsuarioEn(publicacionId, usuarioId) {
+    return datos.resenias.filter(function (x) { return x.publicacionId === publicacionId && x.usuarioId === usuarioId; });
+}
+async function reseniaPorId(id) { return datos.resenias.find(function (x) { return x.id === id; }) || null; }
+async function crearResenia(x) { datos.resenias.push(Object.assign({ borrada: null }, x)); guardar(); }
+async function borrarResenia(id, ts) {
+    const x = datos.resenias.find(function (y) { return y.id === id; });
+    if (x) { x.borrada = ts; guardar(); }
 }
 // ---- Reportes ----
 async function crearReporte(r) {
@@ -185,6 +210,8 @@ async function eliminarUsuario(id) {
     delete datos.dispositivos[id];
     datos.usuarios = datos.usuarios.filter(function (u) { return u.id !== id; });
     datos.sesiones = datos.sesiones.filter(function (s) { return s.usuarioId !== id; });
+    const idsPubs = datos.publicaciones.filter(function (p) { return p.vendedorId === id; }).map(function (p) { return p.id; });
+    datos.resenias = datos.resenias.filter(function (x) { return x.usuarioId !== id && idsPubs.indexOf(x.publicacionId) < 0; });
     datos.publicaciones = datos.publicaciones.filter(function (p) { return p.vendedorId !== id; });
     datos.medios = datos.medios.filter(function (m) { return m.usuarioId !== id; });
     const idsChats = datos.chats.filter(function (c) { return c.aId === id || c.bId === id; }).map(function (c) { return c.id; });
@@ -222,6 +249,7 @@ async function guardarPublicacion(pub) {
 }
 async function eliminarPublicacion(id) {
     datos.publicaciones = datos.publicaciones.filter(function (p) { return p.id !== id; });
+    datos.resenias = datos.resenias.filter(function (x) { return x.publicacionId !== id; });
     guardar();
 }
 async function guardarMedio(m) {   // m: { id, usuarioId, tipo, b64, creado }
@@ -266,9 +294,10 @@ async function tamanoBytes() { return Buffer.byteLength(JSON.stringify(datos)); 
 module.exports = {
     chatPorId: chatPorId, guardarChat: guardarChat, mensajePorId: mensajePorId, agregarMensaje: agregarMensaje, actualizarMensaje: actualizarMensaje,
     chatsDeUsuarioDesde: chatsDeUsuarioDesde, mensajesDeUsuarioDesde: mensajesDeUsuarioDesde,
+    reseniasPublicas: reseniasPublicas, reseniasDeUsuarioEn: reseniasDeUsuarioEn, reseniaPorId: reseniaPorId, crearResenia: crearResenia, borrarResenia: borrarResenia,
     pedidoPorId: pedidoPorId, pedidosDeUsuario: pedidosDeUsuario, crearPedidos: crearPedidos, guardarPedido: guardarPedido,
     crearReporte: crearReporte, reportesDeObjetivo: reportesDeObjetivo, contarReportesDeCuenta: contarReportesDeCuenta, cerrarReportes: cerrarReportes,
-    usuarioPorIdPublico: usuarioPorIdPublico, fijarBaneo: fijarBaneo, idsBaneados: idsBaneados,
+    usuarioPorIdPublico: usuarioPorIdPublico, fijarBaneo: fijarBaneo, fijarDesactivada: fijarDesactivada, idsBaneados: idsBaneados,
     tamanoBytes: tamanoBytes,
     publicacionPorId: publicacionPorId, publicacionesDeUsuario: publicacionesDeUsuario, publicacionesPorPais: publicacionesPorPais,
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,

@@ -375,7 +375,7 @@ function registrarInfraccionRedSocialNivan(idUsuario) {
 function revisarMensajeChatNivan(chat, idEmisor, texto, ladoEmisor, ladoReceptor, sinTiendas, idReceptor) {
     // Chats con las cuentas de Nivan (administración): sin ninguna restricción, en los dos sentidos.
     // Así la gente puede mandarnos su número o su red para resolver un reclamo, y nosotros también.
-    if (esAdminNivan(idEmisor) || esAdminNivan(idReceptor)) return null;
+    if (esIdAdminNivan(idEmisor) || esIdAdminNivan(idReceptor)) return null;
 
     const suspension = textoSuspensionChatNivan(idEmisor);
     if (suspension) return suspension;
@@ -412,7 +412,9 @@ function revisarMensajeChatNivan(chat, idEmisor, texto, ladoEmisor, ladoReceptor
 // El servidor dice cuáles son (solo ids, nunca emails). Se guarda una copia para que ande también sin internet.
 const CLAVE_ADMINS_NIVAN = "nivanAdminIds";
 
-function esAdminNivan(idUsuario) {
+// ¿Esta cuenta (por su id) es de administración? OJO: no se llama esAdminNivan porque ese nombre es el de 28-servidor.js
+// (¿la cuenta con sesión es admin?) y, al cargarse después, pisaba a esta y rompía la excepción del chat.
+function esIdAdminNivan(idUsuario) {
     if (!idUsuario) return false;
     const ids = leerJSONNivan(CLAVE_ADMINS_NIVAN, []);
     return Array.isArray(ids) && ids.indexOf(idUsuario) !== -1;

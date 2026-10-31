@@ -728,6 +728,12 @@ async function iniciarSesion() {
     sincronizarVerificacionNivan(r.usuario);
     usuario = obtenerUsuariosNivan().find(u => u.id === r.usuario.id) || usuario;
 
+    // Si la cuenta quedó desactivada desde otro dispositivo, acá también hay que preguntar si se reactiva.
+    if (r.usuario.desactivada && !usuario.desactivada) {
+        actualizarUsuarioListaNivan(usuario.id, { desactivada: r.usuario.desactivada });
+        usuario = Object.assign({}, usuario, { desactivada: r.usuario.desactivada });
+    }
+
     // Cuentas creadas antes de tener identificación única / apodo /
     // tienda: les completamos esos campos ahora, la primera vez que
     // inician sesión, sin pisar nada de lo que ya tenían.
@@ -751,7 +757,7 @@ async function iniciarSesion() {
 
 // Deja la sesión abierta una vez que la contraseña (y, si la tiene
 // activada, la verificación en 2 pasos) salió bien.
-function completarInicioSesionNivan(usuario) {
+async function completarInicioSesionNivan(usuario) {
     let reactivadaNivan = null;
 
     if (usuario.desactivada || usuario.eliminacionProgramada) {
@@ -760,6 +766,14 @@ function completarInicioSesionNivan(usuario) {
             ? "Tu cuenta está programada para eliminarse el " + new Date(usuario.eliminacionProgramada).toLocaleDateString("es-AR") + ". ¿Querés cancelar la eliminación y recuperarla?"
             : "Tu cuenta está desactivada. ¿Querés reactivarla?";
         if (!confirm(pregunta)) {
+            apiNivan("/api/logout", {});   // no la reactiva: se cierra la sesión que acaba de abrir el servidor
+            mostrarLogin();
+            return;
+        }
+        const reac = await apiNivan("/api/reactivar", {});
+        if (!reac.ok) {
+            alert(reac.error || "No se pudo reactivar la cuenta. Probá de nuevo.");
+            apiNivan("/api/logout", {});
             mostrarLogin();
             return;
         }

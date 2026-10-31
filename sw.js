@@ -1,6 +1,6 @@
 // NIVAN · Service worker: la app abre rápido y muestra algo aunque no haya internet.
 // Al cambiar archivos de la app, subí el número de VERSION para que todos reciban lo nuevo.
-const VERSION = 'nivan-v12';
+const VERSION = 'nivan-v15';
 const BASICOS = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', function (e) {

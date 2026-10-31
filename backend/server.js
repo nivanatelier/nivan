@@ -102,7 +102,8 @@ function usuarioPublico(u) {
         id: u.id, nombre: u.nombre, apodo: u.apodo || '', idPublico: u.idPublico, nombreTienda: u.nombreTienda || '',
         email: u.email, foto: u.foto || '', bio: u.bio || '', bioTrabajo: u.bioTrabajo || '', pais: u.pais || 'AR',
         verificado: esAdmin(u) || !!(u.verificacion && u.verificacion.estado === 'aprobada'),
-        verificacion: verificacionPublica(u), admin: esAdmin(u), restriccion: restriccionPublica(u)
+        verificacion: verificacionPublica(u), admin: esAdmin(u), restriccion: restriccionPublica(u),
+        desactivada: u.desactivada || null
     };
 }
 // ---- Baneos ----
@@ -157,7 +158,7 @@ async function usuarioDeSesion(req) {
     const s = await seg.sesionDe(req);
     if (!s) return null;
     const u = await db.usuarioPorId(s.usuarioId);
-    return baneoActivo(u) ? null : u;   // con baneo, la sesión deja de servir
+    return (baneoActivo(u) || (u && u.desactivada)) ? null : u;   // con baneo o cuenta desactivada, la sesión deja de servir
 }
 async function iniciarSesionEn(res, req, usuario, estado, cookieExtra) {
     const token = await seg.crearSesion(usuario.id, req);
@@ -771,6 +772,36 @@ RUTAS['POST /api/eliminar-cuenta'] = async function (req, res) {
 };
 
 // ------------------------------
+// Desactivar / reactivar la cuenta (la decide su dueña/o).
+// Desactivada: el perfil y las publicaciones dejan de verse para todos, nadie puede escribirle ni comprarle,
+// y se cierran todas sus sesiones. Para reactivarla: iniciar sesión y confirmarlo en la app (POST /api/reactivar).
+// ------------------------------
+RUTAS['POST /api/desactivar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const espera = seg.limitar('desact:' + u.id, 10, 15 * 60 * 1000);
+    if (espera) return error(res, 429, 'Demasiados intentos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    const b = await leerJSON(req);
+    const ok = await seg.verificarPassword(String(b.password == null ? '' : b.password).slice(0, 200), u.passwordHash);
+    if (!ok) return error(res, 401, 'La contraseña es incorrecta.');
+    await db.fijarDesactivada(u.id, Date.now());
+    await db.borrarSesionesDeUsuario(u.id);
+    console.log('[cuenta] ' + u.email + ' desactivó su cuenta');
+    responder(res, 200, { ok: true }, { 'Set-Cookie': seg.cookieBorrar(HTTPS) });
+};
+
+RUTAS['POST /api/reactivar'] = async function (req, res) {
+    const s = await seg.sesionDe(req);   // acá no sirve usuarioDeSesion: una cuenta desactivada tiene que poder reactivarse
+    const u = s ? await db.usuarioPorId(s.usuarioId) : null;
+    if (!u || baneoActivo(u)) return error(res, 401, 'No iniciaste sesión.');
+    if (u.desactivada) {
+        await db.fijarDesactivada(u.id, null);
+        console.log('[cuenta] ' + u.email + ' reactivó su cuenta');
+    }
+    responder(res, 200, { ok: true });
+};
+
+// ------------------------------
 // Perfiles públicos: foto, bio, posts del portafolio y datos de tienda. Los ve cualquiera, de cualquier país.
 // ------------------------------
 const MAX_MEDIOS_PERFIL = 40;
@@ -835,7 +866,7 @@ RUTAS['GET /api/perfiles'] = async function (req, res) {
     const lista = await db.usuariosPublicos(1000);
     const perfiles = [], ocultos = [];
     lista.forEach(function (u) {
-        if (baneoActivo(u)) { ocultos.push(u.id); return; }
+        if (baneoActivo(u) || u.desactivada) { ocultos.push(u.id); return; }
         const p = u.perfil || {};
         const priv = p.privacidad || {};
         const publico = (priv.verPerfil || 'todos') === 'todos';   // si la cuenta es privada, sus posts no salen del servidor
@@ -1289,7 +1320,9 @@ async function validarChatDe(u, c) {
     const lados = {}; lados[v] = l[v]; lados[co] = l[co];
     if (c.id !== idChatCanonico(v, co, lados)) throw { estado: 400, mensaje: 'Chat inválido.' };
     const otroId = u.id === v ? co : v;
-    if (!(await db.usuarioPorId(otroId))) throw { estado: 404, mensaje: 'Esa cuenta ya no existe.' };
+    const otro = await db.usuarioPorId(otroId);
+    if (!otro) throw { estado: 404, mensaje: 'Esa cuenta ya no existe.' };
+    if (otro.desactivada) throw { estado: 404, mensaje: 'Esa cuenta no está disponible por ahora.' };
     return { id: c.id, vendedorId: v, compradorId: co, lados: lados, otroId: otroId };
 }
 
@@ -1372,6 +1405,81 @@ RUTAS['POST /api/chats/enviar'] = async function (req, res) {
         await db.guardarChat({ id: info.id, aId: info.vendedorId, bId: info.compradorId, datos: datos, actualizado: ahora });
     }
     responder(res, 200, { ok: true, aceptados: aceptados, rechazados: rechazados });
+};
+
+// ------------------------------
+// Reseñas de publicaciones (las ven todos, de cualquier celular)
+// ------------------------------
+// Solo reseña quien compró esa publicación y ya la recibió (pedido "entregado"), dentro de los 30 días desde la entrega.
+// Una sola puntuación con estrellas por persona y publicación, y hasta 2 comentarios en total.
+// Borrar un comentario NO devuelve el cupo (queda marcado como borrado en la base).
+const PLAZO_RESENIA_MS = 30 * 86400000;
+const MAX_COMENTARIOS_RESENIA = 2;
+const MAX_CARACTERES_RESENIA = 250;
+
+function reseniaPublica(x) {
+    return { id: x.id, publicacionId: x.publicacionId, usuarioId: x.usuarioId, usuario: x.nombre, estrellas: x.estrellas, texto: x.texto, fecha: x.fecha };
+}
+function fechaEntregaPedido(d) {
+    const h = (Array.isArray(d.historial) ? d.historial : []).filter(function (e) { return e && e.estado === 'entregado'; });
+    return h.length ? Number(h[h.length - 1].fecha) || 0 : Number(d.fecha) || 0;
+}
+
+RUTAS['GET /api/resenias'] = async function (req, res) {
+    const url = new URL(req.url, 'http://localhost');
+    const pedido = url.searchParams.get('pais');
+    const pais = pedido === 'UY' || pedido === 'AR' ? pedido : null;
+    const lista = await db.reseniasPublicas(pais, 5000);
+    responder(res, 200, { ok: true, resenias: lista.map(reseniaPublica) });
+};
+
+RUTAS['POST /api/resenias/crear'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'Iniciá sesión para dejar una reseña.');
+    const espera = seg.limitar('resenia:' + u.id, 20, 3600 * 1000);
+    if (espera) return error(res, 429, 'Dejaste muchas reseñas seguidas. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    if (!puedeReclamar(u)) return error(res, 403, 'Tu identidad tiene que estar aprobada para dejar reseñas.');
+    const b = await leerJSON(req);
+
+    const pubId = String(b.publicacionId == null ? '' : b.publicacionId).slice(0, 40);
+    const pub = pubId ? await db.publicacionPorId(pubId) : null;
+    if (!pub) return error(res, 404, 'Esa publicación ya no existe.');
+    if (pub.vendedorId === u.id) return error(res, 403, 'No podés puntuar tus propias publicaciones.');
+
+    const texto = textoChat(b.texto, MAX_CARACTERES_RESENIA).trim();
+    if (!texto) return error(res, 400, 'Escribí tu opinión antes de enviarla.');
+    let estrellas = Math.floor(Number(b.estrellas) || 0);
+    if (estrellas < 0 || estrellas > 5) return error(res, 400, 'Cantidad de estrellas inválida.');
+
+    const pedidos = (await db.pedidosDeUsuario(u.id, 500)).filter(function (f) {
+        return f.compradorId === u.id && f.datos && Array.isArray(f.datos.items) && f.datos.items.some(function (it) { return String(it.id) === pubId; });
+    });
+    if (!pedidos.length) return error(res, 403, 'Solo pueden puntuar quienes compraron esta prenda y ya la recibieron. Podés hacer preguntas al vendedor.');
+    const entregados = pedidos.filter(function (f) { return f.datos.estado === 'entregado'; });
+    if (!entregados.length) return error(res, 403, 'Tu pedido todavía no llegó. Cuando confirmes que lo recibiste vas a poder puntuar.');
+    const entrega = Math.min(Date.now(), Math.max.apply(null, entregados.map(function (f) { return fechaEntregaPedido(f.datos); })));   // una fecha futura no alarga el plazo
+    if (Date.now() - entrega > PLAZO_RESENIA_MS) return error(res, 403, 'Pasaron 30 días desde que recibiste la prenda y ya no se puede puntuar. Solo podés hacer preguntas al vendedor.');
+
+    const previas = await db.reseniasDeUsuarioEn(pubId, u.id);   // incluye las borradas: borrar no devuelve el cupo
+    if (previas.length >= MAX_COMENTARIOS_RESENIA) return error(res, 403, 'Ya usaste tus ' + MAX_COMENTARIOS_RESENIA + ' comentarios en esta publicación. Ahora solo podés hacer preguntas al vendedor.');
+    const yaPuntuo = previas.some(function (x) { return x.estrellas > 0; });
+    if (yaPuntuo) estrellas = 0;
+    else if (estrellas === 0) return error(res, 400, 'Elegí una cantidad de estrellas antes de enviar.');
+
+    const nombre = String((u.perfil && u.perfil.apodo) || u.apodo || u.nombre || 'Cliente').replace(/[<>]/g, '').slice(0, 60);
+    const x = { id: 'RS-' + crypto.randomBytes(8).toString('hex'), publicacionId: pubId, usuarioId: u.id, nombre: nombre, estrellas: estrellas, texto: texto, fecha: Date.now() };
+    await db.crearResenia(x);
+    responder(res, 200, { ok: true, resenia: reseniaPublica(x) });
+};
+
+RUTAS['POST /api/resenias/eliminar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    const x = await db.reseniaPorId(String(b.id || '').slice(0, 40));
+    if (!x || x.usuarioId !== u.id) return error(res, 404, 'No se encontró ese comentario.');
+    if (!x.borrada) await db.borrarResenia(x.id, Date.now());
+    responder(res, 200, { ok: true });
 };
 
 RUTAS['POST /api/chats/eliminar'] = async function (req, res) {

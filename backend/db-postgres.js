@@ -131,7 +131,22 @@ const MIGRACIONES = [
         datos      JSONB NOT NULL,
         PRIMARY KEY (chat_id, id)
     );
-    CREATE INDEX chat_mensajes_mod_idx ON chat_mensajes (modificado);`
+    CREATE INDEX chat_mensajes_mod_idx ON chat_mensajes (modificado);`,
+    // 10 · cuentas desactivadas por su dueña/o (fecha en que la desactivó; null = activa)
+    `ALTER TABLE usuarios ADD COLUMN desactivada BIGINT;`,
+    // 11 · reseñas de publicaciones (las ven todos). Una reseña borrada se conserva marcada ("borrada") para que no devuelva el cupo.
+    `CREATE TABLE resenias (
+        id             TEXT PRIMARY KEY,
+        publicacion_id TEXT NOT NULL REFERENCES publicaciones(id) ON DELETE CASCADE,
+        usuario_id     TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        nombre         TEXT NOT NULL DEFAULT '',
+        estrellas      INTEGER NOT NULL DEFAULT 0,
+        texto          TEXT NOT NULL,
+        fecha          BIGINT NOT NULL,
+        borrada        BIGINT
+    );
+    CREATE INDEX resenias_pub_idx ON resenias (publicacion_id);
+    CREATE INDEX resenias_usuario_idx ON resenias (usuario_id, publicacion_id);`
 ];
 
 async function migrar() {
@@ -164,7 +179,8 @@ function aUsuario(f) {
     return {
         id: f.id, nombre: f.nombre, apodo: f.apodo, idPublico: f.id_publico, nombreTienda: f.nombre_tienda,
         email: f.email, passwordHash: f.password_hash, pais: f.pais, foto: f.foto, bio: f.bio, bioTrabajo: f.bio_trabajo,
-        verificacion: f.verificacion || null, baneo: f.baneo || null, perfil: f.perfil || null, creado: +f.creado
+        verificacion: f.verificacion || null, baneo: f.baneo || null, perfil: f.perfil || null, creado: +f.creado,
+        desactivada: f.desactivada ? +f.desactivada : null
     };
 }
 
@@ -246,10 +262,15 @@ async function usuarioPorIdPublico(idPublico) {
 async function fijarBaneo(id, baneo) {
     await pool.query('UPDATE usuarios SET baneo = $2 WHERE id = $1', [id, baneo ? JSON.stringify(baneo) : null]);
 }
+// ts = fecha en que la persona desactivó su cuenta  ·  null = reactivarla
+async function fijarDesactivada(id, ts) {
+    await pool.query('UPDATE usuarios SET desactivada = $2 WHERE id = $1', [id, ts || null]);
+}
 // Ids de las cuentas que hoy están baneadas (permanente, o temporal que todavía no venció).
+// También entran las cuentas desactivadas por su dueña/o: sus publicaciones no se muestran.
 // Cuentas cuyas publicaciones no se muestran: baneo total, o suspensión para vender. Una suspensión solo para comprar no las oculta.
 async function idsBaneados() {
-    const r = await pool.query("SELECT id FROM usuarios WHERE baneo IS NOT NULL AND COALESCE(baneo->>'alcance', 'todo') <> 'comprar' AND ((baneo->>'permanente') = 'true' OR COALESCE((baneo->>'hasta')::bigint, 0) > $1)", [Date.now()]);
+    const r = await pool.query("SELECT id FROM usuarios WHERE desactivada IS NOT NULL OR (baneo IS NOT NULL AND COALESCE(baneo->>'alcance', 'todo') <> 'comprar' AND ((baneo->>'permanente') = 'true' OR COALESCE((baneo->>'hasta')::bigint, 0) > $1))", [Date.now()]);
     return r.rows.map(function (f) { return f.id; });
 }
 async function dispositivoConocido(id, h) {
@@ -345,6 +366,30 @@ async function guardarPedido(p) {
     await pool.query('UPDATE pedidos SET datos = $2, actualizado = $3 WHERE id = $1', [p.id, JSON.stringify(p.datos), p.actualizado]);
 }
 
+// ---- Reseñas ----
+function aResenia(f) {
+    return f ? { id: f.id, publicacionId: f.publicacion_id, usuarioId: f.usuario_id, nombre: f.nombre, estrellas: +f.estrellas, texto: f.texto, fecha: +f.fecha, borrada: f.borrada ? +f.borrada : null } : null;
+}
+// Las reseñas visibles (no borradas) de las publicaciones de un país (null = todos).
+async function reseniasPublicas(pais, limite) {
+    const r = await pool.query('SELECT r.* FROM resenias r JOIN publicaciones p ON p.id = r.publicacion_id WHERE r.borrada IS NULL AND ($1::text IS NULL OR p.pais = $1) ORDER BY r.fecha ASC LIMIT $2', [pais, limite]);
+    return r.rows.map(aResenia);
+}
+// Todo lo que una persona escribió en una publicación, también lo borrado (para contar el cupo).
+async function reseniasDeUsuarioEn(publicacionId, usuarioId) {
+    const r = await pool.query('SELECT * FROM resenias WHERE publicacion_id = $1 AND usuario_id = $2', [publicacionId, usuarioId]);
+    return r.rows.map(aResenia);
+}
+async function reseniaPorId(id) {
+    const r = await pool.query('SELECT * FROM resenias WHERE id = $1', [id]);
+    return aResenia(r.rows[0]);
+}
+async function crearResenia(x) {
+    await pool.query('INSERT INTO resenias (id, publicacion_id, usuario_id, nombre, estrellas, texto, fecha) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [x.id, x.publicacionId, x.usuarioId, x.nombre, x.estrellas, x.texto, x.fecha]);
+}
+async function borrarResenia(id, ts) { await pool.query('UPDATE resenias SET borrada = $2 WHERE id = $1', [id, ts]); }
+
 // ---- Chats ----
 function aChat(f) { return f ? { id: f.id, aId: f.a_id, bId: f.b_id, datos: f.datos, actualizado: +f.actualizado } : null; }
 function aMensaje(f) { return { chatId: f.chat_id, id: f.id, fecha: +f.fecha, modificado: +f.modificado, datos: f.datos }; }
@@ -418,8 +463,9 @@ process.on('SIGINT', function () { cerrar().finally(function () { process.exit(0
 module.exports = {
     chatPorId: chatPorId, guardarChat: guardarChat, mensajePorId: mensajePorId, agregarMensaje: agregarMensaje, actualizarMensaje: actualizarMensaje,
     chatsDeUsuarioDesde: chatsDeUsuarioDesde, mensajesDeUsuarioDesde: mensajesDeUsuarioDesde,
+    reseniasPublicas: reseniasPublicas, reseniasDeUsuarioEn: reseniasDeUsuarioEn, reseniaPorId: reseniaPorId, crearResenia: crearResenia, borrarResenia: borrarResenia,
     pedidoPorId: pedidoPorId, pedidosDeUsuario: pedidosDeUsuario, crearPedidos: crearPedidos, guardarPedido: guardarPedido,
-    usuarioPorIdPublico: usuarioPorIdPublico, fijarBaneo: fijarBaneo, idsBaneados: idsBaneados,
+    usuarioPorIdPublico: usuarioPorIdPublico, fijarBaneo: fijarBaneo, fijarDesactivada: fijarDesactivada, idsBaneados: idsBaneados,
     crearReporte: crearReporte, reportesDeObjetivo: reportesDeObjetivo, contarReportesDeCuenta: contarReportesDeCuenta, cerrarReportes: cerrarReportes,
     publicacionPorId: publicacionPorId, publicacionesDeUsuario: publicacionesDeUsuario, publicacionesPorPais: publicacionesPorPais,
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,

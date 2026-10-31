@@ -174,3 +174,20 @@ La app sabe cuáles son esas cuentas por `GET /api/admins` (solo ids, nunca emai
 - Los mensajes de antes del servidor (los viejos que estaban solo en el celular) se quedan en ese celular.
 - La base crea las tablas nuevas sola al arrancar (migración 9). Rutas: `GET /api/chats?desde=`, `POST /api/chats/enviar`, `/eliminar`, `/leido`.
 - Prueba: `node prueba-chats.js` (con el servidor corriendo con una carpeta de datos nueva).
+
+## Desactivar cuenta (en el servidor)
+- Mi cuenta → Privacidad y seguridad → Eliminar / desactivar cuenta → **Desactivar temporalmente**: pide la contraseña y llama a `POST /api/desactivar`.
+- Mientras está desactivada: su perfil no sale en `GET /api/perfiles`, sus publicaciones no se ven ni se pueden comprar, nadie puede escribirle y se cierran todas sus sesiones.
+- Para reactivarla: iniciar sesión y aceptar la pregunta de la app (`POST /api/reactivar`). Si no acepta, se cierra la sesión y sigue desactivada.
+- La base crea la columna sola al arrancar (migración 10). Se puede eliminar la cuenta estando desactivada.
+
+## Reseñas (en el servidor)
+- Las reseñas de las publicaciones de venta las guarda el servidor y las ve cualquier persona. Archivo de la app: `js/34-resenias-servidor.js`.
+- El servidor controla las reglas: solo reseña quien compró esa publicación y ya la recibió (pedido "entregado"), dentro de los 30 días desde la entrega.
+  Una sola puntuación con estrellas por persona y publicación, y hasta 2 comentarios. Borrar un comentario no devuelve el cupo.
+- Nadie puede reseñar a nombre de otra persona ni sus propias publicaciones. Los textos se limpian de `<` y `>`.
+- Si se borra la publicación o la cuenta, sus reseñas se borran también.
+- Rutas: `GET /api/resenias?pais=AR`, `POST /api/resenias/crear {publicacionId, texto, estrellas}`, `POST /api/resenias/eliminar {id}`.
+- La base crea la tabla sola al arrancar (migración 11).
+- Los productos del catálogo base (sin vendedor) y las reseñas hechas antes de esto siguen solo en el celular donde se escribieron.
+- La notificación "Nueva reseña" al vendedor todavía es local (las notificaciones no están en el servidor).

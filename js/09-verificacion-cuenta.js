@@ -568,7 +568,7 @@ function abrirEliminarCuentaNivan() {
         </button>
         <button type="button" class="opcionPrivacidadNivan zonaPeligroNivan" onclick="abrirConfirmarEliminarNivan()">
             🗑️ Eliminar mi cuenta
-            <small>Se borra definitivamente tras ${DIAS_GRACIA_ELIMINACION_NIVAN} días. Si iniciás sesión antes, se cancela.</small>
+            <small>Se borra definitivamente ahora, con todos tus datos. No se puede deshacer.</small>
         </button>
     `);
 }
@@ -611,6 +611,15 @@ async function desactivarCuentaNivan() {
         if (!confirm("¿Desactivar tu cuenta? Vamos a cerrar tu sesión.")) return;
 
         const id = usuarioActual.id;
+        const password = (document.getElementById("cuentaPassConfirmNivan") || {}).value || "";
+
+        // Primero en el servidor: así tu perfil y tus publicaciones se ocultan para todos, no solo en este celular.
+        const s = await apiNivan("/api/desactivar", { password: password });
+        if (!s.ok) {
+            alert(s.error || "No se pudo desactivar la cuenta. Probá de nuevo.");
+            return;
+        }
+
         actualizarUsuarioListaNivan(id, { desactivada: Date.now() });
         registrarEventoLoginNivan(id, "cuenta_desactivada");
         cerrarSesionSilenciosaNivan();
@@ -631,7 +640,7 @@ function abrirConfirmarEliminarNivan() {
         <div class="tituloPagina" style="padding:0;">
             <h2 style="margin-top:0;">🗑️ Eliminar cuenta</h2>
         </div>
-        <p class="subTextoPerfilLateral">Durante ${DIAS_GRACIA_ELIMINACION_NIVAN} días tu cuenta queda desactivada. Si no iniciás sesión en ese plazo, se borra definitivamente:</p>
+        <p class="subTextoPerfilLateral">Tu cuenta se borra definitivamente ahora y no se puede deshacer. Se borra:</p>
         <ul class="listaCuentaNivan">
             <li>Tu perfil, foto y datos de la cuenta.</li>
             <li>Tus publicaciones.</li>
@@ -665,15 +674,26 @@ async function programarEliminacionCuentaNivan() {
     try {
         const r = await confirmarIdentidadNivan();
         if (!r.ok) { alert(r.mensaje); return; }
-        if (!confirm("¿Seguro? Tu cuenta se va a borrar definitivamente en " + DIAS_GRACIA_ELIMINACION_NIVAN + " días.")) return;
+        if (!confirm("¿Seguro? Tu cuenta se va a borrar definitivamente ahora y no se puede deshacer.")) return;
 
         const id = usuarioActual.id;
-        const fecha = Date.now() + DIAS_GRACIA_ELIMINACION_NIVAN * 24 * 60 * 60 * 1000;
-        actualizarUsuarioListaNivan(id, { eliminacionProgramada: fecha });
-        registrarEventoLoginNivan(id, "eliminacion_programada");
+        const usuario = obtenerUsuarioPorIdNivan(id);
+        const password = (document.getElementById("cuentaPassConfirmNivan") || {}).value || "";
+
+        // 1) Borrar en el servidor
+        const s = await apiNivan("/api/eliminar-cuenta", { email: usuario.email, password: password });
+        // 401 = la cuenta no existe en el servidor (cuenta vieja solo del celular): seguimos y la borramos acá.
+        if (!s.ok && s.estado !== 401) {
+            alert(s.error || "No se pudo eliminar la cuenta. Probá de nuevo.");
+            return;
+        }
+
+        // 2) Borrar en este celular
+        registrarEventoLoginNivan(id, "cuenta_eliminada");
+        eliminarDatosUsuarioNivan(usuario);
         cerrarSesionSilenciosaNivan();
         cerrarPrivacidadSeguridadNivan();
-        alert("Tu cuenta se eliminará el " + new Date(fecha).toLocaleDateString("es-AR") + ". Si iniciás sesión antes, se cancela.");
+        alert("Tu cuenta fue eliminada.");
         recargarAppNivan();
     } finally {
         if (boton) boton.disabled = false;
