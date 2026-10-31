@@ -719,7 +719,8 @@ function sincronizarCatalogoConPublicaciones() {
 
     publicaciones
         .filter(function(p) {
-            return p.activo !== false;
+            // Solo se muestran las publicaciones del país elegido.
+            return p.activo !== false && (p.pais || "AR") === (paisNivan() || "AR");
         })
         .forEach(function(p) {
             productos.push(p);
@@ -1741,6 +1742,7 @@ function publicarProducto() {
         return;
     }
     if (!exigirVerificacionNivan()) return;
+    if (!exigirSinSuspensionNivan("vender")) return;
 
     const nombre = document.getElementById("nombrePublicacion").value.trim();
     const marca = document.getElementById("marcaPublicacion").value.trim();

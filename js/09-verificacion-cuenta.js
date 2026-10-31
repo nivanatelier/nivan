@@ -21,9 +21,8 @@ function obtenerFotosVerificacionNivan() {
     return (o && typeof o === "object" && !Array.isArray(o)) ? o : {};
 }
 
-// Puede PUBLICAR: aprobada, o con la biometría facial aprobada por la app
-// (el estado sigue "pendiente" hasta que una persona lo revise).
-// Comprar no pasa por acá: se puede comprar aunque la identidad no esté aprobada.
+// Puede COMPRAR (y vender): solo con la identidad APROBADA por una persona de Nivan.
+// Con la solicitud pendiente, rechazada o sin enviar, no.
 function usuarioPuedeComprarNivan(idUsuario) {
     const u = idUsuario ? obtenerUsuarioPorIdNivan(idUsuario) : null;
     const v = u && u.verificacion;
@@ -61,7 +60,7 @@ function exigirPuedeReclamarNivan() {
     abrirEstadoVerificacionNivan();
     return false;
 }
-// Para comprar alcanza con tener la sesión iniciada: la identidad puede estar pendiente.
+// Para comprar hace falta sesión iniciada e identidad aprobada (pendiente no alcanza).
 function exigirSesionParaComprarNivan() {
     if (!usuarioActual) {
         alert("Iniciá sesión para continuar.");
@@ -221,7 +220,10 @@ function limpiarFotoNivan(idInput, idAviso, almacen, clave) {
     const aviso = document.getElementById(idAviso);
     if (aviso) aviso.textContent = "";
 }
-function exigirVerificacionNivan() {
+// Para vender (publicar productos, vacantes) hace falta la identidad APROBADA por una persona de Nivan.
+// Con la solicitud pendiente todavía no se puede. Solo las publicaciones del perfil personal
+// (no son ventas) se permiten con la solicitud pendiente: exigirVerificacionNivan(true).
+function exigirVerificacionNivan(permitirPendiente) {
     if (!usuarioActual) {
         alert("Iniciá sesión para continuar.");
         abrirCuenta();
@@ -230,11 +232,15 @@ function exigirVerificacionNivan() {
 
     const u = obtenerUsuarioPorIdNivan(usuarioActual.id) || {};
     const estado = u.verificacion ? u.verificacion.estado : "ninguna";
-    if (estado === "aprobada" || estado === "pendiente") return true;
+    if (estado === "aprobada" || (permitirPendiente === true && estado === "pendiente")) return true;
 
-    alert(estado === "rechazada"
-        ? "Tu verificación fue rechazada. Volvé a enviar tus fotos para poder vender."
-        : "Para vender tenés que enviar tu documentación.");
+    if (estado === "pendiente") {
+        alert("Tu " + nombreDocumentoNivan() + " está pendiente de revisión. Vas a poder vender cuando la aprobemos.");
+    } else {
+        alert(estado === "rechazada"
+            ? "Tu verificación fue rechazada. Volvé a enviar tus fotos para poder vender."
+            : "Para vender tenés que enviar tu documentación.");
+    }
     abrirEstadoVerificacionNivan();
     return false;
 }
@@ -285,7 +291,7 @@ function abrirEstadoVerificacionNivan() {
     if (estado === "aprobada") {
         cuerpo = `<div class="estadoVerificacionNivan aprobadaNivan"><strong>✅ Verificada</strong><br><span>Revisada el ${escaparHTMLNivan(formatearFechaLoginNivan(v.revisada))}. </span></div>`;
     } else if (estado === "pendiente") {
-                cuerpo = `<div class="estadoVerificacionNivan pendienteNivan"><strong>⏳ Pendiente de revisión</strong><br><span>La enviaste el ${escaparHTMLNivan(formatearFechaLoginNivan(v.enviada))}. Te avisamos cuando esté revisada.</span></div>`;
+                cuerpo = `<div class="estadoVerificacionNivan pendienteNivan"><strong>⏳ Pendiente de revisión</strong><br><span>La enviaste el ${escaparHTMLNivan(formatearFechaLoginNivan(v.enviada))}. Te avisamos cuando esté revisada. Podés vender cuando la aprobemos.</span></div>`;
     } else if (estado === "rechazada") {
                 cuerpo = `<div class="estadoVerificacionNivan rechazadaNivan"><strong>❌ Rechazada</strong><br><span>Motivo: ${escaparHTMLNivan(v.motivo || "las fotos no se pudieron validar")}. Volvé a cargarlo para poder comprar.</span></div>
             <h3 class="subtituloSoporteNivan">Enviar de nuevo</h3>${formulario}`;
@@ -349,7 +355,7 @@ async function enviarVerificacionNivan() {
 
     actualizarUsuarioListaNivan(idUsuario, { verificacion: r.verificacion });
     fotosVerifNuevasNivan = {};
-    alert("Recibimos tus fotos. Ya podés vender mientras las revisamos.");
+    alert("Recibimos tus fotos. Vas a poder vender cuando las revisemos y las aprobemos. Te avisamos.");
     abrirEstadoVerificacionNivan();
 }
 
@@ -1212,7 +1218,7 @@ function elegirFormatoNuevaPublicacionPerfil(formato) {
 
 function publicarNuevaPublicacionPerfil() {
     if (!usuarioActual) return;
-    if (!exigirVerificacionNivan()) return;
+    if (!exigirVerificacionNivan(true)) return;
 
     const input = document.getElementById("archivoNuevaPublicacionPerfil");
     const textoInput = document.getElementById("textoNuevaPublicacionPerfil");

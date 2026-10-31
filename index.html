@@ -1177,7 +1177,7 @@
     <div class="panelMasOpcionesPerfilVendedorNivan">
         <div class="agarraderaMasOpcionesNivan"></div>
         <button type="button" class="opcionMasOpcionesPerfilVendedorNivan bloquear" onclick="bloquearDesdeMasOpcionesPerfilVendedorNivan()">🚫 Bloquear</button>
-        <button type="button" class="opcionMasOpcionesPerfilVendedorNivan reportar" onclick="reportarDesdeMasOpcionesPerfilVendedorNivan()">🚩 Reportar</button>
+        <button type="button" id="botonReportarPerfilVendedorNivan" class="opcionMasOpcionesPerfilVendedorNivan reportar" onclick="reportarDesdeMasOpcionesPerfilVendedorNivan()">🚩 Reportar</button>
         <button type="button" class="opcionMasOpcionesPerfilVendedorNivan cancelar" onclick="cerrarMasOpcionesPerfilVendedorNivan()">Cancelar</button>
     </div>
 </div>
@@ -2182,6 +2182,12 @@
             </div>
 
 
+            <label class="aceptarTerminosRegistroNivan" style="display:flex;gap:8px;align-items:flex-start;margin:14px 0 10px;font-size:14px;line-height:1.35;cursor:pointer;">
+                <input type="checkbox" id="registroAceptoTerminos" style="width:auto;margin-top:3px;flex:none;" onchange="actualizarMedidorPasswordNivan()">
+                <span>Leí y acepto los <a href="#" onclick="event.preventDefault(); event.stopPropagation(); abrirTerminosRegistroNivan();" style="text-decoration:underline;">Términos y condiciones</a>.</span>
+            </label>
+
+
             <button type="button"
                 class="botonCuenta"
                 id="botonCrearCuentaNivan"
@@ -2690,6 +2696,8 @@
 <script src="js/28-servidor.js"></script>
 <script src="js/29-publicaciones-servidor.js"></script>
 <script src="js/30-perfiles-servidor.js"></script>
+<script src="js/31-moderacion.js"></script>
+<script src="js/32-pedidos-servidor.js"></script>
 <script>
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); });

@@ -9,7 +9,7 @@ const path = require('path');
 
 const DIR = process.env.NIVAN_DATOS || path.join(__dirname, 'datos');
 const ARCHIVO = path.join(DIR, 'db.json');
-const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {} };
+const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [] };
 const MAX_SESIONES_POR_USUARIO = 10;
 
 fs.mkdirSync(DIR, { recursive: true });
@@ -115,8 +115,38 @@ async function fijarBaneo(id, baneo) {
 }
 async function idsBaneados() {
     const ahora = Date.now();
-    return datos.usuarios.filter(function (u) { return u.baneo && (u.baneo.permanente || (u.baneo.hasta || 0) > ahora); }).map(function (u) { return u.id; });
+    return datos.usuarios.filter(function (u) {
+        return u.baneo && u.baneo.alcance !== 'comprar' && (u.baneo.permanente || (u.baneo.hasta || 0) > ahora);   // suspensión solo para comprar: no oculta publicaciones
+    }).map(function (u) { return u.id; });
 }
+// ---- Reportes ----
+async function crearReporte(r) {
+    if (datos.reportes.some(function (x) { return x.reportanteId === r.reportanteId && x.tipo === r.tipo && x.objetivoId === r.objetivoId; })) {
+        const e = new Error('reporte duplicado'); e.codigo = 'REPORTE_DUPLICADO'; throw e;
+    }
+    datos.reportes.push(Object.assign({ estado: 'pendiente', resolucion: '' }, r));
+    guardar();
+}
+async function reportesDeObjetivo(tipo, objetivoId) {
+    return datos.reportes.filter(function (x) { return x.tipo === tipo && x.objetivoId === objetivoId; }).sort(function (a, b) { return b.fecha - a.fecha; }).slice(0, 100);
+}
+async function contarReportesDeCuenta(cuentaId) {
+    const mias = datos.reportes.filter(function (x) { return x.cuentaId === cuentaId; });
+    return { total: mias.length, pendientes: mias.filter(function (x) { return x.estado === 'pendiente'; }).length };
+}
+async function cerrarReportes(tipo, objetivoId, estado, resolucion) {
+    datos.reportes.forEach(function (x) { if (x.tipo === tipo && x.objetivoId === objetivoId && x.estado === 'pendiente') { x.estado = estado; x.resolucion = resolucion; } });
+    guardar();
+}
+async function dispositivoConocido(id, h) { return !!(datos.dispositivos[id] && datos.dispositivos[id][h]); }
+async function registrarDispositivo(id, h) {
+    const d = datos.dispositivos[id] || (datos.dispositivos[id] = {});
+    d[h] = Date.now();
+    const claves = Object.keys(d).sort(function (x, y) { return d[y] - d[x]; });
+    claves.slice(30).forEach(function (k) { delete d[k]; });
+    guardar();
+}
+async function borrarDispositivos(id) { delete datos.dispositivos[id]; guardar(); }
 async function cambiarPassword(id, hash) {
     const u = datos.usuarios.find(function (x) { return x.id === id; });
     if (u) { u.passwordHash = hash; guardar(); }
@@ -124,6 +154,7 @@ async function cambiarPassword(id, hash) {
 // Borra la cuenta, sus sesiones, publicaciones y fotos.
 async function eliminarUsuario(id) {
     delete datos.fotosVerif[id];
+    delete datos.dispositivos[id];
     datos.usuarios = datos.usuarios.filter(function (u) { return u.id !== id; });
     datos.sesiones = datos.sesiones.filter(function (s) { return s.usuarioId !== id; });
     datos.publicaciones = datos.publicaciones.filter(function (p) { return p.vendedorId !== id; });
@@ -178,10 +209,32 @@ async function borrarMediosSobrantes(usuarioId, usados) {
     }
     return quitados.map(function (m) { return { id: m.id, tipo: m.tipo, enNube: !m.b64 }; });
 }
+
+// ---- Pedidos ----
+// Pedido: { id, compradorId, vendedorId (o null), pais, datos (el pedido completo), creado, actualizado }
+// No se borran al eliminar una cuenta: quedan en el historial de la otra persona.
+async function pedidoPorId(id) {
+    return datos.pedidos.find(function (p) { return p.id === id; }) || null;
+}
+async function pedidosDeUsuario(usuarioId, limite) {
+    return datos.pedidos.filter(function (p) { return p.compradorId === usuarioId || p.vendedorId === usuarioId; })
+        .sort(function (a, b) { return b.creado - a.creado; }).slice(0, limite);
+}
+async function crearPedidos(lista) {
+    lista.forEach(function (p) { datos.pedidos.push(p); });
+    guardar();
+}
+async function guardarPedido(ped) {
+    const i = datos.pedidos.findIndex(function (p) { return p.id === ped.id; });
+    if (i >= 0) datos.pedidos[i] = ped; else datos.pedidos.push(ped);
+    guardar();
+}
 // Tamaño aproximado de los datos (en esta modalidad solo sirve para probar).
 async function tamanoBytes() { return Buffer.byteLength(JSON.stringify(datos)); }
 
 module.exports = {
+    pedidoPorId: pedidoPorId, pedidosDeUsuario: pedidosDeUsuario, crearPedidos: crearPedidos, guardarPedido: guardarPedido,
+    crearReporte: crearReporte, reportesDeObjetivo: reportesDeObjetivo, contarReportesDeCuenta: contarReportesDeCuenta, cerrarReportes: cerrarReportes,
     usuarioPorIdPublico: usuarioPorIdPublico, fijarBaneo: fijarBaneo, idsBaneados: idsBaneados,
     tamanoBytes: tamanoBytes,
     publicacionPorId: publicacionPorId, publicacionesDeUsuario: publicacionesDeUsuario, publicacionesPorPais: publicacionesPorPais,
@@ -190,6 +243,7 @@ module.exports = {
     eliminarUsuario: eliminarUsuario, guardarPerfil: guardarPerfil, usuariosPublicos: usuariosPublicos,
     guardarVerificacion: guardarVerificacion, verificacionesPendientes: verificacionesPendientes,
     fotosVerificacion: fotosVerificacion, resolverVerificacion: resolverVerificacion,
+    dispositivoConocido: dispositivoConocido, registrarDispositivo: registrarDispositivo, borrarDispositivos: borrarDispositivos,
     cambiarPassword: cambiarPassword, borrarSesionesDeUsuario: borrarSesionesDeUsuario,
     tipo: 'archivo', DIR: DIR, listo: Promise.resolve(), cerrar: cerrar,
     usuarioPorEmail: usuarioPorEmail, usuarioPorId: usuarioPorId, crearUsuario: crearUsuario,

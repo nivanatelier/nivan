@@ -1479,7 +1479,7 @@ function abrirProducto(id) {
                         class="botonAbrirReporteNivan"
                         onclick="abrirReporteNivan('publicacion', ${producto.id}, '${escaparHTMLNivan(producto.nombre).replace(/'/g, "\\'")}')"
                     >
-                        🚩 Reportar publicación
+                        ${esAdminNivan() ? "🛡️ Moderar publicación" : "🚩 Reportar publicación"}
                     </button>
                 ` : ""}
 

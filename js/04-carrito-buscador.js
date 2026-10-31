@@ -213,6 +213,12 @@ function abrirReporteNivan(tipo, idObjetivo, nombreObjetivo) {
         return;
     }
 
+    // Las cuentas de administración no reportan: moderan (ver reportes y suspender o banear).
+    if (esAdminNivan() && (tipo === "usuario" || (tipo === "publicacion" && String(idObjetivo).indexOf("post:") !== 0))) {
+        abrirModeracionNivan(tipo, idObjetivo, nombreObjetivo);
+        return;
+    }
+
     if (yaReportadoNivan(tipo, idObjetivo)) {
         alert("Ya reportaste esto. Nuestro equipo lo va a revisar.");
         return;
@@ -338,6 +344,8 @@ function desbloquearUsuarioNivan(idUsuario) {
 
 function abrirMasOpcionesPerfilVendedorNivan() {
     if (!perfilVendedorActualNivan) return;
+    const botonReportar = document.getElementById("botonReportarPerfilVendedorNivan");
+    if (botonReportar) botonReportar.textContent = esAdminNivan() ? "🛡️ Moderar" : "🚩 Reportar";
     document.getElementById("overlayMasOpcionesPerfilVendedorNivan").classList.add("abierto");
 }
 
@@ -359,7 +367,7 @@ function reportarDesdeMasOpcionesPerfilVendedorNivan() {
     abrirReporteNivan('usuario', objetivo.id, objetivo.nombre);
 }
 
-function enviarReporteNivan() {
+async function enviarReporteNivan() {
     if (!usuarioActual || !reporteNivanActual) {
         cerrarReporteNivan();
         return;
@@ -371,6 +379,12 @@ function enviarReporteNivan() {
     }
 
     const detalle = limpiarTextoNivan(document.getElementById("detalleReporteNivan").value, 300).trim();
+
+    // Publicaciones y cuentas se reportan también al servidor, que es donde moderación los ve.
+    // Los posts del feed y los comentarios todavía viven solo en el celular.
+    const motivoElegido = motivoReporteNivanElegido;
+    const alServidor = (reporteNivanActual.tipo === "usuario" || (reporteNivanActual.tipo === "publicacion" && String(reporteNivanActual.id).indexOf("post:") !== 0))
+        ? { tipo: reporteNivanActual.tipo, objetivoId: String(reporteNivanActual.id) } : null;
 
     const reportes = obtenerReportesNivan();
 
@@ -390,6 +404,12 @@ function enviarReporteNivan() {
     guardarReportesNivan(reportes);
 
     cerrarReporteNivan();
+
+    if (alServidor) {
+        const r = await apiNivan("/api/reportes", Object.assign({ motivo: motivoElegido, detalle: detalle }, alServidor));
+        if (r.estado === 409) { alert("Ya reportaste esto. Nuestro equipo lo va a revisar."); return; }
+        if (r.estado === 429) { alert(r.error); return; }
+    }
     alert("Gracias, recibimos tu reporte. Nuestro equipo lo va a revisar.");
 }
 

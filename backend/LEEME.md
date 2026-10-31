@@ -111,6 +111,18 @@ publicaciones van a Cloudinary (plan gratis: 25 créditos al mes entre espacio, 
 Como red de seguridad, al pasar `LIMITE_ALMACEN_MB` (por defecto 350) la base deja de aceptar fotos/videos nuevos. Todo lo demás
 sigue andando. El panel de administración muestra cuántos MB se usan. Neon puede contar el espacio un poco distinto: revisá también su panel.
 
+## Reportes y moderación desde la app
+- Las personas reportan publicaciones y perfiles con el botón de siempre; ahora el reporte **llega al servidor** (una persona puede reportar cada cosa una sola vez).
+- En la cuenta cuyo email está en `ADMIN_EMAILS` (por ejemplo `nivanatelier@gmail.com`), esos botones dicen **Moderar** y abren la ventana de moderación:
+  pide la clave del panel (`ADMIN_CLAVE`) si hace falta, muestra la cuenta responsable y los reportes, y deja elegir:
+  suspender para **comprar**, para **vender** o para **ambos** (por una cantidad de días), **banear para siempre**, **descartar** los reportes o **cancelar**.
+  Siempre hay que escribir el motivo: la persona lo ve.
+- Suspendida para vender: el servidor no la deja publicar y sus publicaciones dejan de verse (no se borran). Se recuperan al quitar la medida o al vencer los días.
+- Suspendida para comprar: la app le frena la compra y le muestra el motivo. Los pedidos todavía no pasan por el servidor, así que este bloqueo solo se hace cumplir desde la app.
+- Banear para siempre: no puede entrar (igual que antes). Las medidas también se pueden ver y quitar desde el panel de administración (buscando la cuenta).
+- Los posts del feed y los comentarios todavía no están en el servidor: su botón de reportar sigue funcionando como antes (solo en el celular).
+- Prueba automática: `ADMIN_EMAILS=admin@gmail.com ADMIN_CLAVE=... node server.js` y en otra terminal `ADMIN_CLAVE=... node prueba-reportes.js`.
+
 ## Si los mails de "Olvidé mi contraseña" no llegan
 La app siempre responde "te mandamos un código" aunque el envío falle (así nadie puede averiguar qué emails tienen cuenta).
 Para ver el error real: **Mi cuenta → Revisar identidades → clave del panel → "Probar envío de mails"**. Manda un mail de prueba a tu propio email y explica el motivo si falla. Causas más comunes:

@@ -125,5 +125,5 @@ setInterval(function () {
 
 module.exports = {
     hashearPassword, verificarPassword, gastarTiempo, evaluarPassword,
-    crearSesion, sesionDe, cerrarSesion, cookieSesion, cookieBorrar, ipDe, limitar, olvidar
+    crearSesion, sesionDe, cerrarSesion, cookieSesion, cookieBorrar, ipDe, limitar, olvidar, leerCookie
 };

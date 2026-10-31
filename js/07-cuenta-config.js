@@ -465,6 +465,27 @@ function evaluarPasswordNivan(password) {
     };
 }
 
+function aceptoTerminosRegistroNivan() {
+    const c = document.getElementById("registroAceptoTerminos");
+    return !!(c && c.checked);
+}
+
+// Los términos se leen en una capa propia, por encima del cartel de crear cuenta.
+function abrirTerminosRegistroNivan() {
+    let ov = document.getElementById("overlayTerminosRegistroNivan");
+    if (ov) ov.remove();
+    ov = document.createElement("div");
+    ov.id = "overlayTerminosRegistroNivan";
+    ov.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;";
+    ov.innerHTML = `<div style="background:var(--fondo,#fff);color:var(--texto,#111);max-width:640px;width:100%;max-height:88vh;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;">
+        <div style="padding:14px 16px;font-weight:700;border-bottom:1px solid rgba(128,128,128,.3);">📄 Términos y condiciones</div>
+        <div class="textoLegalNivan" style="padding:14px 16px;overflow:auto;flex:1;">${typeof htmlLegalNivan === "function" ? htmlLegalNivan("terminos") : ""}</div>
+        <div style="padding:12px 16px;border-top:1px solid rgba(128,128,128,.3);"><button type="button" class="botonCuenta" id="botonCerrarTerminosRegistroNivan">Cerrar</button></div>
+    </div>`;
+    document.body.appendChild(ov);
+    document.getElementById("botonCerrarTerminosRegistroNivan").onclick = function() { ov.remove(); };
+}
+
 function actualizarMedidorPasswordNivan() {
     const campo = document.getElementById("registroPassword");
     const boton = document.getElementById("botonCrearCuentaNivan");
@@ -494,7 +515,8 @@ function actualizarMedidorPasswordNivan() {
     }
 
     falta.textContent = r.fuerte ? "" : "Falta: " + r.faltan.join(", ");
-    if (boton) boton.disabled = !r.fuerte;
+    // El botón queda apagado hasta que la contraseña sea fuerte Y se acepten los términos.
+    if (boton) boton.disabled = !(r.fuerte && aceptoTerminosRegistroNivan());
 }
 
 function mostrarLogin() {
@@ -555,6 +577,11 @@ async function registrarUsuario() {
         return;
     }
 
+    if (!aceptoTerminosRegistroNivan()) {
+        alert("Para crear la cuenta tenés que aceptar los Términos y condiciones.");
+        return;
+    }
+
     const usuarios = obtenerUsuariosNivan();
 
     if (usuarios.some(u => u.email === email)) {
@@ -598,7 +625,7 @@ async function registrarUsuario() {
     }
 
     const crearUsuario = async (foto = "") => {
-        const r = await apiNivan("/api/registro", { nombre: nombre, email: email, password: password, pais: paisNivan() || "AR" });
+        const r = await apiNivan("/api/registro", { nombre: nombre, email: email, password: password, pais: paisNivan() || "AR", aceptoTerminos: true });
         if (!r.ok) { alert(r.error); return; }
         const usuario = {
             id: r.usuario.id,
@@ -1099,6 +1126,7 @@ function guardarPaisNivan(pais) {
 function elegirPaisNivan(pais) {
     if (!PAISES_NIVAN[pais]) return;
 
+    try { prepararCambioPaisNivan(pais); } catch (e) {}
     guardarPaisNivan(pais);
     location.reload();
 }
@@ -1115,6 +1143,7 @@ function cambiarPaisNivan(pais) {
     );
     if (!ok) return;
 
+    try { prepararCambioPaisNivan(pais); } catch (e) {}
     guardarPaisNivan(pais);
     location.reload();
 }

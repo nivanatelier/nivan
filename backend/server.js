@@ -102,17 +102,43 @@ function usuarioPublico(u) {
         id: u.id, nombre: u.nombre, apodo: u.apodo || '', idPublico: u.idPublico, nombreTienda: u.nombreTienda || '',
         email: u.email, foto: u.foto || '', bio: u.bio || '', bioTrabajo: u.bioTrabajo || '', pais: u.pais || 'AR',
         verificado: esAdmin(u) || !!(u.verificacion && u.verificacion.estado === 'aprobada'),
-        verificacion: verificacionPublica(u), admin: esAdmin(u)
+        verificacion: verificacionPublica(u), admin: esAdmin(u), restriccion: restriccionPublica(u)
     };
 }
 // ---- Baneos ----
 // Cuenta baneada: no puede entrar, no puede publicar, y sus publicaciones dejan de verse.
 // Un baneo temporal se termina solo cuando pasa la fecha (no hace falta hacer nada).
-function baneoActivo(u) {
-    const b = u && u.baneo;
+// Un baneo tiene un "alcance": 'todo' (no puede entrar; es lo de siempre), o una suspensión parcial:
+// 'comprar', 'vender' o 'comprar_vender' (sigue pudiendo entrar, pero no hacer eso). Sin alcance = 'todo'.
+function alcanceDe(b) { return (b && (b.alcance === 'comprar' || b.alcance === 'vender' || b.alcance === 'comprar_vender')) ? b.alcance : 'todo'; }
+function vigente(b) {
     if (!b) return null;
     if (b.permanente) return b;
     return (b.hasta && b.hasta > Date.now()) ? b : null;
+}
+function baneoActivo(u) {          // solo el baneo total (el que no deja entrar)
+    const b = vigente(u && u.baneo);
+    return b && alcanceDe(b) === 'todo' ? b : null;
+}
+function restriccionActiva(u) {    // solo las suspensiones parciales
+    const b = vigente(u && u.baneo);
+    return b && alcanceDe(b) !== 'todo' ? b : null;
+}
+function restriccionPublica(u) {
+    const b = restriccionActiva(u);
+    if (!b) return null;
+    const a = alcanceDe(b);
+    return { comprar: a === 'comprar' || a === 'comprar_vender', vender: a === 'vender' || a === 'comprar_vender', hasta: b.hasta || null, motivo: b.motivo || '' };
+}
+function textoRestriccion(b, accion) {
+    const a = alcanceDe(b);
+    const que = a === 'comprar_vender' ? 'comprar ni vender' : (a === 'comprar' ? 'comprar' : 'vender');
+    return 'No podés ' + (accion ? (accion === 'vender' ? 'vender' : 'comprar') : que) + ' hasta el ' + fechaCorta(b.hasta) + '.' + (b.motivo ? ' Motivo: ' + b.motivo : '');
+}
+// Cualquier medida activa (total o parcial), para mostrársela a la administración.
+function moderacionPublica(u) {
+    const b = vigente(u && u.baneo);
+    return b ? { permanente: !!b.permanente, hasta: b.hasta || null, motivo: b.motivo || '', fecha: b.fecha || null, por: b.por || '', alcance: alcanceDe(b) } : null;
 }
 function fechaCorta(ms) {   // en hora de Uruguay/Argentina (UTC-3)
     const d = new Date(ms - 3 * 3600000);
@@ -133,9 +159,10 @@ async function usuarioDeSesion(req) {
     const u = await db.usuarioPorId(s.usuarioId);
     return baneoActivo(u) ? null : u;   // con baneo, la sesión deja de servir
 }
-async function iniciarSesionEn(res, req, usuario, estado) {
+async function iniciarSesionEn(res, req, usuario, estado, cookieExtra) {
     const token = await seg.crearSesion(usuario.id, req);
-    responder(res, estado || 200, { ok: true, usuario: usuarioPublico(usuario) }, { 'Set-Cookie': seg.cookieSesion(token, HTTPS) });
+    const cs = seg.cookieSesion(token, HTTPS);
+    responder(res, estado || 200, { ok: true, usuario: usuarioPublico(usuario) }, { 'Set-Cookie': cookieExtra ? [cs, cookieExtra] : cs });
 }
 
 // ------------------------------
@@ -146,6 +173,78 @@ const RUTAS = {};
 RUTAS['GET /api/salud'] = async function (req, res) {
     responder(res, 200, { ok: true, hora: new Date().toISOString(), almacen: db.tipo });
 };
+
+// ------------------------------
+// Dispositivos conocidos y aviso por email de inicio de sesión nuevo
+// Cada navegador/app recibe una cookie larga y anónima. Si entra con una cookie que esa cuenta no conoce
+// (o sin cookie), se manda un email con el dispositivo, la ubicación aproximada y la IP.
+// ------------------------------
+const COOKIE_DISP = 'nivan_disp';
+function hashDisp(t) { return crypto.createHash('sha256').update(t).digest('hex'); }
+function cookieDisp(t) { return COOKIE_DISP + '=' + t + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + (2 * 365 * 86400) + (HTTPS ? '; Secure' : ''); }
+function tokenDispDe(req) { const t = seg.leerCookie(req, COOKIE_DISP); return /^[a-f0-9]{48}$/.test(t || '') ? t : null; }
+
+function baseUrl() {
+    return String(process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || ('http://localhost:' + PORT)).replace(/\/+$/, '');
+}
+function descripcionDispositivo(ua) {
+    ua = String(ua || '');
+    const nav = /Edg\//.test(ua) ? 'Edge' : /OPR\/|Opera/.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox'
+        : /Chrome\/|CriOS/.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'un navegador';
+    const so = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad|iPod/.test(ua) ? 'iOS'
+        : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : 'un dispositivo desconocido';
+    return nav + ' en ' + so;
+}
+async function ubicacionDeIp(ip) {
+    ip = String(ip || '').replace(/^::ffff:/, '');
+    if (!ip || ip === 'desconocida' || /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|fe80|fc|fd)/i.test(ip)) return 'No se pudo determinar';
+    try {
+        const r = await fetch('https://ipwho.is/' + encodeURIComponent(ip) + '?fields=success,city,region,country', { signal: AbortSignal.timeout(2500) });
+        const d = await r.json();
+        if (!d.success) return 'No se pudo determinar';
+        const partes = [d.city, d.region, d.country].filter(Boolean);
+        return partes.length ? partes.join(', ') : 'No se pudo determinar';
+    } catch (e) { return 'No se pudo determinar'; }
+}
+
+// Enlace "no fui yo": firmado, vale 7 días y deja de servir apenas cambia la contraseña.
+function claveSeguridad() { return crypto.createHash('sha256').update('nivan-seguridad|' + (process.env.SECRETO || process.env.DATABASE_URL || 'desarrollo')).digest(); }
+function firmar(txt) { return crypto.createHmac('sha256', claveSeguridad()).update(txt).digest('base64url'); }
+function huellaPassword(u) { return crypto.createHash('sha256').update(String(u.passwordHash)).digest('hex').slice(0, 16); }
+function crearTokenSeguridad(u) {
+    const b = Buffer.from(u.id + '|' + (Date.now() + 7 * 86400 * 1000) + '|' + huellaPassword(u)).toString('base64url');
+    return b + '.' + firmar(b);
+}
+function leerTokenSeguridad(t) {
+    const partes = String(t || '').split('.');
+    if (partes.length !== 2) return null;
+    const esperada = firmar(partes[0]);
+    if (partes[1].length !== esperada.length || !crypto.timingSafeEqual(Buffer.from(partes[1]), Buffer.from(esperada))) return null;
+    const p = Buffer.from(partes[0], 'base64url').toString('utf8').split('|');
+    if (p.length !== 3 || +p[1] < Date.now()) return null;
+    return { usuarioId: p[0], ph: p[2] };
+}
+
+async function avisarNuevoDispositivo(u, req) {
+    if (EN_RENDER && !emailConfigurado()) return;
+    if (seg.limitar('aviso:' + u.id, 5, 24 * 3600 * 1000)) return;   // tope: 5 avisos por día y cuenta
+    const ip = seg.ipDe(req);
+    const lugar = await ubicacionDeIp(ip);
+    let cuando;
+    try { cuando = new Date().toLocaleString('es-UY', { timeZone: 'America/Montevideo', dateStyle: 'long', timeStyle: 'short' }) + ' (hora de Uruguay)'; }
+    catch (e) { cuando = new Date().toISOString(); }
+    const texto = 'Alguien inició sesión en tu cuenta de Nivan.\n\n' +
+        'Cuándo: ' + cuando + '\n' +
+        'Dispositivo: ' + descripcionDispositivo(req.headers['user-agent']) + '\n' +
+        'Ubicación aproximada: ' + lugar + '\n' +
+        'IP: ' + ip + '\n\n' +
+        '¿Fuiste vos? Entonces no tenés que hacer nada.\n\n' +
+        'Si no fuiste vos, tocá acá para cambiar tu contraseña y cerrar sesión en todos los dispositivos:\n' +
+        baseUrl() + '/seguridad.html#t=' + crearTokenSeguridad(u) + '\n\n' +
+        '(El enlace vale 7 días. La ubicación es aproximada: sale de la IP y puede no ser exacta.)';
+    const enviado = await enviarEmail(u.email, 'Nuevo inicio de sesión en tu cuenta de Nivan', texto);
+    if (!enviado && !EN_RENDER) console.log('[desarrollo] Aviso de inicio de sesión para ' + u.email + ':\n' + texto);
+}
 
 RUTAS['POST /api/registro'] = async function (req, res) {
     const ip = seg.ipDe(req);
@@ -159,6 +258,7 @@ RUTAS['POST /api/registro'] = async function (req, res) {
     const pais = b.pais === 'UY' ? 'UY' : 'AR';
 
     if (!nombre || !email || !password) return error(res, 400, 'Completá nombre, email y contraseña.');
+    if (b.aceptoTerminos !== true) return error(res, 400, 'Para crear la cuenta tenés que aceptar los Términos y condiciones.');
     if (nombre.length < 2 || nombre.length > 60) return error(res, 400, 'El nombre tiene que tener entre 2 y 60 caracteres.');
     if (!emailValido(email)) return error(res, 400, 'Ingresá un email válido.');
     if (password.length > 200) return error(res, 400, 'La contraseña es demasiado larga.');
@@ -181,7 +281,10 @@ RUTAS['POST /api/registro'] = async function (req, res) {
         if (e && e.codigo === 'EMAIL_DUPLICADO') return error(res, 409, 'Ya existe una cuenta con ese email.');
         throw e;
     }
-    await iniciarSesionEn(res, req, usuario, 201);
+    // El dispositivo donde se registra ya queda como conocido (no hace falta avisarle).
+    const tokenDisp = crypto.randomBytes(24).toString('hex');
+    await db.registrarDispositivo(usuario.id, hashDisp(tokenDisp));
+    await iniciarSesionEn(res, req, usuario, 201, cookieDisp(tokenDisp));
 };
 
 RUTAS['POST /api/login'] = async function (req, res) {
@@ -205,7 +308,15 @@ RUTAS['POST /api/login'] = async function (req, res) {
     const baneo = baneoActivo(usuario);
     if (baneo) return responder(res, 403, { ok: false, baneada: true, error: textoBaneo(baneo) });
     seg.olvidar(claveEmail);
-    await iniciarSesionEn(res, req, usuario);
+
+    let tokenDisp = tokenDispDe(req);
+    const nuevo = !tokenDisp || !(await db.dispositivoConocido(usuario.id, hashDisp(tokenDisp)));
+    if (!tokenDisp) tokenDisp = crypto.randomBytes(24).toString('hex');
+    if (nuevo) {
+        await db.registrarDispositivo(usuario.id, hashDisp(tokenDisp));
+        avisarNuevoDispositivo(usuario, req).catch(function (e) { console.error('Aviso de inicio de sesión:', e && e.message); });
+    }
+    await iniciarSesionEn(res, req, usuario, 200, cookieDisp(tokenDisp));
 };
 
 RUTAS['POST /api/logout'] = async function (req, res) {
@@ -308,6 +419,24 @@ function igualesSeguro(a, b) {
 }
 function emailDe(b) { return String(b.email || '').trim().toLowerCase().slice(0, 80); }
 
+RUTAS['POST /api/seguridad/no-fui-yo'] = async function (req, res) {
+    const espera = seg.limitar('nofui:' + seg.ipDe(req), 10, 15 * 60 * 1000);
+    if (espera) return error(res, 429, 'Demasiados intentos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    const b = await leerJSON(req);
+    const t = leerTokenSeguridad(b.token);
+    const u = t ? await db.usuarioPorId(t.usuarioId) : null;
+    if (!u || huellaPassword(u) !== t.ph) return error(res, 400, 'Este enlace ya se usó o venció. Si necesitás cambiar tu contraseña, usá "Olvidé mi contraseña" en la app.');
+    const nueva = String(b.nueva == null ? '' : b.nueva);
+    if (nueva.length > 200) return error(res, 400, 'La contraseña es demasiado larga.');
+    const faltan = seg.evaluarPassword(nueva);
+    if (faltan.length) return error(res, 400, 'La contraseña nueva es débil. Le falta: ' + faltan.join(', ') + '.');
+    if (await seg.verificarPassword(nueva, u.passwordHash)) return error(res, 400, 'La contraseña nueva tiene que ser distinta de la anterior.');
+    await db.cambiarPassword(u.id, await seg.hashearPassword(nueva));
+    await db.borrarSesionesDeUsuario(u.id);   // se cierran todas las sesiones
+    await db.borrarDispositivos(u.id);        // y todos los dispositivos tienen que volver a confirmarse
+    responder(res, 200, { ok: true }, { 'Set-Cookie': seg.cookieBorrar(HTTPS) });
+};
+
 RUTAS['POST /api/recuperar/pedir'] = async function (req, res) {
     const b = await leerJSON(req);
     const email = emailDe(b);
@@ -370,7 +499,7 @@ RUTAS['POST /api/recuperar/restablecer'] = async function (req, res) {
 
 // ------------------------------
 // Verificación de identidad: la app no analiza nada, solo recibe las fotos y una persona las aprueba o rechaza.
-// Mientras está "pendiente" ya se puede vender. Las fotos se borran al resolver.
+// Mientras está "pendiente" NO se puede vender: solo cuando un admin la aprueba. Las fotos se borran al resolver.
 // ------------------------------
 const REGEX_FOTO_VERIF = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/;
 const FOTOS_VERIF = ['dniFrente', 'dniDorso', 'rostro'];
@@ -480,7 +609,13 @@ async function buscarCuenta(texto) {
     return (await db.usuarioPorEmail(t)) || (await db.usuarioPorIdPublico(t)) || (await db.usuarioPorId(String(texto).trim().slice(0, 80)));
 }
 function resumenCuenta(u) {
-    return { id: u.id, nombre: u.nombre, email: u.email, idPublico: u.idPublico, admin: esAdmin(u), baneo: baneoPublico(u) };
+    return { id: u.id, nombre: u.nombre, email: u.email, idPublico: u.idPublico, admin: esAdmin(u), baneo: moderacionPublica(u) };
+}
+function textoMedida(b) {
+    const a = alcanceDe(b);
+    if (b.permanente) return 'baneo permanente';
+    const que = a === 'todo' ? 'baneo temporal' : 'suspensión para ' + (a === 'comprar' ? 'comprar' : a === 'vender' ? 'vender' : 'comprar y vender');
+    return que + ' hasta el ' + fechaCorta(b.hasta);
 }
 RUTAS['POST /api/admin/cuenta/buscar'] = async function (req, res) {
     if (!(await soloAdmin(req, res))) return;
@@ -498,17 +633,25 @@ RUTAS['POST /api/admin/cuenta/banear'] = async function (req, res) {
     if (esAdmin(u)) return error(res, 400, 'Una cuenta de administración no se puede banear.');
     const motivo = String(b.motivo || '').replace(/[<>\u0000-\u001f]/g, ' ').trim().slice(0, 300);
     if (motivo.length < 3) return error(res, 400, 'Escribí el motivo (la persona lo va a ver).');
+    const alcance = b.alcance === undefined ? 'todo' : b.alcance;
+    if (['todo', 'comprar', 'vender', 'comprar_vender'].indexOf(alcance) < 0) return error(res, 400, 'Elegí qué se suspende: comprar, vender o ambos.');
     let baneo;
     if (b.tipo === 'permanente') {
-        baneo = { permanente: true, hasta: null, motivo: motivo, fecha: Date.now(), por: admin.email };
+        if (alcance !== 'todo') return error(res, 400, 'El baneo permanente es de toda la cuenta. Para suspender solo comprar o vender, elegí "temporal".');
+        baneo = { permanente: true, hasta: null, motivo: motivo, fecha: Date.now(), por: admin.email, alcance: 'todo' };
     } else if (b.tipo === 'temporal') {
         const dias = Number(b.dias);
         if (!Number.isInteger(dias) || dias < 1 || dias > 3650) return error(res, 400, 'Los días tienen que ser un número entero entre 1 y 3650.');
-        baneo = { permanente: false, hasta: Date.now() + dias * 86400000, motivo: motivo, fecha: Date.now(), por: admin.email };
+        baneo = { permanente: false, hasta: Date.now() + dias * 86400000, motivo: motivo, fecha: Date.now(), por: admin.email, alcance: alcance };
     } else return error(res, 400, 'Elegí si el baneo es permanente o temporal.');
     await db.fijarBaneo(u.id, baneo);
+    // Si la medida salió de un reporte, esos reportes quedan como resueltos.
+    const repTipo = b.reporte && b.reporte.tipo === 'usuario' ? 'usuario' : 'publicacion';
+    if (b.reporte && b.reporte.objetivoId != null) {
+        await db.cerrarReportes(repTipo, String(b.reporte.objetivoId).slice(0, 60), 'resuelto', textoMedida(baneo));
+    }
     // Sus sesiones abiertas no se borran: dejan de servir solas y así la app le muestra el motivo en vez de "tu sesión venció".
-    console.log('[admin] ' + admin.email + ' baneó (' + (baneo.permanente ? 'permanente' : 'hasta ' + fechaCorta(baneo.hasta)) + ') a ' + u.email + ' · ' + motivo);
+    console.log('[admin] ' + admin.email + ' aplicó ' + textoMedida(baneo) + ' a ' + u.email + ' · ' + motivo);
     responder(res, 200, { ok: true, cuenta: resumenCuenta(Object.assign({}, u, { baneo: baneo })) });
 };
 RUTAS['POST /api/admin/cuenta/desbanear'] = async function (req, res) {
@@ -520,6 +663,75 @@ RUTAS['POST /api/admin/cuenta/desbanear'] = async function (req, res) {
     await db.fijarBaneo(u.id, null);
     console.log('[admin] ' + admin.email + ' quitó el baneo a ' + u.email);
     responder(res, 200, { ok: true, cuenta: resumenCuenta(Object.assign({}, u, { baneo: null })) });
+};
+
+// ---- Reportes ----
+const MOTIVOS_REPORTE = { estafa: 'Estafa o intento de fraude', prohibido: 'Producto prohibido o ilegal', 'engañoso': 'Publicación falsa o engañosa',
+    ofensivo: 'Contenido ofensivo, discriminatorio o acoso', spam: 'Spam o publicidad no autorizada', suplantacion: 'Suplantación de identidad', otro: 'Otro motivo' };
+function limpiarTextoCorto(t, max) { return String(t == null ? '' : t).replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max); }
+// A qué cuenta corresponde lo reportado (el dueño de la publicación, o la cuenta misma).
+async function objetivoDeReporte(tipo, objetivoId) {
+    if (tipo === 'publicacion') {
+        const pub = await db.publicacionPorId(objetivoId);
+        return pub ? { cuentaId: pub.vendedorId, nombre: limpiarTextoCorto(pub.datos && pub.datos.nombre, 80) } : null;
+    }
+    const c = await db.usuarioPorId(objetivoId);
+    return c ? { cuentaId: c.id, nombre: limpiarTextoCorto(c.nombre, 80) } : null;
+}
+RUTAS['POST /api/reportes'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'Iniciá sesión para reportar.');
+    const espera = seg.limitar('reporte:' + u.id, 30, 3600 * 1000);
+    if (espera) return error(res, 429, 'Hiciste muchos reportes seguidos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    const b = await leerJSON(req);
+    const tipo = b.tipo === 'usuario' ? 'usuario' : (b.tipo === 'publicacion' ? 'publicacion' : '');
+    const objetivoId = limpiarTextoCorto(b.objetivoId, 60);
+    if (!tipo || !objetivoId) return error(res, 400, 'Reporte inválido.');
+    if (!Object.prototype.hasOwnProperty.call(MOTIVOS_REPORTE, b.motivo)) return error(res, 400, 'Elegí un motivo.');
+    const obj = await objetivoDeReporte(tipo, objetivoId);
+    if (!obj) return error(res, 404, 'Eso ya no existe.');
+    if (obj.cuentaId === u.id) return error(res, 400, 'No podés reportarte a vos mismo.');
+    try {
+        await db.crearReporte({ id: 'REP-' + Date.now() + '-' + crypto.randomBytes(3).toString('hex'), tipo: tipo, objetivoId: objetivoId, objetivoNombre: obj.nombre,
+            cuentaId: obj.cuentaId, motivo: b.motivo, detalle: limpiarTextoCorto(b.detalle, 300), reportanteId: u.id, reportanteNombre: limpiarTextoCorto(u.nombre, 60), fecha: Date.now() });
+    } catch (e) {
+        if (e && e.codigo === 'REPORTE_DUPLICADO') return error(res, 409, 'Ya reportaste esto. Nuestro equipo lo va a revisar.');
+        throw e;
+    }
+    console.log('[reporte] ' + u.email + ' reportó ' + tipo + ' ' + objetivoId + ' (' + b.motivo + ')');
+    responder(res, 200, { ok: true });
+};
+// Lo que ve la administración al tocar "Moderar" en una publicación o un perfil.
+RUTAS['POST /api/admin/reportes/objetivo'] = async function (req, res) {
+    if (!(await soloAdmin(req, res))) return;
+    const b = await leerJSON(req);
+    const tipo = b.tipo === 'usuario' ? 'usuario' : 'publicacion';
+    const objetivoId = limpiarTextoCorto(b.objetivoId, 60);
+    if (!objetivoId) return error(res, 400, 'Falta qué moderar.');
+    const reportes = await db.reportesDeObjetivo(tipo, objetivoId);
+    let obj = await objetivoDeReporte(tipo, objetivoId);
+    if (!obj && reportes.length && reportes[0].cuentaId) obj = { cuentaId: reportes[0].cuentaId, nombre: reportes[0].objetivoNombre };
+    if (!obj) return error(res, 404, 'No encontramos la cuenta responsable (puede que ya no exista).');
+    const cuenta = await db.usuarioPorId(obj.cuentaId);
+    if (!cuenta) return error(res, 404, 'La cuenta responsable ya no existe.');
+    responder(res, 200, {
+        ok: true,
+        objetivo: { tipo: tipo, id: objetivoId, nombre: obj.nombre },
+        cuenta: resumenCuenta(cuenta),
+        totalesCuenta: await db.contarReportesDeCuenta(cuenta.id),
+        reportes: reportes.map(function (r) {
+            return { motivo: MOTIVOS_REPORTE[r.motivo] || r.motivo, detalle: r.detalle, por: r.reportanteNombre, fecha: r.fecha, estado: r.estado, resolucion: r.resolucion };
+        })
+    });
+};
+RUTAS['POST /api/admin/reportes/descartar'] = async function (req, res) {
+    const admin = await soloAdmin(req, res);
+    if (!admin) return;
+    const b = await leerJSON(req);
+    const tipo = b.tipo === 'usuario' ? 'usuario' : 'publicacion';
+    await db.cerrarReportes(tipo, limpiarTextoCorto(b.objetivoId, 60), 'descartado', 'Sin medidas');
+    console.log('[admin] ' + admin.email + ' descartó los reportes de ' + tipo + ' ' + b.objetivoId);
+    responder(res, 200, { ok: true });
 };
 
 // ids de las cuentas de administración (el chat no les aplica el filtro de números). Solo ids, nunca emails.
@@ -789,8 +1001,11 @@ RUTAS['POST /api/publicaciones/guardar'] = async function (req, res) {
     const espera = seg.limitar('pub:' + u.id, 120, 3600 * 1000);
     if (espera) return error(res, 429, 'Demasiados cambios seguidos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
 
+    const sinVender = restriccionActiva(u);
+    if (sinVender && restriccionPublica(u).vender) return error(res, 403, textoRestriccion(sinVender, 'vender'));
     const estadoVerif = esAdmin(u) ? 'aprobada' : (u.verificacion && u.verificacion.estado);
-    if (estadoVerif !== 'aprobada' && estadoVerif !== 'pendiente') return error(res, 403, 'Primero enviá tu documentación para poder vender.');
+    if (estadoVerif === 'pendiente') return error(res, 403, 'Tu documentación está pendiente de revisión. Vas a poder vender cuando la aprobemos.');
+    if (estadoVerif !== 'aprobada') return error(res, 403, 'Primero enviá tu documentación para poder vender.');
 
     const b = await leerJSON(req, 40 * 1024 * 1024);
     const entrada = b.publicacion;
@@ -834,6 +1049,207 @@ RUTAS['POST /api/publicaciones/eliminar'] = async function (req, res) {
     if (previa && previa.vendedorId !== u.id) return error(res, 403, 'Esa publicación no es tuya.');
     if (previa) { await db.eliminarPublicacion(id); await limpiarMedios(u.id); }
     responder(res, 200, { ok: true });
+};
+
+// ------------------------------
+// Pedidos (compras y ventas)
+// ------------------------------
+// El servidor es quien crea los pedidos: revisa la sesión, que la identidad esté APROBADA, que no haya
+// suspensión para comprar y toma nombre y precio de cada publicación (lo que manda el celular no se cree).
+// Después solo deja cambiar lo que le corresponde a cada parte (comprador o vendedor).
+const CAMPOS_EDITABLES_PEDIDO = ['estado', 'historial', 'aceptado', 'seguimiento', 'cancelacion', 'reclamo', 'calificacionVendedor'];
+const DIAS_RECLAMO = 10;
+const MAX_ITEMS_PEDIDO = 50;
+
+function estable(v) {   // JSON con las claves ordenadas (PostgreSQL no conserva el orden de las claves)
+    if (Array.isArray(v)) return '[' + v.map(estable).join(',') + ']';
+    if (v && typeof v === 'object') return '{' + Object.keys(v).sort().filter(function (k) { return v[k] !== undefined; }).map(function (k) { return JSON.stringify(k) + ':' + estable(v[k]); }).join(',') + '}';
+    return JSON.stringify(v === undefined ? null : v);
+}
+function iguales(a, b) { return estable(a) === estable(b); }
+function txt(v, max) { return String(v == null ? '' : v).trim().slice(0, max); }
+function identidadAprobada(u) { return esAdmin(u) || !!(u.verificacion && u.verificacion.estado === 'aprobada'); }
+function puedeReclamar(u) { return identidadAprobada(u) && !(u.verificacion && u.verificacion.bloqueoReclamos && !esAdmin(u)); }
+
+function precioDePublicacion(d, cantidad) {
+    let precio = Number(d.precio);
+    if (Array.isArray(d.tramosPrecioMayor)) {
+        d.tramosPrecioMayor.forEach(function (t) { if (cantidad >= Number(t.cantidadMinima)) precio = Number(t.precio); });
+    }
+    return precio;
+}
+
+RUTAS['POST /api/pedidos/crear'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'Iniciá sesión para comprar.');
+    const espera = seg.limitar('ped:' + u.id, 30, 3600 * 1000);
+    if (espera) return error(res, 429, 'Hiciste muchas compras seguidas. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+
+    const sinComprar = restriccionActiva(u);
+    if (sinComprar && restriccionPublica(u).comprar) return error(res, 403, textoRestriccion(sinComprar, 'comprar'));
+    const estadoVerif = esAdmin(u) ? 'aprobada' : (u.verificacion && u.verificacion.estado);
+    if (estadoVerif === 'pendiente') return error(res, 403, 'Tu documentación está pendiente de revisión. Vas a poder comprar cuando la aprobemos.');
+    if (estadoVerif !== 'aprobada') return error(res, 403, 'Primero enviá tu documentación para poder comprar.');
+
+    const b = await leerJSON(req, 200 * 1024);
+    const d = b.datos && typeof b.datos === 'object' ? b.datos : {};
+    const comp = {
+        nombre: txt(d.nombre, 80), email: txt(d.email, 60).toLowerCase(), telefono: txt(d.telefono, 30), direccion: txt(d.direccion, 120),
+        ciudad: txt(d.ciudad, 60), codigoPostal: txt(d.codigoPostal, 12), envio: txt(d.envio, 60), pago: txt(d.pago, 60)
+    };
+    if (Object.keys(comp).some(function (k) { return !comp[k]; })) return error(res, 400, 'Completá todos los datos de la compra.');
+    if (!emailValido(comp.email)) return error(res, 400, 'Ingresá un email válido.');
+    const pais = b.pais === 'UY' ? 'UY' : 'AR';
+
+    const entrada = Array.isArray(b.items) ? b.items : [];
+    if (!entrada.length || entrada.length > MAX_ITEMS_PEDIDO) return error(res, 400, 'El carrito está vacío o tiene demasiados productos.');
+
+    const baneados = new Set(await db.idsBaneados());
+    const grupos = [];
+    for (const it of entrada) {
+        if (!it || typeof it !== 'object') return error(res, 400, 'Producto inválido.');
+        const cantidad = Math.floor(Number(it.cantidad)) || 1;
+        if (cantidad < 1 || cantidad > 1000) return error(res, 400, 'Cantidad inválida.');
+        const vendedorId = it.vendedorId ? String(it.vendedorId).slice(0, 60) : '';
+        let nombre, precioUnitario;
+        if (vendedorId) {
+            const pub = await db.publicacionPorId(String(it.id == null ? '' : it.id).slice(0, 40));
+            if (!pub || pub.vendedorId !== vendedorId || !pub.activo || baneados.has(vendedorId)) return error(res, 409, 'Una de las publicaciones ya no está disponible.');
+            if (pub.pais !== pais) return error(res, 409, 'Una de las publicaciones es de otro país.');
+            nombre = txt(pub.datos.nombre, 120);
+            precioUnitario = precioDePublicacion(pub.datos, cantidad);
+        } else {   // producto del catálogo base: no hay vendedor ni publicación en el servidor
+            nombre = txt(it.nombre, 120);
+            precioUnitario = Number(it.precioUnitario != null ? it.precioUnitario : it.precio);
+        }
+        if (!nombre || !isFinite(precioUnitario) || precioUnitario < 0 || precioUnitario > 1e9) return error(res, 400, 'Producto inválido.');
+        let g = grupos.find(function (x) { return x.vendedorId === vendedorId; });
+        if (!g) { g = { vendedorId: vendedorId, vendedorNombre: txt(it.vendedorNombre, 80), items: [] }; grupos.push(g); }
+        g.items.push({ id: it.id, nombre: nombre, cantidad: cantidad, precioUnitario: precioUnitario, talle: txt(it.talle, 40), color: txt(it.color, 40) });
+    }
+    for (const g of grupos) {
+        if (g.vendedorId && !g.vendedorNombre) { const v = await db.usuarioPorId(g.vendedorId); g.vendedorNombre = v ? (v.nombreTienda || v.nombre) : 'Vendedor'; }
+    }
+
+    let numero;
+    for (let n = 0; n < 5; n++) {
+        const c = 'NV-' + new Date().getFullYear() + '-' + (100000 + crypto.randomInt(900000));
+        if (!(await db.pedidoPorId(c)) && !(await db.pedidoPorId(c + '-1'))) { numero = c; break; }
+    }
+    if (!numero) return error(res, 500, 'No se pudo generar el número de pedido. Probá de nuevo.');
+
+    const cupon = b.cupon && typeof b.cupon === 'object' ? b.cupon : null;
+    const ahora = Date.now();
+    const filas = grupos.map(function (g, i) {
+        const subtotal = g.items.reduce(function (a, it) { return a + it.precioUnitario * it.cantidad; }, 0);
+        const aplica = !!(cupon && String(cupon.vendedorId || '') === g.vendedorId);
+        const descuento = aplica ? Math.max(0, Math.min(Number(cupon.descuento) || 0, subtotal)) : 0;
+        const id = grupos.length > 1 ? numero + '-' + (i + 1) : numero;
+        const pedido = {
+            id: id, numeroPedido: numero, compradorId: u.id, compradorNombre: comp.nombre, compradorEmail: comp.email, compradorTelefono: comp.telefono,
+            vendedorId: g.vendedorId || null, vendedorNombre: g.vendedorNombre, envio: comp.envio, pago: comp.pago,
+            direccion: comp.direccion, ciudad: comp.ciudad, codigoPostal: comp.codigoPostal, items: g.items, subtotal: subtotal,
+            cupon: aplica ? { codigo: txt(cupon.codigo, 40), descuento: descuento } : null, total: Math.max(0, subtotal - descuento),
+            pais: pais, fecha: ahora, estado: 'pendiente', historial: [{ estado: 'pendiente', fecha: ahora }]
+        };
+        return { id: id, compradorId: u.id, vendedorId: g.vendedorId || null, pais: pais, datos: pedido, creado: ahora, actualizado: ahora };
+    });
+    await db.crearPedidos(filas);
+    responder(res, 200, { ok: true, numeroPedido: numero, pedidos: filas.map(function (f) { return f.datos; }) });
+};
+
+RUTAS['GET /api/pedidos'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const filas = await db.pedidosDeUsuario(u.id, 500);
+    responder(res, 200, { ok: true, pedidos: filas.map(function (f) { return f.datos; }) });
+};
+
+// Devuelve un texto con el motivo si el cambio no está permitido, o '' si está bien.
+function validarCambioPedido(prev, nuevo, u) {
+    if (!nuevo || typeof nuevo !== 'object' || Array.isArray(nuevo)) return 'Pedido inválido.';
+    const soyComprador = prev.compradorId === u.id;
+    const soyVendedor = !!prev.vendedorId && prev.vendedorId === u.id;
+    if (!soyComprador && !soyVendedor) return 'Ese pedido no es tuyo.';
+
+    // Todo lo que no sea estado, seguimiento o reclamo queda fijo (precios, productos, personas, fechas).
+    const claves = new Set(Object.keys(prev).concat(Object.keys(nuevo)));
+    for (const k of claves) {
+        if (CAMPOS_EDITABLES_PEDIDO.indexOf(k) >= 0) continue;
+        if (!iguales(prev[k], nuevo[k])) return 'No se puede cambiar "' + k + '" de un pedido.';
+    }
+
+    const h0 = Array.isArray(prev.historial) ? prev.historial : [], h1 = nuevo.historial;
+    if (!Array.isArray(h1) || h1.length < h0.length || h1.length - h0.length > 3 || !iguales(h1.slice(0, h0.length), h0)) return 'El historial de un pedido solo se puede ampliar.';
+
+    // Estado
+    const e0 = prev.estado, e1 = nuevo.estado;
+    if (e0 !== e1) {
+        const DE_VENDEDOR = { pendiente: ['preparando', 'enviado', 'cancelado'], preparando: ['listo', 'pendiente', 'enviado', 'cancelado'], listo: ['preparando', 'enviado', 'cancelado'] };
+        let ok = false;
+        if (soyVendedor && (DE_VENDEDOR[e0] || []).indexOf(e1) >= 0) {
+            ok = !(e0 === 'pendiente' && e1 === 'preparando' && !prev.aceptado);
+            if (e1 === 'cancelado' && !(nuevo.cancelacion && typeof nuevo.cancelacion === 'object')) ok = false;
+        }
+        if (!ok && soyComprador && e1 === 'entregado' && e0 !== 'entregado' && e0 !== 'cancelado' && (!prev.vendedorId || e0 === 'enviado')) ok = true;
+        if (!ok) return 'Ese cambio de estado no está permitido.';
+    }
+
+    if (!iguales(prev.aceptado, nuevo.aceptado)) {
+        if (!soyVendedor || prev.aceptado || prev.estado !== 'pendiente' || !(+nuevo.aceptado > 0)) return 'Solo el vendedor puede aceptar el pedido.';
+    }
+    if (!iguales(prev.seguimiento, nuevo.seguimiento)) {
+        const s = nuevo.seguimiento;
+        if (!soyVendedor || !s || typeof s !== 'object' || typeof (s.empresa || '') !== 'string' || typeof (s.codigo || '') !== 'string' || (s.empresa || '').length > 30 || (s.codigo || '').length > 40) return 'Solo el vendedor puede cargar el seguimiento.';
+    }
+    if (!iguales(prev.cancelacion, nuevo.cancelacion)) {
+        if (!soyVendedor || prev.cancelacion || e1 !== 'cancelado') return 'Solo el vendedor puede cancelar el pedido.';
+    }
+
+    if (!iguales(prev.reclamo, nuevo.reclamo)) {
+        const r0 = prev.reclamo, r1 = nuevo.reclamo;
+        if (!r0) {   // el comprador pide devolución o reembolso
+            if (!soyComprador || !puedeReclamar(u)) return 'Para hacer un reclamo tu identidad tiene que estar aprobada.';
+            if (!r1 || typeof r1 !== 'object' || r1.estado !== 'solicitado' || (r1.tipo !== 'devolucion' && r1.tipo !== 'reembolso')) return 'Reclamo inválido.';
+            if (prev.estado !== 'entregado' || !prev.vendedorId) return 'Solo se puede reclamar un pedido entregado.';
+            const entregado = h0.filter(function (x) { return x.estado === 'entregado'; });
+            const desde = entregado.length ? entregado[entregado.length - 1].fecha : prev.fecha;
+            if (Date.now() - desde > DIAS_RECLAMO * 86400000) return 'Pasó el plazo para reclamar.';
+            if (txt(r1.comentario, 400).length !== String(r1.comentario || '').length) return 'El comentario es demasiado largo.';
+        } else {     // el vendedor responde
+            const SIG = { solicitado: ['aprobado', 'rechazado'], aprobado: ['completado'] };
+            if (!soyVendedor || !r1 || typeof r1 !== 'object' || (SIG[r0.estado] || []).indexOf(r1.estado) < 0) return 'Solo el vendedor puede responder el reclamo.';
+            const ks = new Set(Object.keys(r0).concat(Object.keys(r1)));
+            for (const k of ks) { if (k !== 'estado' && k !== 'respuesta' && k !== 'historial' && !iguales(r0[k], r1[k])) return 'No se puede cambiar el reclamo.'; }
+            if (String(r1.respuesta || '').length > 200) return 'La respuesta es demasiado larga.';
+        }
+    }
+
+    if (!iguales(prev.calificacionVendedor, nuevo.calificacionVendedor)) {
+        const c = nuevo.calificacionVendedor;
+        if (!soyComprador || !puedeReclamar(u)) return 'Para calificar tu identidad tiene que estar aprobada.';
+        if (prev.calificacionVendedor || prev.estado !== 'entregado' || !prev.vendedorId) return 'No se puede calificar este pedido.';
+        if (!c || typeof c !== 'object' || !Number.isInteger(c.estrellas) || c.estrellas < 1 || c.estrellas > 5 || String(c.comentario || '').length > 500) return 'Calificación inválida.';
+    }
+    return '';
+}
+
+RUTAS['POST /api/pedidos/actualizar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const espera = seg.limitar('pedmod:' + u.id, 300, 3600 * 1000);
+    if (espera) return error(res, 429, 'Demasiados cambios seguidos. Probá de nuevo en unos minutos.');
+    const b = await leerJSON(req, 100 * 1024);
+    const nuevo = b.pedido;
+    const id = String(nuevo && nuevo.id != null ? nuevo.id : '').slice(0, 60);
+    const previa = id ? await db.pedidoPorId(id) : null;
+    if (!previa) return error(res, 404, 'Ese pedido no existe. Los pedidos solo se crean al comprar.');
+    const motivo = validarCambioPedido(previa.datos, nuevo, u);
+    if (motivo) return error(res, 403, motivo);
+    previa.datos = JSON.parse(JSON.stringify(nuevo));
+    previa.actualizado = Date.now();
+    await db.guardarPedido(previa);
+    responder(res, 200, { ok: true, pedido: previa.datos });
 };
 
 async function servirMedio(req, res, id) {

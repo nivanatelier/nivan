@@ -21,13 +21,13 @@ let fallos = 0;
 function chequear(n, c, x) { console.log((c ? '  ✔ ' : '  ✘ ') + n + (c ? '' : '  →  ' + x)); if (!c) fallos++; }
 (async function () {
     const pw = 'Clave.Segura1', mailA = 'ana' + Date.now() + '@gmail.com';
-    let r = await post('/api/registro', { nombre: 'Admin Uno', email: 'admin@gmail.com', password: pw, pais: 'UY' });
+    let r = await post('/api/registro', { aceptoTerminos: true, nombre: 'Admin Uno', email: 'admin@gmail.com', password: pw, pais: 'UY' });
     if (r.e === 409) r = await post('/api/login', { email: 'admin@gmail.com', password: pw });
     const admin = r.c, idAdmin = r.j.usuario.id;
     await post('/api/admin/entrar', { clave: CLAVE }, admin);
-    r = await post('/api/registro', { nombre: 'Ana Prueba', email: mailA, password: pw, pais: 'UY' });
+    r = await post('/api/registro', { aceptoTerminos: true, nombre: 'Ana Prueba', email: mailA, password: pw, pais: 'UY' });
     const ana = r.c, idAna = r.j.usuario.id, idPublicoAna = r.j.usuario.idPublico;
-    r = await post('/api/registro', { nombre: 'Comun Prueba', email: 'comun' + Date.now() + '@gmail.com', password: pw, pais: 'UY' });
+    r = await post('/api/registro', { aceptoTerminos: true, nombre: 'Comun Prueba', email: 'comun' + Date.now() + '@gmail.com', password: pw, pais: 'UY' });
     const comun = r.c;
 
     console.log('Lista de administración');
@@ -88,7 +88,7 @@ function chequear(n, c, x) { console.log((c ? '  ✔ ' : '  ✘ ') + n + (c ? ''
     chequear('Baneada no puede publicar', r.e === 401, r.e);
     r = await post('/api/eliminar-cuenta', { email: mailA, password: pw });
     chequear('Baneada no puede eliminar su cuenta para escapar del baneo → 403', r.e === 403, r.e);
-    r = await post('/api/registro', { nombre: 'Ana Prueba', email: mailA, password: pw, pais: 'UY' });
+    r = await post('/api/registro', { aceptoTerminos: true, nombre: 'Ana Prueba', email: mailA, password: pw, pais: 'UY' });
     chequear('Tampoco puede volver a registrarse con el mismo email → 409', r.e === 409, r.e);
 
     console.log('\nPermanente y quitar baneo');

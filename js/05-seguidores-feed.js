@@ -1469,7 +1469,8 @@ function reformatearTelefonoCompraNivan() {
     });
 })();
 
-document.getElementById("confirmarCompraBtn").addEventListener("click", function() {
+document.getElementById("confirmarCompraBtn").addEventListener("click", async function() {
+    if (!exigirSinSuspensionNivan("comprar")) return;
     if (!exigirSesionParaComprarNivan()) return;
     const nombre = document.getElementById("nombreCompra").value.trim();
     const telefono = telefonoCompletoCompraNivan();
@@ -1509,22 +1510,53 @@ document.getElementById("confirmarCompraBtn").addEventListener("click", function
         return;
     }
 
-    const numeroPedido = "NV-" + new Date().getFullYear() + "-" + Math.floor(100000 + Math.random() * 900000);
-    const subtotalNumerico = carrito.reduce((acum, producto) => {
-        const unitario = producto.precioUnitario != null ? Number(producto.precioUnitario) : Number(producto.precio);
-        return acum + unitario * (Number(producto.cantidad) || 1);
-    }, 0);
-
     // El cupón se vuelve a validar acá (no sólo confiar en lo que ya se
     // mostraba en el carrito), por si cambió algo justo antes de confirmar.
     const descuentoCupon = calcularDescuentoCuponNivan();
     const cuponUsado = cuponAplicadoNivan ? { codigo: cuponAplicadoNivan.codigo, vendedorId: cuponAplicadoNivan.vendedorId, descuento: descuentoCupon } : null;
-    const totalNumerico = Math.max(0, subtotalNumerico - descuentoCupon);
+
+    // El pedido lo crea el SERVIDOR: revisa la sesión, que la identidad esté aprobada y las suspensiones,
+    // y toma nombre y precio de cada publicación. Sin su visto bueno no hay compra.
+    const botonConfirmar = document.getElementById("confirmarCompraBtn");
+    const textoBotonConfirmar = botonConfirmar.textContent;
+    botonConfirmar.disabled = true;
+    botonConfirmar.textContent = "Confirmando…";
+    const respuestaPedido = await apiNivan("/api/pedidos/crear", {
+        pais: paisNivan() || "AR",
+        datos: { nombre, email, telefono, direccion, ciudad, codigoPostal, envio, pago },
+        cupon: cuponUsado,
+        items: carrito.map(function(item) {
+            return {
+                id: item.id,
+                cantidad: Number(item.cantidad) || 1,
+                vendedorId: item.vendedorId || "",
+                nombre: item.nombre,
+                precioUnitario: item.precioUnitario != null ? Number(item.precioUnitario) : Number(item.precio),
+                vendedorNombre: obtenerNombreVendedorProducto(item),
+                talle: item.talleElegido || "",
+                color: item.colorElegido || ""
+            };
+        })
+    });
+    botonConfirmar.disabled = false;
+    botonConfirmar.textContent = textoBotonConfirmar;
+    if (!respuestaPedido.ok) {
+        alert(respuestaPedido.error);
+        return;
+    }
+
+    const pedidosCreados = respuestaPedido.pedidos;
+    const numeroPedido = respuestaPedido.numeroPedido;
+    incorporarPedidosServidorNivan(pedidosCreados);
+
+    const totalNumerico = pedidosCreados.reduce(function(acum, p) { return acum + p.total; }, 0);
+    const descuentoReal = pedidosCreados.reduce(function(acum, p) { return acum + (p.cupon ? p.cupon.descuento : 0); }, 0);
+    const cuponConfirmado = (cuponUsado && descuentoReal > 0) ? { codigo: cuponUsado.codigo, vendedorId: cuponUsado.vendedorId, descuento: descuentoReal } : null;
 
     const fecha = new Date().toLocaleString("es-AR");
-    const productosComprados = carrito.map(producto => {
+    const productosComprados = pedidosCreados.map(function(p) { return p.items; }).reduce(function(a, l) { return a.concat(l); }, []).map(producto => {
         const cantidad = Number(producto.cantidad) || 1;
-        const unitario = producto.precioUnitario != null ? Number(producto.precioUnitario) : Number(producto.precio);
+        const unitario = Number(producto.precioUnitario);
         return `<li>${escaparHTMLNivan(producto.nombre)}${cantidad > 1 ? " × " + cantidad : ""} — ${simboloMonedaNivan()}${formatearDineroNivan(unitario * cantidad)}</li>`;
     }).join("");
 
@@ -1546,7 +1578,7 @@ document.getElementById("confirmarCompraBtn").addEventListener("click", function
             <hr>
             <h3>Productos</h3>
             <ul>${productosComprados}</ul>
-            ${cuponUsado ? `<p>Cupón <strong>${escaparHTMLNivan(cuponUsado.codigo)}</strong>: -${simboloMonedaNivan()}${formatearDineroNivan(cuponUsado.descuento)}</p>` : ""}
+            ${cuponConfirmado ? `<p>Cupón <strong>${escaparHTMLNivan(cuponConfirmado.codigo)}</strong>: -${simboloMonedaNivan()}${formatearDineroNivan(cuponConfirmado.descuento)}</p>` : ""}
             <h2>Total: ${simboloMonedaNivan()}${formatearDineroNivan(totalNumerico)}</h2>
             <p class="notaComprobante">Este es un comprobante de compra de NIVAN y no reemplaza una factura fiscal.</p>
             ${pago === "Mercado Pago" ? `<button type="button" class="botonComprobante" onclick="iniciarPagoMercadoPago('${numeroPedido}', ${totalNumerico})">💳 Pagar ahora</button>` : ""}
@@ -1557,8 +1589,7 @@ document.getElementById("confirmarCompraBtn").addEventListener("click", function
     document.getElementById("pedidoExitoso").style.display = "block";
     document.getElementById("confirmarCompraBtn").style.display = "none";
 
-    // Historial de pedidos (Mis compras / Mis ventas): un pedido por vendedor.
-    const pedidosCreados = registrarPedidosNivan(numeroPedido, { nombre, email, telefono, direccion, ciudad, codigoPostal, envio, pago, cupon: cuponUsado });
+    // Historial de pedidos (Mis compras / Mis ventas): un pedido por vendedor, ya guardado por el servidor.
 
     // La compra queda escrita en el chat entre comprador y vendedor.
     pedidosCreados.forEach(function(pedidoCreado) {
@@ -1567,9 +1598,9 @@ document.getElementById("confirmarCompraBtn").addEventListener("click", function
 
     // Se gastó un uso del cupón: queda registrado para que no se pueda
     // reutilizar más veces de las que el vendedor permitió.
-    if (cuponUsado) {
+    if (cuponConfirmado) {
         const cupones = obtenerCuponesNivan();
-        const c = cupones.find(function(x) { return normalizarCodigoCuponNivan(x.codigo) === normalizarCodigoCuponNivan(cuponUsado.codigo); });
+        const c = cupones.find(function(x) { return normalizarCodigoCuponNivan(x.codigo) === normalizarCodigoCuponNivan(cuponConfirmado.codigo); });
         if (c) {
             c.usos = (c.usos || 0) + 1;
             guardarCuponesNivan(cupones);

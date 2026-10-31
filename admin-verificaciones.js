@@ -114,7 +114,8 @@ function mostrarCuenta(c) {
     const est = document.createElement("div"); est.className = "estadoCuenta";
     if (c.baneo) {
         est.classList.add("baneada");
-        est.textContent = (c.baneo.permanente ? "🚫 Baneada de forma permanente" : "⏳ Baneada hasta el " + new Date(c.baneo.hasta).toLocaleDateString("es-UY")) + " · Motivo: " + c.baneo.motivo;
+        const parcial = { comprar: "comprar", vender: "vender", comprar_vender: "comprar y vender" }[c.baneo.alcance];
+        est.textContent = (c.baneo.permanente ? "🚫 Baneada de forma permanente" : "⏳ " + (parcial ? "Suspendida para " + parcial : "Baneada") + " hasta el " + new Date(c.baneo.hasta).toLocaleDateString("es-UY")) + " · Motivo: " + c.baneo.motivo;
     } else { est.classList.add("libre"); est.textContent = "✅ Sin baneo"; }
     div.append(titulo, mail, est);
 

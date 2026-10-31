@@ -4,7 +4,9 @@
 // El resto de la app sigue leyendo y escribiendo "nivanPublicaciones" como siempre.
 // Acá se hacen dos cosas:
 //   1. Cada vez que alguien guarda publicaciones, sus cambios se mandan al servidor.
-//   2. Al abrir la app (y cada tanto) se bajan las publicaciones de todos los vendedores del país.
+//   2. Al abrir la app (y cada tanto) se bajan las publicaciones de venta del país elegido (Uruguay o Argentina).
+//      Las de otro país no se muestran, para que nadie se enamore de una prenda que no puede comprar.
+//      Los perfiles y sus posts son de todos y viajan aparte (30-perfiles-servidor.js).
 (function () {
     "use strict";
 
@@ -84,7 +86,7 @@
         bajando = true;
         try {
             await cola;                                   // primero termina de subir lo mío
-            const r = await apiNivan("/api/publicaciones");
+            const r = await apiNivan("/api/publicaciones?pais=" + encodeURIComponent(paisActual()));
             if (!r.ok || !Array.isArray(r.publicaciones)) return;
 
             const local = leerJSONNivan(CLAVE_LISTA, []);
@@ -102,8 +104,8 @@
             r.publicaciones.forEach(function (p) { if (miId && p.vendedorId === miId) nuevasEnviadas[String(p.id)] = huella(p); });
             guardarEnviadas(nuevasEnviadas);
 
-            // Se muestran las publicaciones de todos los países: cada una conserva su propio país.
-            const nueva = r.publicaciones.concat(pendientes);
+            // Solo quedan las del país elegido. Las mías de otro país siguen en el servidor y vuelven al cambiar de país.
+            const nueva = r.publicaciones.concat(pendientes).filter(function (p) { return (p.pais || "AR") === paisActual(); });
 
             if (huella(nueva) !== huella(local)) {
                 guardarOriginal(nueva);
@@ -114,6 +116,18 @@
             bajando = false;
         }
     }
+
+    // Al cambiar de país se sacan de este celular las publicaciones del otro país SIN borrarlas del servidor.
+    window.prepararCambioPaisNivan = function (pais) {
+        try {
+            const lista = leerJSONNivan(CLAVE_LISTA, []).filter(function (p) { return (p.pais || "AR") === pais; });
+            localStorage.setItem(CLAVE_LISTA, JSON.stringify(lista));
+            const enviadas = leerEnviadas(), ids = {};
+            lista.forEach(function (p) { ids[String(p.id)] = true; });
+            Object.keys(enviadas).forEach(function (k) { if (!ids[k]) delete enviadas[k]; });   // si no, se tomarían como borradas
+            guardarEnviadas(enviadas);
+        } catch (e) {}
+    };
 
     window.actualizarPublicacionesNivan = bajar;
     window.addEventListener("load", function () { setTimeout(bajar, 600); });

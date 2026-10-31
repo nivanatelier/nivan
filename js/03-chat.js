@@ -1668,6 +1668,7 @@ function abrirPerfilVendedor(identificadorVendedor) {
     }
 
     function agregarAlCarrito(id) {
+        if (!exigirSinSuspensionNivan("comprar")) return;
 
         const producto = productos.find(
             producto => producto.id === id
@@ -1745,6 +1746,7 @@ function abrirPerfilVendedor(identificadorVendedor) {
     // carrito, para que el comprador pueda completar la compra sin
     // tener que buscar el botón del carrito por separado.
     function comprarAhoraNivan(id) {
+        if (!exigirSinSuspensionNivan("comprar")) return;
         agregarAlCarrito(id);
 
         const carritoEl = document.getElementById("carrito");

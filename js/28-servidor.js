@@ -1,6 +1,22 @@
 // ==============================
 // NIVAN · Conexión con el servidor (cuentas y sesión)
 // ==============================
+// Lo que el servidor dice de la cuenta con sesión: si es de administración y si tiene suspensiones (comprar/vender).
+let estadoCuentaNivan = null;
+function esAdminNivan() {
+    return !!(usuarioActual && estadoCuentaNivan && estadoCuentaNivan.id === usuarioActual.id && estadoCuentaNivan.admin);
+}
+// accion: "comprar" o "vender". Avisa el motivo y devuelve false si la cuenta está suspendida para eso.
+// (Es solo comodidad: el servidor exige lo mismo al publicar y al crear un pedido, y ahí no se puede saltar.)
+function exigirSinSuspensionNivan(accion) {
+    if (!usuarioActual || !estadoCuentaNivan || estadoCuentaNivan.id !== usuarioActual.id) return true;
+    const r = estadoCuentaNivan.restriccion;
+    if (!r || !r[accion]) return true;
+    if (r.hasta && r.hasta < Date.now()) return true;
+    alert("No podés " + (accion === "vender" ? "vender" : "comprar") + " hasta el " + new Date(r.hasta).toLocaleDateString("es-UY") + "." + (r.motivo ? " Motivo: " + r.motivo : ""));
+    return false;
+}
+
 async function apiNivan(ruta, cuerpo) {
     try {
         const r = await fetch(ruta, cuerpo === undefined ? { credentials: "same-origin" } : {
@@ -11,6 +27,9 @@ async function apiNivan(ruta, cuerpo) {
         try { datos = await r.json(); } catch (e) {}
         if (datos.ok === undefined) datos.ok = r.ok;
         if (!datos.ok && !datos.error) datos.error = "Error del servidor (" + r.status + ").";
+        if (datos.usuario && datos.usuario.id && (ruta === "/api/yo" || ruta === "/api/login" || ruta === "/api/registro" || ruta === "/api/recuperar/restablecer")) {
+            estadoCuentaNivan = { id: datos.usuario.id, admin: !!datos.usuario.admin, restriccion: datos.usuario.restriccion || null };
+        }
         datos.estado = r.status;
         return datos;
     } catch (e) {

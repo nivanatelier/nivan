@@ -42,17 +42,19 @@ function chequear(nombre, condicion, detalle) {
     chequear('El servidor responde', r.estado === 200 && r.json.ok);
 
     console.log('\nRegistro');
-    r = await pedir('POST', '/api/registro', { nombre: 'Ana Pérez', email: email, password: 'debil' });
-    chequear('Rechaza contraseña débil', r.estado === 400 && /débil/.test(r.json.error), r.texto);
-    r = await pedir('POST', '/api/registro', { nombre: 'Ana Pérez', email: 'no-es-email', password: pw });
-    chequear('Rechaza email inválido', r.estado === 400, r.texto);
     r = await pedir('POST', '/api/registro', { nombre: 'Ana Pérez', email: email, password: pw, pais: 'UY' });
+    chequear('Sin aceptar los términos no se crea la cuenta → 400', r.estado === 400 && /Términos/.test(r.json.error || ''), r.texto);
+    r = await pedir('POST', '/api/registro', { aceptoTerminos: true, nombre: 'Ana Pérez', email: email, password: 'debil' });
+    chequear('Rechaza contraseña débil', r.estado === 400 && /débil/.test(r.json.error), r.texto);
+    r = await pedir('POST', '/api/registro', { aceptoTerminos: true, nombre: 'Ana Pérez', email: 'no-es-email', password: pw });
+    chequear('Rechaza email inválido', r.estado === 400, r.texto);
+    r = await pedir('POST', '/api/registro', { aceptoTerminos: true, nombre: 'Ana Pérez', email: email, password: pw, pais: 'UY' });
     chequear('Crea la cuenta', r.estado === 201 && r.json.ok && r.json.usuario.email === email, r.texto);
     chequear('Devuelve idPublico y país', r.json && r.json.usuario.idPublico === 'anaperez' && r.json.usuario.pais === 'UY');
     chequear('No devuelve el hash de la contraseña', r.texto.indexOf('passwordHash') < 0 && r.texto.indexOf('scrypt') < 0);
     chequear('Cookie HttpOnly', !!r.setCookie && /HttpOnly/.test(r.setCookie) && /SameSite=Lax/.test(r.setCookie), r.setCookie);
     const cookie = r.cookie;
-    r = await pedir('POST', '/api/registro', { nombre: 'Otra Ana', email: email.toUpperCase(), password: pw });
+    r = await pedir('POST', '/api/registro', { aceptoTerminos: true, nombre: 'Otra Ana', email: email.toUpperCase(), password: pw });
     chequear('No deja repetir el email', r.estado === 409, r.texto);
 
     console.log('\nSesión');

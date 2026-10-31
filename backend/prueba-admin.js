@@ -20,10 +20,10 @@ let fallos = 0;
 function chequear(n, c, x) { console.log((c ? '  ✔ ' : '  ✘ ') + n + (c ? '' : '  →  ' + x)); if (!c) fallos++; }
 (async function () {
     const pw = 'Clave.Segura1';
-    let r = await pedir('/api/registro', { nombre: 'Admin Uno', email: 'admin@gmail.com', password: pw, pais: 'UY' });
+    let r = await pedir('/api/registro', { aceptoTerminos: true, nombre: 'Admin Uno', email: 'admin@gmail.com', password: pw, pais: 'UY' });
     if (r.e === 409) r = await pedir('/api/login', { email: 'admin@gmail.com', password: pw });
     const admin = r.c;
-    r = await pedir('/api/registro', { nombre: 'Persona Comun', email: 'comun' + Date.now() + '@gmail.com', password: pw, pais: 'UY' });
+    r = await pedir('/api/registro', { aceptoTerminos: true, nombre: 'Persona Comun', email: 'comun' + Date.now() + '@gmail.com', password: pw, pais: 'UY' });
     const comun = r.c;
 
     console.log('Quién puede entrar');

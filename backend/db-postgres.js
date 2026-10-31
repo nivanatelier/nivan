@@ -75,7 +75,44 @@ const MIGRACIONES = [
     // 4 · baneos de cuentas (permanente o con fecha de fin, siempre con motivo)
     `ALTER TABLE usuarios ADD COLUMN baneo JSONB;`,
     // 5 · perfil público (bio, foto, posts del portafolio y datos de tienda), visible para todos los países
-    `ALTER TABLE usuarios ADD COLUMN perfil JSONB;`
+    `ALTER TABLE usuarios ADD COLUMN perfil JSONB;`,
+    // 6 · dispositivos conocidos de cada cuenta (para avisar por email cuando entra uno nuevo)
+    `CREATE TABLE dispositivos (
+        usuario_id TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        h          TEXT NOT NULL,
+        visto      BIGINT NOT NULL,
+        PRIMARY KEY (usuario_id, h)
+    );`,
+    // 7 · reportes de publicaciones y cuentas (los ve solo la administración). Una persona reporta cada cosa una sola vez.
+    `CREATE TABLE reportes (
+        id                TEXT PRIMARY KEY,
+        tipo              TEXT NOT NULL,
+        objetivo_id       TEXT NOT NULL,
+        objetivo_nombre   TEXT NOT NULL DEFAULT '',
+        cuenta_id         TEXT,
+        motivo            TEXT NOT NULL,
+        detalle           TEXT NOT NULL DEFAULT '',
+        reportante_id     TEXT NOT NULL,
+        reportante_nombre TEXT NOT NULL DEFAULT '',
+        fecha             BIGINT NOT NULL,
+        estado            TEXT NOT NULL DEFAULT 'pendiente',
+        resolucion        TEXT NOT NULL DEFAULT '',
+        CONSTRAINT reportes_unico UNIQUE (reportante_id, tipo, objetivo_id)
+    );
+    CREATE INDEX reportes_objetivo_idx ON reportes (tipo, objetivo_id);
+    CREATE INDEX reportes_cuenta_idx ON reportes (cuenta_id);`,
+    // 8 · pedidos (compras y ventas). Sin clave foránea a usuarios: al borrar una cuenta el pedido queda en el historial de la otra persona.
+    `CREATE TABLE pedidos (
+        id           TEXT PRIMARY KEY,
+        comprador_id TEXT NOT NULL,
+        vendedor_id  TEXT,
+        pais         TEXT NOT NULL,
+        datos        JSONB NOT NULL,
+        creado       BIGINT NOT NULL,
+        actualizado  BIGINT NOT NULL
+    );
+    CREATE INDEX pedidos_comprador_idx ON pedidos (comprador_id, creado DESC);
+    CREATE INDEX pedidos_vendedor_idx ON pedidos (vendedor_id, creado DESC);`
 ];
 
 async function migrar() {
@@ -191,10 +228,20 @@ async function fijarBaneo(id, baneo) {
     await pool.query('UPDATE usuarios SET baneo = $2 WHERE id = $1', [id, baneo ? JSON.stringify(baneo) : null]);
 }
 // Ids de las cuentas que hoy están baneadas (permanente, o temporal que todavía no venció).
+// Cuentas cuyas publicaciones no se muestran: baneo total, o suspensión para vender. Una suspensión solo para comprar no las oculta.
 async function idsBaneados() {
-    const r = await pool.query("SELECT id FROM usuarios WHERE baneo IS NOT NULL AND ((baneo->>'permanente') = 'true' OR COALESCE((baneo->>'hasta')::bigint, 0) > $1)", [Date.now()]);
+    const r = await pool.query("SELECT id FROM usuarios WHERE baneo IS NOT NULL AND COALESCE(baneo->>'alcance', 'todo') <> 'comprar' AND ((baneo->>'permanente') = 'true' OR COALESCE((baneo->>'hasta')::bigint, 0) > $1)", [Date.now()]);
     return r.rows.map(function (f) { return f.id; });
 }
+async function dispositivoConocido(id, h) {
+    const r = await pool.query('SELECT 1 FROM dispositivos WHERE usuario_id = $1 AND h = $2', [id, h]);
+    return r.rows.length > 0;
+}
+async function registrarDispositivo(id, h) {
+    await pool.query('INSERT INTO dispositivos (usuario_id, h, visto) VALUES ($1,$2,$3) ON CONFLICT (usuario_id, h) DO UPDATE SET visto = $3', [id, h, Date.now()]);
+    await pool.query('DELETE FROM dispositivos WHERE usuario_id = $1 AND h NOT IN (SELECT h FROM dispositivos WHERE usuario_id = $1 ORDER BY visto DESC LIMIT 30)', [id]);
+}
+async function borrarDispositivos(id) { await pool.query('DELETE FROM dispositivos WHERE usuario_id = $1', [id]); }
 async function cambiarPassword(id, hash) { await pool.query('UPDATE usuarios SET password_hash = $1 WHERE id = $2', [hash, id]); }
 // Borra la cuenta; las sesiones se van solas por ON DELETE CASCADE.
 async function eliminarUsuario(id) { await pool.query('DELETE FROM usuarios WHERE id = $1', [id]); }
@@ -249,17 +296,76 @@ async function tamanoBytes() {
 }
 async function cerrar() { await pool.end(); }
 
+// ---- Pedidos ----
+function aPedido(f) {
+    return f ? { id: f.id, compradorId: f.comprador_id, vendedorId: f.vendedor_id || null, pais: f.pais, datos: f.datos, creado: +f.creado, actualizado: +f.actualizado } : null;
+}
+async function pedidoPorId(id) {
+    const r = await pool.query('SELECT * FROM pedidos WHERE id = $1', [id]);
+    return aPedido(r.rows[0]);
+}
+async function pedidosDeUsuario(usuarioId, limite) {
+    const r = await pool.query('SELECT * FROM pedidos WHERE comprador_id = $1 OR vendedor_id = $1 ORDER BY creado DESC LIMIT $2', [usuarioId, limite]);
+    return r.rows.map(aPedido);
+}
+async function crearPedidos(lista) {
+    const c = await pool.connect();
+    try {
+        await c.query('BEGIN');
+        for (const p of lista) {
+            await c.query('INSERT INTO pedidos (id, comprador_id, vendedor_id, pais, datos, creado, actualizado) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+                [p.id, p.compradorId, p.vendedorId || null, p.pais, JSON.stringify(p.datos), p.creado, p.actualizado]);
+        }
+        await c.query('COMMIT');
+    } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
+}
+async function guardarPedido(p) {
+    await pool.query('UPDATE pedidos SET datos = $2, actualizado = $3 WHERE id = $1', [p.id, JSON.stringify(p.datos), p.actualizado]);
+}
+
+// ---- Reportes ----
+function aReporte(f) {
+    return { id: f.id, tipo: f.tipo, objetivoId: f.objetivo_id, objetivoNombre: f.objetivo_nombre, cuentaId: f.cuenta_id, motivo: f.motivo,
+        detalle: f.detalle, reportanteId: f.reportante_id, reportanteNombre: f.reportante_nombre, fecha: +f.fecha, estado: f.estado, resolucion: f.resolucion };
+}
+// Lanza { codigo: 'REPORTE_DUPLICADO' } si esa persona ya reportó eso.
+async function crearReporte(r) {
+    try {
+        await pool.query(
+            `INSERT INTO reportes (id, tipo, objetivo_id, objetivo_nombre, cuenta_id, motivo, detalle, reportante_id, reportante_nombre, fecha)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+            [r.id, r.tipo, r.objetivoId, r.objetivoNombre, r.cuentaId || null, r.motivo, r.detalle, r.reportanteId, r.reportanteNombre, r.fecha]);
+    } catch (e) {
+        if (e.code === '23505') { const x = new Error('reporte duplicado'); x.codigo = 'REPORTE_DUPLICADO'; throw x; }
+        throw e;
+    }
+}
+async function reportesDeObjetivo(tipo, objetivoId) {
+    const r = await pool.query('SELECT * FROM reportes WHERE tipo = $1 AND objetivo_id = $2 ORDER BY fecha DESC LIMIT 100', [tipo, objetivoId]);
+    return r.rows.map(aReporte);
+}
+async function contarReportesDeCuenta(cuentaId) {
+    const r = await pool.query("SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE estado = 'pendiente') AS pendientes FROM reportes WHERE cuenta_id = $1", [cuentaId]);
+    return { total: +r.rows[0].total, pendientes: +r.rows[0].pendientes };
+}
+async function cerrarReportes(tipo, objetivoId, estado, resolucion) {
+    await pool.query("UPDATE reportes SET estado = $3, resolucion = $4 WHERE tipo = $1 AND objetivo_id = $2 AND estado = 'pendiente'", [tipo, objetivoId, estado, resolucion]);
+}
+
 process.on('SIGTERM', function () { cerrar().finally(function () { process.exit(0); }); });
 process.on('SIGINT', function () { cerrar().finally(function () { process.exit(0); }); });
 
 module.exports = {
+    pedidoPorId: pedidoPorId, pedidosDeUsuario: pedidosDeUsuario, crearPedidos: crearPedidos, guardarPedido: guardarPedido,
     usuarioPorIdPublico: usuarioPorIdPublico, fijarBaneo: fijarBaneo, idsBaneados: idsBaneados,
+    crearReporte: crearReporte, reportesDeObjetivo: reportesDeObjetivo, contarReportesDeCuenta: contarReportesDeCuenta, cerrarReportes: cerrarReportes,
     publicacionPorId: publicacionPorId, publicacionesDeUsuario: publicacionesDeUsuario, publicacionesPorPais: publicacionesPorPais,
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,
     guardarMedio: guardarMedio, medioPorId: medioPorId, borrarMediosSobrantes: borrarMediosSobrantes,
     eliminarUsuario: eliminarUsuario, guardarPerfil: guardarPerfil, usuariosPublicos: usuariosPublicos,
     guardarVerificacion: guardarVerificacion, verificacionesPendientes: verificacionesPendientes,
     fotosVerificacion: fotosVerificacion, resolverVerificacion: resolverVerificacion,
+    dispositivoConocido: dispositivoConocido, registrarDispositivo: registrarDispositivo, borrarDispositivos: borrarDispositivos,
     cambiarPassword: cambiarPassword, borrarSesionesDeUsuario: borrarSesionesDeUsuario,
     tipo: 'postgres', listo: listo, cerrar: cerrar, tamanoBytes: tamanoBytes,
     usuarioPorEmail: usuarioPorEmail, usuarioPorId: usuarioPorId, crearUsuario: crearUsuario,

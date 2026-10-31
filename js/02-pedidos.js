@@ -689,69 +689,8 @@ function guardarPedidosNivan(lista) {
     }
 }
 
-// Se llama al confirmar la compra, con el carrito todavía cargado.
-function registrarPedidosNivan(numeroPedido, datos) {
-    const grupos = [];
-
-    carrito.forEach(function(item) {
-        const clave = item.vendedorId || "";
-        let grupo = grupos.find(function(g) { return g.vendedorId === clave; });
-
-        if (!grupo) {
-            grupo = { vendedorId: clave, vendedorNombre: obtenerNombreVendedorProducto(item), items: [] };
-            grupos.push(grupo);
-        }
-
-        grupo.items.push({
-            id: item.id,
-            nombre: item.nombre,
-            cantidad: Number(item.cantidad) || 1,
-            precioUnitario: item.precioUnitario != null ? Number(item.precioUnitario) : Number(item.precio),
-            talle: item.talleElegido || "",
-            color: item.colorElegido || ""
-        });
-    });
-
-    const ahora = Date.now();
-
-    // El cupón (si hay uno aplicado) sólo descuenta del pedido del
-    // vendedor al que pertenece, nunca del de otro vendedor del mismo
-    // carrito.
-    const cuponParaRegistro = datos.cupon || null;
-
-    const nuevos = grupos.map(function(g, i) {
-        const subtotalGrupo = g.items.reduce(function(acum, it) { return acum + it.precioUnitario * it.cantidad; }, 0);
-        const aplicaCupon = cuponParaRegistro && cuponParaRegistro.vendedorId === (g.vendedorId || "");
-        const descuentoGrupo = aplicaCupon ? Math.min(cuponParaRegistro.descuento, subtotalGrupo) : 0;
-
-        return {
-            id: grupos.length > 1 ? numeroPedido + "-" + (i + 1) : numeroPedido,
-            numeroPedido: numeroPedido,
-            compradorId: usuarioActual ? usuarioActual.id : null,
-            compradorNombre: datos.nombre,
-            compradorEmail: datos.email,
-            compradorTelefono: datos.telefono,
-            vendedorId: g.vendedorId || null,
-            vendedorNombre: g.vendedorNombre,
-            envio: datos.envio,
-            pago: datos.pago,
-            direccion: datos.direccion,
-            ciudad: datos.ciudad,
-            codigoPostal: datos.codigoPostal,
-            items: g.items,
-            subtotal: subtotalGrupo,
-            cupon: aplicaCupon ? { codigo: cuponParaRegistro.codigo, descuento: descuentoGrupo } : null,
-            total: Math.max(0, subtotalGrupo - descuentoGrupo),
-            pais: paisNivan() || "AR",
-            fecha: ahora,
-            estado: "pendiente",
-            historial: [{ estado: "pendiente", fecha: ahora }]
-        };
-    });
-
-    guardarPedidosNivan(nuevos.concat(obtenerPedidosNivan()));
-    return nuevos;
-}
+// Los pedidos NO se crean acá: los crea el servidor al comprar (/api/pedidos/crear, ver 05-seguidores-feed.js).
+// Esta copia solo se lee y se modifica con lo que el servidor permite (32-pedidos-servidor.js).
 
 function esCompradorDelPedidoNivan(pedido) {
     if (!usuarioActual) return false;

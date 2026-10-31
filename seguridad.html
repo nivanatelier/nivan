@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Nivan · Proteger mi cuenta</title>
+<style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0b0b0b; color: #f2f2f2; display: flex; justify-content: center; padding: 24px 16px; }
+    main { width: 100%; max-width: 420px; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    p { color: #bbb; line-height: 1.45; }
+    label { display: block; margin: 14px 0 4px; font-size: 14px; }
+    input { width: 100%; box-sizing: border-box; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #161616; color: #fff; font-size: 16px; }
+    button { width: 100%; margin-top: 18px; border: 0; border-radius: 8px; padding: 13px; font-size: 16px; background: #fff; color: #000; cursor: pointer; }
+    button:disabled { opacity: .5; }
+    #mensaje { margin-top: 14px; min-height: 20px; }
+    .error { color: #ff8c8c; } .ok { color: #7fd48a; }
+    a { color: #fff; }
+</style>
+</head>
+<body>
+<main>
+    <h1>Proteger mi cuenta</h1>
+    <p>Elegí una contraseña nueva. Vamos a cerrar la sesión en todos los dispositivos, incluido el que no reconocés.</p>
+    <div id="formulario">
+        <label for="nueva">Contraseña nueva</label>
+        <input id="nueva" type="password" autocomplete="new-password">
+        <label for="repetir">Repetila</label>
+        <input id="repetir" type="password" autocomplete="new-password">
+        <p style="font-size:13px;">Mínimo 8 caracteres, con mayúscula, número y símbolo.</p>
+        <button id="boton" type="button">Cambiar contraseña y cerrar sesiones</button>
+    </div>
+    <div id="mensaje"></div>
+</main>
+<script src="seguridad.js"></script>
+</body>
+</html>
