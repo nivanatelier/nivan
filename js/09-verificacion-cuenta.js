@@ -680,10 +680,14 @@ async function programarEliminacionCuentaNivan() {
         const usuario = obtenerUsuarioPorIdNivan(id);
         const password = (document.getElementById("cuentaPassConfirmNivan") || {}).value || "";
 
-        // 1) Borrar en el servidor
-        const s = await apiNivan("/api/eliminar-cuenta", { email: usuario.email, password: password });
-        // 401 = la cuenta no existe en el servidor (cuenta vieja solo del celular): seguimos y la borramos acá.
-        if (!s.ok && s.estado !== 401) {
+        // 1) Borrar en el servidor. Si falla, no se borra nada acá: así la cuenta no queda viva en el servidor
+        // mientras en el celular parece eliminada. El servidor usa la cuenta de la sesión abierta.
+        const s = await apiNivan("/api/eliminar-cuenta", { password: password });
+        if (!s.ok) {
+            if (s.estado === 401) {
+                cerrarSesionVencidaNivan();
+                return;
+            }
             alert(s.error || "No se pudo eliminar la cuenta. Probá de nuevo.");
             return;
         }

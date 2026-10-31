@@ -751,17 +751,32 @@ RUTAS['POST /api/eliminar-cuenta'] = async function (req, res) {
     const b = await leerJSON(req);
     const email = String(b.email || '').trim().toLowerCase().slice(0, 80);
     const password = String(b.password == null ? '' : b.password).slice(0, 200);
-    if (!email || !password) return error(res, 400, 'Completá email y contraseña.');
+    let usuario = null;
+    let claveEmail;
 
-    const claveEmail = 'elim:' + email;
-    const espera = seg.limitar('elim-ip:' + ip, 10, 15 * 60 * 1000) || seg.limitar(claveEmail, 5, 15 * 60 * 1000);
-    if (espera) return error(res, 429, 'Demasiados intentos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    if (email) {
+        // Desde la página pública: sin sesión, con email y contraseña.
+        if (!password) return error(res, 400, 'Completá email y contraseña.');
+        claveEmail = 'elim:' + email;
+        const espera = seg.limitar('elim-ip:' + ip, 10, 15 * 60 * 1000) || seg.limitar(claveEmail, 5, 15 * 60 * 1000);
+        if (espera) return error(res, 429, 'Demasiados intentos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
 
-    const usuario = await db.usuarioPorEmail(email);
-    let ok = false;
-    if (usuario) ok = await seg.verificarPassword(password, usuario.passwordHash);
-    else await seg.gastarTiempo(password);
-    if (!ok) return error(res, 401, 'Email o contraseña incorrectos.');
+        usuario = await db.usuarioPorEmail(email);
+        let ok = false;
+        if (usuario) ok = await seg.verificarPassword(password, usuario.passwordHash);
+        else await seg.gastarTiempo(password);
+        if (!ok) return error(res, 401, 'Email o contraseña incorrectos.');
+    } else {
+        // Desde la app: la cuenta es la de la sesión abierta (no depende de un email escrito en el celular).
+        const sesion = await seg.sesionDe(req);
+        usuario = sesion ? await db.usuarioPorId(sesion.usuarioId) : null;
+        if (!usuario) return error(res, 401, 'Tu sesión venció. Volvé a iniciar sesión.');
+        if (!password) return error(res, 400, 'Escribí tu contraseña.');
+        claveEmail = 'elim:' + usuario.email;
+        const espera = seg.limitar('elim-ip:' + ip, 10, 15 * 60 * 1000) || seg.limitar(claveEmail, 5, 15 * 60 * 1000);
+        if (espera) return error(res, 429, 'Demasiados intentos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+        if (!(await seg.verificarPassword(password, usuario.passwordHash))) return error(res, 403, 'La contraseña es incorrecta.');
+    }
 
     // Si pudiera borrarse estando baneada, se iría el baneo y podría volver a registrarse.
     if (baneoActivo(usuario)) return error(res, 403, 'Tu cuenta está suspendida y no se puede eliminar mientras dure la suspensión. Escribinos por el contacto que figura en la app.');
@@ -1535,6 +1550,65 @@ RUTAS['GET /api/chats'] = async function (req, res) {
         }),
         mensajes: mensajes.map(function (m) { return Object.assign({ chatId: m.chatId }, m.datos); })
     });
+};
+
+// ------------------------------
+// Conjuntos: quién sigue a qué cuenta y a quién le gusta cada post. Cada persona solo cambia lo suyo.
+// ------------------------------
+const COLECCIONES_CONJUNTO = { seguidores: true, likes: true };
+function duenoDeClaveCuenta(clave) { return String(clave).indexOf('T:') === 0 ? String(clave).slice(2) : String(clave); }
+
+RUTAS['POST /api/conjuntos/cambiar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const espera = seg.limitar('conj:' + u.id, 600, 3600 * 1000);
+    if (espera) return error(res, 429, 'Demasiados cambios seguidos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    const b = await leerJSON(req);
+    const coleccion = String(b.coleccion || '');
+    if (!COLECCIONES_CONJUNTO[coleccion]) return error(res, 400, 'Colección inválida.');
+    const cambios = Array.isArray(b.cambios) ? b.cambios.slice(0, 100) : [];
+    let aplicados = 0, rechazados = 0;
+    for (const c of cambios) {
+        const accion = c && c.accion, clave = c && typeof c.clave === 'string' ? c.clave : '', valor = c && typeof c.valor === 'string' ? c.valor : '';
+        if ((accion !== 'agregar' && accion !== 'quitar') || !clave || !valor || clave.length > 120 || valor.length > 120) { rechazados++; continue; }
+        let permitido = false;
+        if (coleccion === 'likes') {
+            permitido = valor === u.id;
+        } else {
+            const duenoValor = duenoDeClaveCuenta(valor), duenoClave = duenoDeClaveCuenta(clave);
+            if (accion === 'agregar') permitido = duenoValor === u.id && duenoClave !== u.id && !!(await db.usuarioPorId(duenoClave));
+            else permitido = duenoValor === u.id || duenoClave === u.id;      // seguirse a uno mismo no; quitar: el que sigue o el seguido
+        }
+        if (!permitido) { rechazados++; continue; }
+        if (accion === 'agregar') await db.conjuntoAgregar(coleccion, clave, valor);
+        else await db.conjuntoQuitar(coleccion, clave, valor);
+        aplicados++;
+    }
+    responder(res, 200, { ok: true, aplicados: aplicados, rechazados: rechazados });
+};
+
+RUTAS['GET /api/conjuntos'] = async function (req, res) {
+    const url = new URL(req.url, 'http://localhost');
+    const coleccion = String(url.searchParams.get('coleccion') || '');
+    if (!COLECCIONES_CONJUNTO[coleccion]) return error(res, 400, 'Colección inválida.');
+    const u = await usuarioDeSesion(req);
+    const yo = u ? u.id : null;
+    let filas = await db.conjuntoLeer(coleccion);
+    if (coleccion === 'seguidores') {
+        // Quién sigue a quién se muestra solo si las dos cuentas son públicas, o si una de las dos sos vos.
+        const privados = {};
+        (await db.usuariosPublicos(1000)).forEach(function (x) {
+            const priv = x.perfil && x.perfil.privacidad;
+            if (priv && priv.verPerfil && priv.verPerfil !== 'todos') privados[x.id] = true;
+        });
+        filas = filas.filter(function (f) {
+            const dc = duenoDeClaveCuenta(f.clave), dv = duenoDeClaveCuenta(f.valor);
+            return dc === yo || dv === yo || (!privados[dc] && !privados[dv]);
+        });
+    }
+    const datos = {};
+    filas.forEach(function (f) { (datos[f.clave] = datos[f.clave] || []).push(f.valor); });
+    responder(res, 200, { ok: true, datos: datos });
 };
 
 // ------------------------------

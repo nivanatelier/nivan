@@ -23,8 +23,8 @@ Costo: 25 USD **una vez** en Play Console. Hosting gratis (Render + Neon, ver ba
 
 ## 4. Lo que Google pide (y hoy falta)
 - ✅ URL pública de política de privacidad: https://TU-URL/privacidad.html. Antes de publicar corré `node backend/generar-privacidad.js tu-correo@ejemplo.com` y volvé a desplegar.
-- Formulario "Seguridad de los datos" (Data safety) completo.
-- ✅ Enlace web para eliminar la cuenta: https://TU-URL/eliminar-cuenta.html (usa POST /api/eliminar-cuenta). Falta: que el botón de la app también borre la cuenta del servidor.
+- Formulario "Seguridad de los datos" (Data safety): respuestas armadas en `PLAY-STORE-DATA-SAFETY.md` (leé el punto 6 antes de enviarlo).
+- ✅ Enlace web para eliminar la cuenta: https://TU-URL/eliminar-cuenta.html (usa POST /api/eliminar-cuenta). El botón de la app (Privacidad y seguridad → Eliminar cuenta) también borra la cuenta del servidor.
 - Contenido de usuarios (publicaciones, chats): botones de denunciar y bloquear, y moderación.
 - Cuentas personales nuevas: prueba cerrada con 12 testers durante 14 días antes de producción (verificá la regla vigente).
 - Capturas, ícono 512 y gráfico de 1024x500.

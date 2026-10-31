@@ -191,3 +191,10 @@ La app sabe cuáles son esas cuentas por `GET /api/admins` (solo ids, nunca emai
 - La base crea la tabla sola al arrancar (migración 11).
 - Los productos del catálogo base (sin vendedor) y las reseñas hechas antes de esto siguen solo en el celular donde se escribieron.
 - La notificación "Nueva reseña" al vendedor todavía es local (las notificaciones no están en el servidor).
+
+## Seguidores y likes en el servidor (migración 12)
+- Tabla `conjuntos` (coleccion, clave, valor). Dos colecciones: `seguidores` (clave = cuenta seguida, valor = cuenta seguidora; las claves de tienda empiezan con `T:`) y `likes` (clave = id del post, valor = id de quien dio like).
+- `POST /api/conjuntos/cambiar` y `GET /api/conjuntos?coleccion=...`. Cada persona solo agrega o saca lo suyo; quien es seguido también puede sacar a un seguidor.
+- Si una cuenta es privada, quién la sigue no se ve para terceros (sí para ella y para quien la sigue).
+- Al borrar una cuenta se borran sus seguimientos, los de otras personas hacia ella y los likes de sus posts.
+- Cliente: `js/35-conjuntos-servidor.js`.

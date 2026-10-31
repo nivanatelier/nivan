@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const contacto = process.argv[2] || '';
+const contacto = process.argv[2] || 'nivanatelier@gmail.com';
 if (!contacto) console.warn('AVISO: falta el correo de contacto. Corré: node generar-privacidad.js tu-correo@ejemplo.com');
 const CONTACTO = contacto || '[PEGAR-CORREO-DE-CONTACTO]';
 

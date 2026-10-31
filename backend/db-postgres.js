@@ -146,7 +146,16 @@ const MIGRACIONES = [
         borrada        BIGINT
     );
     CREATE INDEX resenias_pub_idx ON resenias (publicacion_id);
-    CREATE INDEX resenias_usuario_idx ON resenias (usuario_id, publicacion_id);`
+    CREATE INDEX resenias_usuario_idx ON resenias (usuario_id, publicacion_id);`,
+    // 12 · conjuntos: quién sigue a qué cuenta (seguidores) y a quién le gusta cada post (likes)
+    `CREATE TABLE conjuntos (
+        coleccion TEXT NOT NULL,
+        clave     TEXT NOT NULL,
+        valor     TEXT NOT NULL,
+        creado    BIGINT NOT NULL,
+        PRIMARY KEY (coleccion, clave, valor)
+    );
+    CREATE INDEX conjuntos_valor_idx ON conjuntos (coleccion, valor);`
 ];
 
 async function migrar() {
@@ -286,6 +295,8 @@ async function cambiarPassword(id, hash) { await pool.query('UPDATE usuarios SET
 // Borra la cuenta; las sesiones se van solas por ON DELETE CASCADE.
 async function eliminarUsuario(id) {
     await pool.query('DELETE FROM chats WHERE a_id = $1 OR b_id = $1', [id]);     // sus chats (y mensajes) se van con la cuenta
+    // sus seguimientos, los de otras personas hacia sus cuentas y los likes de sus posts (las claves de posts empiezan con "id_")
+    await pool.query("DELETE FROM conjuntos WHERE valor = ANY($1::text[]) OR clave = ANY($1::text[]) OR clave LIKE $2 ESCAPE '\\'", [[id, 'T:' + id], id + '\\_%']);
     await pool.query('DELETE FROM usuarios WHERE id = $1', [id]);
 }
 
@@ -336,6 +347,17 @@ async function borrarMediosSobrantes(usuarioId, usados) {
 async function tamanoBytes() {
     const r = await pool.query('SELECT pg_database_size(current_database()) AS n');
     return +r.rows[0].n;
+}
+// ---- Conjuntos (seguidores y likes) ----
+async function conjuntoAgregar(coleccion, clave, valor) {
+    await pool.query('INSERT INTO conjuntos (coleccion, clave, valor, creado) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING', [coleccion, clave, valor, Date.now()]);
+}
+async function conjuntoQuitar(coleccion, clave, valor) {
+    await pool.query('DELETE FROM conjuntos WHERE coleccion = $1 AND clave = $2 AND valor = $3', [coleccion, clave, valor]);
+}
+async function conjuntoLeer(coleccion) {
+    const r = await pool.query('SELECT clave, valor FROM conjuntos WHERE coleccion = $1 LIMIT 100000', [coleccion]);
+    return r.rows;
 }
 async function cerrar() { await pool.end(); }
 
@@ -461,6 +483,7 @@ process.on('SIGTERM', function () { cerrar().finally(function () { process.exit(
 process.on('SIGINT', function () { cerrar().finally(function () { process.exit(0); }); });
 
 module.exports = {
+    conjuntoAgregar: conjuntoAgregar, conjuntoQuitar: conjuntoQuitar, conjuntoLeer: conjuntoLeer,
     chatPorId: chatPorId, guardarChat: guardarChat, mensajePorId: mensajePorId, agregarMensaje: agregarMensaje, actualizarMensaje: actualizarMensaje,
     chatsDeUsuarioDesde: chatsDeUsuarioDesde, mensajesDeUsuarioDesde: mensajesDeUsuarioDesde,
     reseniasPublicas: reseniasPublicas, reseniasDeUsuarioEn: reseniasDeUsuarioEn, reseniaPorId: reseniaPorId, crearResenia: crearResenia, borrarResenia: borrarResenia,

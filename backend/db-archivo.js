@@ -9,7 +9,7 @@ const path = require('path');
 
 const DIR = process.env.NIVAN_DATOS || path.join(__dirname, 'datos');
 const ARCHIVO = path.join(DIR, 'db.json');
-const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [], chats: [], chatMensajes: [], resenias: [] };
+const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [], chats: [], chatMensajes: [], resenias: [], conjuntos: [] };
 const MAX_SESIONES_POR_USUARIO = 10;
 
 fs.mkdirSync(DIR, { recursive: true });
@@ -217,7 +217,25 @@ async function eliminarUsuario(id) {
     const idsChats = datos.chats.filter(function (c) { return c.aId === id || c.bId === id; }).map(function (c) { return c.id; });
     datos.chats = datos.chats.filter(function (c) { return idsChats.indexOf(c.id) < 0; });
     datos.chatMensajes = datos.chatMensajes.filter(function (m) { return idsChats.indexOf(m.chatId) < 0; });
+    const dueno = function (s) { return s.indexOf('T:') === 0 ? s.slice(2) : s; };
+    datos.conjuntos = datos.conjuntos.filter(function (e) { return dueno(e.valor) !== id && dueno(e.clave) !== id && e.clave.indexOf(id + '_') !== 0; });
     guardar();
+}
+
+// ---- Conjuntos (seguidores y likes) ----
+async function conjuntoAgregar(coleccion, clave, valor) {
+    if (!datos.conjuntos.some(function (e) { return e.coleccion === coleccion && e.clave === clave && e.valor === valor; })) {
+        datos.conjuntos.push({ coleccion: coleccion, clave: clave, valor: valor, creado: Date.now() });
+        guardar();
+    }
+}
+async function conjuntoQuitar(coleccion, clave, valor) {
+    const antes = datos.conjuntos.length;
+    datos.conjuntos = datos.conjuntos.filter(function (e) { return !(e.coleccion === coleccion && e.clave === clave && e.valor === valor); });
+    if (datos.conjuntos.length !== antes) guardar();
+}
+async function conjuntoLeer(coleccion) {
+    return datos.conjuntos.filter(function (e) { return e.coleccion === coleccion; }).map(function (e) { return { clave: e.clave, valor: e.valor }; });
 }
 
 // ---- Publicaciones y medios ----
@@ -292,6 +310,7 @@ async function guardarPedido(ped) {
 async function tamanoBytes() { return Buffer.byteLength(JSON.stringify(datos)); }
 
 module.exports = {
+    conjuntoAgregar: conjuntoAgregar, conjuntoQuitar: conjuntoQuitar, conjuntoLeer: conjuntoLeer,
     chatPorId: chatPorId, guardarChat: guardarChat, mensajePorId: mensajePorId, agregarMensaje: agregarMensaje, actualizarMensaje: actualizarMensaje,
     chatsDeUsuarioDesde: chatsDeUsuarioDesde, mensajesDeUsuarioDesde: mensajesDeUsuarioDesde,
     reseniasPublicas: reseniasPublicas, reseniasDeUsuarioEn: reseniasDeUsuarioEn, reseniaPorId: reseniaPorId, crearResenia: crearResenia, borrarResenia: borrarResenia,
