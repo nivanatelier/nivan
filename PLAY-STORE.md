@@ -34,3 +34,9 @@ Costo: 25 USD **una vez** en Play Console. Hosting gratis (Render + Neon, ver ba
 
 ## 5. Cada vez que cambien archivos
 Subí el número `VERSION` en sw.js. Los cambios de web llegan solos a la app de Play Store, sin nueva revisión.
+
+## Publicaciones compartidas (hecho)
+- Las publicaciones se guardan en el servidor (tablas `publicaciones` y `medios`) y las ve cualquier persona del mismo país.
+- Fotos: se achican a 1280 px al elegirlas. Videos: máximo 5 MB. Límite de 10 archivos por publicación y 200 publicaciones por cuenta.
+- Neon gratis tiene 0,5 GB: con fotos de unos 150 KB alcanza para varios miles de publicaciones.
+- Siguen solo en el celular de cada persona: chats, pedidos, carrito, favoritos, seguidores y reseñas.

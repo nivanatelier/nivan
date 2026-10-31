@@ -82,7 +82,7 @@ function exigirSesionParaComprarNivan() {
 }
 
 // ----- Reconocimiento facial (face-api, se descarga recién al verificar) -----
-const UMBRAL_ROSTRO_NIVAN = 0.55; // distancia máxima para ser la misma persona (más bajo = más estricto)
+const UMBRAL_ROSTRO_NIVAN = 0.6; // distancia máxima para ser la misma persona (más bajo = más estricto)
 const URL_FACEAPI_NIVAN = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js";
 const URL_MODELOS_FACEAPI_NIVAN = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/";
 let modelosRostroNivan = null;
@@ -121,18 +121,45 @@ function imagenDesdeDataUrlNivan(src) {
     });
 }
 
-async function descriptorRostroNivan(dataUrl) {
+// El detector de caras falla seguido con fotos de documentos (la cara es chica) y con selfies muy
+// grandes, con poca luz o con la cara corrida. Por eso se prueba la foto entera y varios recortes,
+// llevados a un tamaño que el detector maneja bien, de lo más exigente a lo menos exigente.
+const ZONAS_DOCUMENTO_NIVAN = [
+    [0, 0, 1, 1], [0, 0, 0.6, 1], [0, 0.1, 0.5, 0.8], [0.4, 0, 0.6, 1],
+    [0, 0, 1, 0.6], [0.5, 0, 0.5, 0.7], [0, 0.4, 0.6, 0.6], [0.25, 0.15, 0.5, 0.7]
+];
+const ZONAS_SELFIE_NIVAN = [[0, 0, 1, 1], [0.1, 0.05, 0.8, 0.9], [0.2, 0.1, 0.6, 0.7], [0, 0, 1, 0.75], [0, 0.15, 1, 0.85]];
+
+function recortarImagenNivan(img, zona, lado) {
+    const sx = Math.round(img.width * zona[0]), sy = Math.round(img.height * zona[1]);
+    const sw = Math.max(1, Math.round(img.width * zona[2])), sh = Math.max(1, Math.round(img.height * zona[3]));
+    const escala = Math.min(3, lado / Math.max(sw, sh));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(sw * escala));
+    c.height = Math.max(1, Math.round(sh * escala));
+    c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    return c;
+}
+
+async function descriptorRostroNivan(dataUrl, esDocumento) {
     const img = await imagenDesdeDataUrlNivan(dataUrl);
-    const r = await faceapi.detectSingleFace(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }))
-        .withFaceLandmarks().withFaceDescriptor();
-    return r ? r.descriptor : null;
+    const zonas = esDocumento ? ZONAS_DOCUMENTO_NIVAN : ZONAS_SELFIE_NIVAN;
+    const lado = esDocumento ? 800 : 640;
+    for (const confianza of [0.4, 0.25]) {
+        for (const zona of zonas) {
+            const r = await faceapi.detectSingleFace(recortarImagenNivan(img, zona, lado), new faceapi.SsdMobilenetv1Options({ minConfidence: confianza }))
+                .withFaceLandmarks().withFaceDescriptor();
+            if (r) return r.descriptor;
+        }
+    }
+    return null;
 }
 
 // resultado: "coincide" | "no_coincide" | "sin_rostro_dni" | "sin_rostro_selfie" | "no_disponible"
 async function compararRostroConDniNivan(fotoDni, fotoSelfie) {
     try { await prepararModelosRostroNivan(); } catch (e) { return { resultado: "no_disponible" }; }
     try {
-        const dDni = await descriptorRostroNivan(fotoDni);
+        const dDni = await descriptorRostroNivan(fotoDni, true);
         if (!dDni) return { resultado: "sin_rostro_dni" };
         const dSelfie = await descriptorRostroNivan(fotoSelfie);
         if (!dSelfie) return { resultado: "sin_rostro_selfie" };
@@ -142,6 +169,8 @@ async function compararRostroConDniNivan(fotoDni, fotoSelfie) {
         return { resultado: "no_disponible" };
     }
 }
+
+let fallosRostroNivan = {};
 
 // Analiza las fotos. { ok:true, verificacion, sinAnalisis? } o { ok:false, mensaje, repetir:[claves] }
 async function evaluarVerificacionNivan(fotos, previa) {
@@ -154,11 +183,22 @@ async function evaluarVerificacionNivan(fotos, previa) {
     if (analisis.resultado === "no_disponible") {
         return { ok: true, sinAnalisis: true, verificacion: base };
     }
-    if (analisis.resultado === "sin_rostro_dni") {
-        return { ok: false, mensaje: "No se ve con claridad la cara en la foto de tu " + nombreDocumentoNivan() + " (frente). Volvé a subirla.", repetir: ["dniFrente"] };
-    }
-    if (analisis.resultado === "sin_rostro_selfie") {
-        return { ok: false, mensaje: "No pudimos ver tu rostro con claridad. Repetí la biometría facial.", repetir: ["rostro"] };
+    if (analisis.resultado === "sin_rostro_dni" || analisis.resultado === "sin_rostro_selfie") {
+        const clave = analisis.resultado;
+        fallosRostroNivan[clave] = (fallosRostroNivan[clave] || 0) + 1;
+        if (fallosRostroNivan[clave] >= 2) {
+            fallosRostroNivan = {};
+            return { ok: true, revisionManual: true, verificacion: Object.assign(base, { biometria: "revision_manual" }) };
+        }
+        const dondeFalla = clave === "sin_rostro_dni"
+            ? "la foto de tu " + nombreDocumentoNivan() + " (frente)"
+            : "tu selfie";
+        return {
+            ok: false,
+            mensaje: "No pudimos encontrar tu cara en " + dondeFalla + ". Sacala de frente, con buena luz, sin gorra, anteojos oscuros ni reflejos, y que la cara ocupe buena parte de la foto. " +
+                "Si te vuelve a pasar, la enviamos para revisión manual.",
+            repetir: [clave === "sin_rostro_dni" ? "dniFrente" : "rostro"]
+        };
     }
     return { ok: false, mensaje: "Tu rostro no coincide con el de tu " + nombreDocumentoNivan() + ". Repetí la biometría facial.", repetir: ["rostro"] };
 }
@@ -229,13 +269,13 @@ function comprimirImagenADataURLNivan(archivo) {
         const url = URL.createObjectURL(archivo);
         const img = new Image();
         img.onload = function() {
-            const escala = Math.min(1, 900 / Math.max(img.width, img.height));
+            const escala = Math.min(1, 1400 / Math.max(img.width, img.height));
             const c = document.createElement("canvas");
             c.width = Math.max(1, Math.round(img.width * escala));
             c.height = Math.max(1, Math.round(img.height * escala));
             c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
             URL.revokeObjectURL(url);
-            resolve(c.toDataURL("image/jpeg", 0.6));
+            resolve(c.toDataURL("image/jpeg", 0.8));
         };
         img.onerror = function() { URL.revokeObjectURL(url); reject(new Error("imagen")); };
         img.src = url;

@@ -86,3 +86,11 @@ Las cuentas viejas creadas solo en un celular no pueden entrar: hay que registra
 - Recuperar contraseña (hoy es local; necesita envío de emails).
 - Perfil, foto, tienda, publicaciones, seguidores, favoritos, carrito, pedidos, chat y reseñas siguen guardándose en cada celular.
 - Premium y pagos.
+
+## Emails (recuperar contraseña) — gratis con Brevo
+1. Creá una cuenta en brevo.com (plan gratis: 300 emails por día).
+2. En Brevo: Senders → agregá y verificá el email desde el que querés enviar (ej. el de Nivan).
+3. En Brevo: SMTP & API → API Keys → creá una clave.
+4. En Render → tu servicio → Environment: `BREVO_API_KEY` = la clave, `MAIL_DE` = ese email verificado.
+Sin esas dos variables, "Olvidé mi contraseña" avisa que el envío no está configurado.
+En tu computadora (sin Render) el código aparece en la consola del servidor.

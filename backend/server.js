@@ -203,6 +203,91 @@ RUTAS['POST /api/password'] = async function (req, res) {
 
 // Eliminar la cuenta del servidor. Sirve desde la app y desde la página pública /eliminar-cuenta.html
 // (Google Play exige las dos). Pide email y contraseña, así no hace falta tener la sesión abierta.
+// ------------------------------
+// Recuperar contraseña (código de 6 dígitos por email)
+// Los códigos viven en memoria: duran 10 min, 5 intentos. Si el servidor se reinicia, se pide otro.
+// Emails: Brevo (gratis hasta 300 por día). Variables: BREVO_API_KEY y MAIL_DE (el email remitente verificado en Brevo).
+// ------------------------------
+const CODIGOS = new Map();
+const MIN_CODIGO = 10;
+function emailConfigurado() { return !!(process.env.BREVO_API_KEY && process.env.MAIL_DE); }
+async function enviarEmail(para, asunto, texto) {
+    if (!emailConfigurado()) return false;
+    try {
+        const r = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: { 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json', accept: 'application/json' },
+            body: JSON.stringify({ sender: { name: 'Nivan', email: process.env.MAIL_DE }, to: [{ email: para }], subject: asunto, textContent: texto })
+        });
+        if (!r.ok) console.error('Brevo respondió', r.status, await r.text().catch(function () { return ''; }));
+        return r.ok;
+    } catch (e) { console.error('No se pudo enviar el email:', e.message); return false; }
+}
+function igualesSeguro(a, b) {
+    const x = crypto.createHash('sha256').update(String(a)).digest(), y = crypto.createHash('sha256').update(String(b)).digest();
+    return crypto.timingSafeEqual(x, y);
+}
+function emailDe(b) { return String(b.email || '').trim().toLowerCase().slice(0, 80); }
+
+RUTAS['POST /api/recuperar/pedir'] = async function (req, res) {
+    const b = await leerJSON(req);
+    const email = emailDe(b);
+    if (!email || !emailValido(email)) return error(res, 400, 'Escribí un email válido.');
+    const espera = seg.limitar('rec-ip:' + seg.ipDe(req), 10, 15 * 60 * 1000) || seg.limitar('rec:' + email, 3, 15 * 60 * 1000);
+    if (espera) return error(res, 429, 'Pediste muchos códigos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    if (EN_RENDER && !emailConfigurado()) return error(res, 503, 'El envío de emails todavía no está configurado en el servidor.');
+
+    const usuario = await db.usuarioPorEmail(email);
+    if (usuario) {
+        const codigo = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+        CODIGOS.set(email, { codigo: codigo, vence: Date.now() + MIN_CODIGO * 60 * 1000, intentos: 0, token: null, usuarioId: usuario.id });
+        const enviado = await enviarEmail(email, 'Tu código de Nivan',
+            'Tu código para recuperar la contraseña de Nivan es: ' + codigo + '\n\nVale ' + MIN_CODIGO + ' minutos. Si no lo pediste vos, ignorá este mensaje: tu cuenta sigue segura.');
+        if (!enviado && !EN_RENDER) console.log('[desarrollo] Código de recuperación para ' + email + ': ' + codigo);
+    } else {
+        await seg.gastarTiempo(email);   // mismo tiempo de respuesta exista o no la cuenta
+    }
+    // La respuesta es igual exista o no el email, para que nadie pueda averiguar quién tiene cuenta.
+    responder(res, 200, { ok: true });
+};
+
+RUTAS['POST /api/recuperar/verificar'] = async function (req, res) {
+    const b = await leerJSON(req);
+    const email = emailDe(b), codigo = String(b.codigo || '').trim();
+    const e = CODIGOS.get(email);
+    if (!e || e.vence < Date.now()) { CODIGOS.delete(email); return error(res, 400, 'El código venció. Pedí uno nuevo.'); }
+    if (!/^\d{6}$/.test(codigo)) return error(res, 400, 'Escribí los 6 dígitos.');
+    if (!igualesSeguro(codigo, e.codigo)) {
+        e.intentos++;
+        if (e.intentos >= 5) { CODIGOS.delete(email); return error(res, 429, 'Demasiados intentos. Pedí un código nuevo.'); }
+        return error(res, 400, 'Código incorrecto. Te quedan ' + (5 - e.intentos) + ' intentos.');
+    }
+    e.token = crypto.randomBytes(24).toString('hex');
+    e.vence = Date.now() + MIN_CODIGO * 60 * 1000;
+    responder(res, 200, { ok: true, token: e.token });
+};
+
+RUTAS['POST /api/recuperar/restablecer'] = async function (req, res) {
+    const b = await leerJSON(req);
+    const email = emailDe(b), nueva = String(b.nueva == null ? '' : b.nueva);
+    const e = CODIGOS.get(email);
+    if (!e || !e.token || e.vence < Date.now() || !igualesSeguro(String(b.token || ''), e.token)) {
+        CODIGOS.delete(email);
+        return error(res, 400, 'Se agotó el tiempo. Pedí un código nuevo.');
+    }
+    if (nueva.length > 200) return error(res, 400, 'La contraseña es demasiado larga.');
+    const faltan = seg.evaluarPassword(nueva);
+    if (faltan.length) return error(res, 400, 'La contraseña nueva es débil. Le falta: ' + faltan.join(', ') + '.');
+    const usuario = await db.usuarioPorId(e.usuarioId);
+    if (!usuario) { CODIGOS.delete(email); return error(res, 400, 'No se encontró tu cuenta.'); }
+    if (await seg.verificarPassword(nueva, usuario.passwordHash)) return error(res, 400, 'La contraseña nueva tiene que ser distinta de la anterior.');
+    await db.cambiarPassword(usuario.id, await seg.hashearPassword(nueva));
+    await db.borrarSesionesDeUsuario(usuario.id);   // se cierran todas las sesiones abiertas
+    CODIGOS.delete(email);
+    seg.olvidar('login:' + email);
+    responder(res, 200, { ok: true });
+};
+
 RUTAS['POST /api/eliminar-cuenta'] = async function (req, res) {
     const ip = seg.ipDe(req);
     const b = await leerJSON(req);
@@ -224,6 +309,111 @@ RUTAS['POST /api/eliminar-cuenta'] = async function (req, res) {
     seg.olvidar(claveEmail);
     responder(res, 200, { ok: true }, { 'Set-Cookie': seg.cookieBorrar(HTTPS) });
 };
+
+// ------------------------------
+// Publicaciones (compartidas entre todos los usuarios del mismo país)
+// ------------------------------
+const MAX_MEDIO = 6 * 1024 * 1024;          // por foto o video
+const MAX_MEDIOS_POR_PUBLICACION = 10;
+const MAX_PUBLICACIONES_POR_USUARIO = 200;
+const REGEX_DATA_URL = /^data:((?:image\/(?:png|jpeg|webp|gif))|(?:video\/(?:mp4|webm|quicktime)));base64,([A-Za-z0-9+\/=]+)$/;
+const REGEX_URL_MEDIO = /^\/api\/medio\/([a-f0-9]{24})$/;
+
+// Si es una foto/video en base64, la guarda aparte y devuelve su dirección corta.
+async function guardarMedioDesde(src, usuarioId, cuenta) {
+    if (typeof src !== 'string' || !src) return '';
+    if (REGEX_URL_MEDIO.test(src)) return src;
+    const m = REGEX_DATA_URL.exec(src);
+    if (!m) return '';                                        // otra cosa (URL externa, texto): se descarta
+    if (++cuenta.n > MAX_MEDIOS_POR_PUBLICACION) return '';
+    const bytes = Buffer.from(m[2], 'base64');
+    if (bytes.length > MAX_MEDIO || bytes.length === 0) return '';
+    const id = crypto.randomBytes(12).toString('hex');
+    await db.guardarMedio({ id: id, usuarioId: usuarioId, tipo: m[1], b64: m[2], creado: Date.now() });
+    return '/api/medio/' + id;
+}
+function idsDeMedios(pub) {
+    const ids = [];
+    const ver = function (s) { const m = typeof s === 'string' && REGEX_URL_MEDIO.exec(s); if (m) ids.push(m[1]); };
+    ver(pub.datos && pub.datos.imagen);
+    ((pub.datos && pub.datos.medios) || []).forEach(function (x) { ver(x && x.src); });
+    return ids;
+}
+async function limpiarMedios(usuarioId) {
+    const todas = await db.publicacionesDeUsuario(usuarioId);
+    const usados = [];
+    todas.forEach(function (p) { idsDeMedios(p).forEach(function (i) { usados.push(i); }); });
+    await db.borrarMediosSobrantes(usuarioId, usados);
+}
+
+RUTAS['GET /api/publicaciones'] = async function (req, res) {
+    const url = new URL(req.url, 'http://localhost');
+    const pais = url.searchParams.get('pais') === 'UY' ? 'UY' : 'AR';
+    const u = await usuarioDeSesion(req);
+    const filas = await db.publicacionesPorPais(pais, u ? u.id : '', 300);
+    const lista = filas.map(function (f) {
+        return Object.assign({}, f.datos, { id: f.datos.id, vendedorId: f.vendedorId, pais: f.pais, activo: f.activo });
+    });
+    responder(res, 200, { ok: true, publicaciones: lista });
+};
+
+RUTAS['POST /api/publicaciones/guardar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const espera = seg.limitar('pub:' + u.id, 120, 3600 * 1000);
+    if (espera) return error(res, 429, 'Demasiados cambios seguidos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+
+    const b = await leerJSON(req, 40 * 1024 * 1024);
+    const entrada = b.publicacion;
+    if (!entrada || typeof entrada !== 'object' || Array.isArray(entrada) || entrada.id == null) return error(res, 400, 'Publicación inválida.');
+    const id = String(entrada.id).slice(0, 40);
+
+    const previa = await db.publicacionPorId(id);
+    if (previa && previa.vendedorId !== u.id) return error(res, 403, 'Esa publicación no es tuya.');
+    if (!previa && (await db.publicacionesDeUsuario(u.id)).length >= MAX_PUBLICACIONES_POR_USUARIO) {
+        return error(res, 400, 'Llegaste al máximo de publicaciones.');
+    }
+
+    const datos = JSON.parse(JSON.stringify(entrada));          // copia limpia
+    const cuenta = { n: 0 };
+    datos.imagen = await guardarMedioDesde(datos.imagen, u.id, cuenta);
+    datos.medios = [];
+    const entradaMedios = Array.isArray(entrada.medios) ? entrada.medios.slice(0, MAX_MEDIOS_POR_PUBLICACION) : [];
+    for (const x of entradaMedios) {
+        const src = await guardarMedioDesde(x && x.src, u.id, cuenta);
+        if (src) datos.medios.push({ tipo: x.tipo === 'video' ? 'video' : 'imagen', src: src });
+    }
+    datos.vendedorId = u.id;
+    datos.pais = entrada.pais === 'UY' ? 'UY' : 'AR';
+    if (JSON.stringify(datos).length > 200 * 1024) return error(res, 413, 'La publicación es demasiado grande.');
+
+    const ahora = Date.now();
+    await db.guardarPublicacion({
+        id: id, vendedorId: u.id, pais: datos.pais, activo: datos.activo !== false, datos: datos,
+        creada: previa ? previa.creada : (+datos.fechaCreacion || ahora), actualizada: ahora
+    });
+    await limpiarMedios(u.id);
+    responder(res, 200, { ok: true, publicacion: datos });
+};
+
+RUTAS['POST /api/publicaciones/eliminar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    const id = String(b.id == null ? '' : b.id).slice(0, 40);
+    const previa = await db.publicacionPorId(id);
+    if (previa && previa.vendedorId !== u.id) return error(res, 403, 'Esa publicación no es tuya.');
+    if (previa) { await db.eliminarPublicacion(id); await limpiarMedios(u.id); }
+    responder(res, 200, { ok: true });
+};
+
+async function servirMedio(req, res, id) {
+    const m = await db.medioPorId(id);
+    if (!m) return error(res, 404, 'No encontrado.');
+    res.writeHead(200, Object.assign({ 'Content-Type': m.tipo, 'Content-Length': m.bytes.length }, CABECERAS_SEGURIDAD,
+        { 'Cache-Control': 'public, max-age=31536000, immutable' }));
+    res.end(req.method === 'HEAD' ? undefined : m.bytes);
+}
 
 // ------------------------------
 // Archivos de la app
@@ -265,6 +455,11 @@ const servidor = http.createServer(async function (req, res) {
         const url = new URL(req.url, 'http://localhost');
         const clave = req.method + ' ' + url.pathname;
 
+        if ((req.method === 'GET' || req.method === 'HEAD') && url.pathname.indexOf('/api/medio/') === 0) {
+            const m = REGEX_URL_MEDIO.exec(url.pathname);
+            if (!m) return error(res, 404, 'No encontrado.');
+            return await servirMedio(req, res, m[1]);
+        }
         if (url.pathname.indexOf('/api/') === 0) {
             const h = RUTAS[clave];
             if (!h) return error(res, 404, 'No existe esa ruta.');

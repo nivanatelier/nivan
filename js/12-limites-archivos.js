@@ -241,6 +241,9 @@ document.addEventListener("change", function(e) {
 // elimina cualquier contenido escondido y no se llena el almacenamiento).
 
 const MAX_BYTES_ARCHIVO_NIVAN = 5 * 1024 * 1024;
+// Las fotos sacadas con la cámara del celular pueden pesar 10 MB o más: se aceptan hasta este tope
+// y se achican enseguida. El límite de 5 MB se aplica al resultado ya achicado.
+const MAX_BYTES_FOTO_ORIGINAL_NIVAN = 40 * 1024 * 1024;
 const MAX_ARCHIVOS_POR_CAMPO_NIVAN = 6;
 
 async function detectarTipoArchivoNivan(archivo) {
@@ -251,7 +254,12 @@ async function detectarTipoArchivoNivan(archivo) {
     if (b[0] === 0x89 && t(1, "PNG")) return "png";
     if (t(0, "GIF8")) return "gif";
     if (t(0, "RIFF") && t(8, "WEBP")) return "webp";
-    if (t(4, "ftyp")) return "mp4";
+    if (t(4, "ftyp")) {
+        const marca = String.fromCharCode(b[8], b[9], b[10], b[11]).toLowerCase();
+        if (["heic", "heix", "hevc", "hevx", "heim", "heis", "mif1", "msf1"].indexOf(marca) !== -1) return "heic";
+        if (marca === "avif" || marca === "avis") return "heic";
+        return "mp4";
+    }
     if (b[0] === 0x1A && b[1] === 0x45 && b[2] === 0xDF && b[3] === 0xA3) return "webm";
     if (t(0, "%PDF")) return "pdf";
     if (b[0] === 0xD0 && b[1] === 0xCF && b[2] === 0x11 && b[3] === 0xE0) return "doc";
@@ -269,12 +277,12 @@ function tipoPermitidoEnCampoNivan(tipo, accept) {
     return false;
 }
 
-async function comprimirImagenNivan(archivo) {
+async function comprimirImagenNivan(archivo, medidas) {
     try {
         const bmp = await createImageBitmap(archivo);
         if (bmp.width * bmp.height > 40000000) { if (bmp.close) bmp.close(); return null; }
 
-        const calidadSubida = calidadSubidaNivan();
+        const calidadSubida = medidas || calidadSubidaNivan();
         const escala = Math.min(1, calidadSubida.lado / Math.max(bmp.width, bmp.height));
         const c = document.createElement("canvas");
         c.width = Math.max(1, Math.round(bmp.width * escala));
@@ -301,15 +309,27 @@ async function validarArchivosNivan(el) {
 
     const listos = [];
 
-    for (const f of archivos) {
-        if (f.size > MAX_BYTES_ARCHIVO_NIVAN) return rechazar("El archivo no puede pesar más de 5 MB.");
+    // Los campos de la verificación de identidad guardan la foto con más detalle para que se lea el documento.
+    const esDocumento = /^registroFoto_/.test(el.id || "");
+    const medidasDocumento = esDocumento ? { lado: 2000, calidad: 0.88 } : null;
 
+    for (const f of archivos) {
         const tipo = await detectarTipoArchivoNivan(f);
+
+        if (tipo === "heic") {
+            return rechazar("Tu celular guardó la foto en formato HEIC y no se puede leer. Cambiá la cámara a formato \"Más compatible\" (JPG) o sacá una captura de pantalla de la foto, y subila de nuevo.");
+        }
+
+        const esFoto = tipo === "jpeg" || tipo === "png" || tipo === "webp";
+        if (f.size > (esFoto ? MAX_BYTES_FOTO_ORIGINAL_NIVAN : MAX_BYTES_ARCHIVO_NIVAN)) {
+            return rechazar(esFoto ? "La foto es demasiado grande." : "El archivo no puede pesar más de 5 MB.");
+        }
         if (!tipoPermitidoEnCampoNivan(tipo, el.getAttribute("accept"))) return rechazar("Ese tipo de archivo no está permitido.");
 
-        if (tipo === "jpeg" || tipo === "png" || tipo === "webp") {
-            const nueva = await comprimirImagenNivan(f);
+        if (esFoto) {
+            const nueva = await comprimirImagenNivan(f, medidasDocumento);
             if (!nueva) return rechazar("La imagen no es válida.");
+            if (nueva.size > MAX_BYTES_ARCHIVO_NIVAN) return rechazar("La foto sigue pesando más de 5 MB. Probá con otra.");
             listos.push(nueva);
         } else {
             listos.push(f);

@@ -2298,8 +2298,7 @@ function cerrarOtrasSesionesNivan() {
 }
 
 // ----- ¿Olvidaste tu contraseña? -----
-// Como la app todavía no tiene servidor de emails, el código se muestra en
-// pantalla. Vive solo en memoria, dura 10 minutos y permite 5 intentos.
+// El código llega por email (lo envía el servidor), dura 10 minutos y permite 5 intentos.
 
 let recuperacionNivan = null;
 const MINUTOS_CODIGO_RECUPERACION_NIVAN = 10;
@@ -2330,82 +2329,44 @@ function mostrarRecuperarNivan() {
     mostrarPasoRecuperarNivan(1);
 }
 
-function enviarCodigoRecuperacionNivan() {
+async function enviarCodigoRecuperacionNivan() {
     const campo = document.getElementById("recuperarEmail");
     const email = (campo.value || (recuperacionNivan && recuperacionNivan.email) || "").trim().toLowerCase();
 
-    if (!email) {
-        alert("Escribí tu email.");
-        return;
-    }
+    if (!email) { alert("Escribí tu email."); return; }
+    if (!esEmailValidoNivan(email)) { alert(MENSAJE_EMAIL_INVALIDO_NIVAN); return; }
 
-    if (!esEmailValidoNivan(email)) {
-        alert(MENSAJE_EMAIL_INVALIDO_NIVAN);
-        return;
-    }
+    const r = await apiNivan("/api/recuperar/pedir", { email: email });
+    if (!r.ok) { alert(r.error); return; }
 
-    const usuario = obtenerUsuariosNivan().find(function(u) { return u.email === email; });
-    if (!usuario) {
-        alert("No encontramos una cuenta con ese email.");
-        return;
-    }
-
-    const num = new Uint32Array(1);
-    crypto.getRandomValues(num);
-    const codigo = String(num[0] % 1000000).padStart(6, "0");
-
-    recuperacionNivan = {
-        email: email,
-        usuarioId: usuario.id,
-        codigo: codigo,
-        expira: Date.now() + MINUTOS_CODIGO_RECUPERACION_NIVAN * 60 * 1000,
-        intentos: 0,
-        verificado: false
-    };
-
+    recuperacionNivan = { email: email, token: "" };
     document.getElementById("avisoCodigoRecuperarNivan").innerHTML =
-        "📩 Todavía no enviamos emails, así que tu código aparece acá (vale " + MINUTOS_CODIGO_RECUPERACION_NIVAN + " minutos):<strong>" + escaparHTMLNivan(codigo) + "</strong>";
+        "📩 Si hay una cuenta con ese email, te enviamos un código de 6 dígitos (vale " + MINUTOS_CODIGO_RECUPERACION_NIVAN + " minutos). Revisá también la carpeta de spam.";
     document.getElementById("recuperarCodigo").value = "";
     document.getElementById("avisoCodigoErrorNivan").textContent = "";
     mostrarPasoRecuperarNivan(2);
 }
 
-function verificarCodigoRecuperacionNivan() {
+async function verificarCodigoRecuperacionNivan() {
     const aviso = document.getElementById("avisoCodigoErrorNivan");
     const ingresado = document.getElementById("recuperarCodigo").value.trim();
 
-    if (!recuperacionNivan) {
-        mostrarPasoRecuperarNivan(1);
-        return;
-    }
-
-    if (Date.now() > recuperacionNivan.expira) {
-        recuperacionNivan = null;
-        alert("El código venció. Pedí uno nuevo.");
-        mostrarPasoRecuperarNivan(1);
-        return;
-    }
-
+    if (!recuperacionNivan) { mostrarPasoRecuperarNivan(1); return; }
     if (!/^\d{6}$/.test(ingresado)) {
         aviso.textContent = "Escribí los 6 dígitos.";
         aviso.style.color = "#ff8c8c";
         return;
     }
 
-    if (ingresado !== recuperacionNivan.codigo) {
-        recuperacionNivan.intentos++;
-        if (recuperacionNivan.intentos >= MAX_INTENTOS_CODIGO_NIVAN) {
-            recuperacionNivan = null;
-            alert("Demasiados intentos. Pedí un código nuevo.");
-            mostrarPasoRecuperarNivan(1);
-            return;
-        }
-        aviso.textContent = "Código incorrecto. Te quedan " + (MAX_INTENTOS_CODIGO_NIVAN - recuperacionNivan.intentos) + " intentos.";
+    const r = await apiNivan("/api/recuperar/verificar", { email: recuperacionNivan.email, codigo: ingresado });
+    if (!r.ok) {
+        aviso.textContent = r.error;
         aviso.style.color = "#ff8c8c";
+        if (r.estado === 429 || /venci/.test(r.error)) { recuperacionNivan = null; mostrarPasoRecuperarNivan(1); }
         return;
     }
 
-    recuperacionNivan.verificado = true;
+    recuperacionNivan.token = r.token;
     document.getElementById("recuperarPassNueva").value = "";
     document.getElementById("recuperarPassRepetir").value = "";
     actualizarAvisosRecuperarNivan();
@@ -2417,7 +2378,7 @@ function actualizarAvisosRecuperarNivan() {
 }
 
 async function restablecerPasswordNivan() {
-    if (!recuperacionNivan || !recuperacionNivan.verificado || Date.now() > recuperacionNivan.expira) {
+    if (!recuperacionNivan || !recuperacionNivan.token) {
         recuperacionNivan = null;
         alert("Se agotó el tiempo. Pedí un código nuevo.");
         mostrarPasoRecuperarNivan(1);
@@ -2427,58 +2388,30 @@ async function restablecerPasswordNivan() {
     const nueva = document.getElementById("recuperarPassNueva").value;
     const repetir = document.getElementById("recuperarPassRepetir").value;
 
-    if (!nueva || !repetir) {
-        alert("Completá los dos campos.");
-        return;
-    }
-
-    if (!evaluarPasswordNivan(nueva).fuerte) {
-        alert("La contraseña nueva es débil.");
-        return;
-    }
-
-    if (nueva !== repetir) {
-        alert("Las contraseñas no coinciden.");
-        return;
-    }
+    if (!nueva || !repetir) { alert("Completá los dos campos."); return; }
+    if (!evaluarPasswordNivan(nueva).fuerte) { alert("La contraseña nueva es débil."); return; }
+    if (nueva !== repetir) { alert("Las contraseñas no coinciden."); return; }
 
     const boton = document.getElementById("botonRecuperarNivan");
     if (boton) boton.disabled = true;
-
     try {
-        const usuarios = obtenerUsuariosNivan();
-        const indice = usuarios.findIndex(function(u) { return u.id === recuperacionNivan.usuarioId; });
-        if (indice === -1) {
-            alert("No se encontró tu cuenta.");
+        const r = await apiNivan("/api/recuperar/restablecer", { email: recuperacionNivan.email, token: recuperacionNivan.token, nueva: nueva });
+        if (!r.ok) {
+            alert(r.error);
+            if (/tiempo/.test(r.error)) { recuperacionNivan = null; mostrarPasoRecuperarNivan(1); }
             return;
         }
 
-        const hashNuevo = await hashPasswordNivan(nueva);
-        if (usuarios[indice].passwordHash === hashNuevo) {
-            alert("La contraseña nueva tiene que ser distinta de la anterior.");
-            return;
-        }
-
-        usuarios[indice].passwordHash = hashNuevo;
-        guardarUsuariosNivan(usuarios);
-
-        // Por seguridad se cierran todas las sesiones abiertas de esa cuenta.
-        const idUsuario = usuarios[indice].id;
         const emailRecuperado = recuperacionNivan.email;
-        const sesiones = obtenerSesionesActivasNivan();
-        sesiones.forEach(function(s) { if (s.usuarioId === idUsuario) s.revocada = true; });
-        guardarSesionesActivasNivan(sesiones);
-
-        registrarEventoLoginNivan(idUsuario, "password_restablecida");
+        const usuarioLocal = obtenerUsuariosNivan().find(function(u) { return u.email === emailRecuperado; });
+        if (usuarioLocal) registrarEventoLoginNivan(usuarioLocal.id, "password_restablecida");
         recuperacionNivan = null;
 
         alert("Listo, cambiaste tu contraseña. Iniciá sesión con la nueva.");
         mostrarLogin();
         document.getElementById("loginEmail").value = emailRecuperado;
         document.getElementById("loginPassword").value = "";
-
-        // Si esta misma persona tenía la sesión abierta en este navegador, se cierra.
-        verificarSesionActivaNivan();
+        verificarSesionActivaNivan();   // si esta persona tenía la sesión abierta acá, se cierra
     } finally {
         if (boton) boton.disabled = false;
     }
