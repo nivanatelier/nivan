@@ -9,7 +9,7 @@ const path = require('path');
 
 const DIR = process.env.NIVAN_DATOS || path.join(__dirname, 'datos');
 const ARCHIVO = path.join(DIR, 'db.json');
-const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [] };
+const VACIO = { usuarios: [], sesiones: [] };
 const MAX_SESIONES_POR_USUARIO = 10;
 
 fs.mkdirSync(DIR, { recursive: true });
@@ -85,55 +85,13 @@ async function cambiarPassword(id, hash) {
     const u = datos.usuarios.find(function (x) { return x.id === id; });
     if (u) { u.passwordHash = hash; guardar(); }
 }
-// Borra la cuenta, sus sesiones, publicaciones y fotos.
+// Borra la cuenta y todas sus sesiones.
 async function eliminarUsuario(id) {
     datos.usuarios = datos.usuarios.filter(function (u) { return u.id !== id; });
     datos.sesiones = datos.sesiones.filter(function (s) { return s.usuarioId !== id; });
-    datos.publicaciones = datos.publicaciones.filter(function (p) { return p.vendedorId !== id; });
-    datos.medios = datos.medios.filter(function (m) { return m.usuarioId !== id; });
     guardar();
-}
-
-// ---- Publicaciones y medios ----
-// Publicación: { id, vendedorId, pais, activo, datos, creada, actualizada }
-async function publicacionPorId(id) {
-    return datos.publicaciones.find(function (p) { return p.id === id; }) || null;
-}
-async function publicacionesDeUsuario(usuarioId) {
-    return datos.publicaciones.filter(function (p) { return p.vendedorId === usuarioId; });
-}
-// Públicas del país (activas) y, si viene usuarioId, también todas las suyas.
-async function publicacionesPorPais(pais, usuarioId, limite) {
-    return datos.publicaciones.filter(function (p) {
-        return p.pais === pais && (p.activo || p.vendedorId === usuarioId);
-    }).sort(function (a, b) { return b.creada - a.creada; }).slice(0, limite);
-}
-async function guardarPublicacion(pub) {
-    const i = datos.publicaciones.findIndex(function (p) { return p.id === pub.id; });
-    if (i >= 0) datos.publicaciones[i] = pub; else datos.publicaciones.push(pub);
-    guardar();
-}
-async function eliminarPublicacion(id) {
-    datos.publicaciones = datos.publicaciones.filter(function (p) { return p.id !== id; });
-    guardar();
-}
-async function guardarMedio(m) {   // m: { id, usuarioId, tipo, b64, creado }
-    datos.medios.push(m);
-    guardar();
-}
-async function medioPorId(id) {
-    const m = datos.medios.find(function (x) { return x.id === id; });
-    return m ? { tipo: m.tipo, bytes: Buffer.from(m.b64, 'base64') } : null;
-}
-async function borrarMediosSobrantes(usuarioId, usados) {
-    const antes = datos.medios.length;
-    datos.medios = datos.medios.filter(function (m) { return m.usuarioId !== usuarioId || usados.indexOf(m.id) >= 0; });
-    if (datos.medios.length !== antes) guardar();
 }
 module.exports = {
-    publicacionPorId: publicacionPorId, publicacionesDeUsuario: publicacionesDeUsuario, publicacionesPorPais: publicacionesPorPais,
-    guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,
-    guardarMedio: guardarMedio, medioPorId: medioPorId, borrarMediosSobrantes: borrarMediosSobrantes,
     eliminarUsuario: eliminarUsuario,
     cambiarPassword: cambiarPassword,
     tipo: 'archivo', DIR: DIR, listo: Promise.resolve(), cerrar: cerrar,

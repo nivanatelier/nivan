@@ -1420,34 +1420,12 @@ function previsualizarFotoPublicacion(input) {
         const esVideo = archivo.type.indexOf("video") === 0;
         const lector = new FileReader();
 
-        // El servidor guarda cada foto o video aparte y acepta hasta 6 MB por archivo.
-        if (esVideo && archivo.size > 5 * 1024 * 1024) {
-            if (typeof mostrarToastNivan === "function") mostrarToastNivan("El video pesa más de 5 MB. Elegí uno más corto.", 4000);
-            return;
-        }
-
         lector.onload = function() {
-            if (esVideo) {
-                mediosPublicacionSeleccionados.push({ tipo: "video", src: lector.result });
-                renderizarPreviewMediosPublicacion();
-                return;
-            }
-            // Las fotos se achican (máximo 1280 px) para que carguen rápido y no llenen la base.
-            const img = new Image();
-            img.onload = function() {
-                const escala = Math.min(1, 1280 / Math.max(img.width, img.height));
-                const lienzo = document.createElement("canvas");
-                lienzo.width = Math.round(img.width * escala);
-                lienzo.height = Math.round(img.height * escala);
-                lienzo.getContext("2d").drawImage(img, 0, 0, lienzo.width, lienzo.height);
-                mediosPublicacionSeleccionados.push({ tipo: "imagen", src: lienzo.toDataURL("image/jpeg", 0.8) });
-                renderizarPreviewMediosPublicacion();
-            };
-            img.onerror = function() {
-                mediosPublicacionSeleccionados.push({ tipo: "imagen", src: lector.result });
-                renderizarPreviewMediosPublicacion();
-            };
-            img.src = lector.result;
+            mediosPublicacionSeleccionados.push({
+                tipo: esVideo ? "video" : "imagen",
+                src: lector.result
+            });
+            renderizarPreviewMediosPublicacion();
         };
 
         lector.readAsDataURL(archivo);

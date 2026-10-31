@@ -226,111 +226,6 @@ RUTAS['POST /api/eliminar-cuenta'] = async function (req, res) {
 };
 
 // ------------------------------
-// Publicaciones (compartidas entre todos los usuarios del mismo país)
-// ------------------------------
-const MAX_MEDIO = 6 * 1024 * 1024;          // por foto o video
-const MAX_MEDIOS_POR_PUBLICACION = 10;
-const MAX_PUBLICACIONES_POR_USUARIO = 200;
-const REGEX_DATA_URL = /^data:((?:image\/(?:png|jpeg|webp|gif))|(?:video\/(?:mp4|webm|quicktime)));base64,([A-Za-z0-9+\/=]+)$/;
-const REGEX_URL_MEDIO = /^\/api\/medio\/([a-f0-9]{24})$/;
-
-// Si es una foto/video en base64, la guarda aparte y devuelve su dirección corta.
-async function guardarMedioDesde(src, usuarioId, cuenta) {
-    if (typeof src !== 'string' || !src) return '';
-    if (REGEX_URL_MEDIO.test(src)) return src;
-    const m = REGEX_DATA_URL.exec(src);
-    if (!m) return '';                                        // otra cosa (URL externa, texto): se descarta
-    if (++cuenta.n > MAX_MEDIOS_POR_PUBLICACION) return '';
-    const bytes = Buffer.from(m[2], 'base64');
-    if (bytes.length > MAX_MEDIO || bytes.length === 0) return '';
-    const id = crypto.randomBytes(12).toString('hex');
-    await db.guardarMedio({ id: id, usuarioId: usuarioId, tipo: m[1], b64: m[2], creado: Date.now() });
-    return '/api/medio/' + id;
-}
-function idsDeMedios(pub) {
-    const ids = [];
-    const ver = function (s) { const m = typeof s === 'string' && REGEX_URL_MEDIO.exec(s); if (m) ids.push(m[1]); };
-    ver(pub.datos && pub.datos.imagen);
-    ((pub.datos && pub.datos.medios) || []).forEach(function (x) { ver(x && x.src); });
-    return ids;
-}
-async function limpiarMedios(usuarioId) {
-    const todas = await db.publicacionesDeUsuario(usuarioId);
-    const usados = [];
-    todas.forEach(function (p) { idsDeMedios(p).forEach(function (i) { usados.push(i); }); });
-    await db.borrarMediosSobrantes(usuarioId, usados);
-}
-
-RUTAS['GET /api/publicaciones'] = async function (req, res) {
-    const url = new URL(req.url, 'http://localhost');
-    const pais = url.searchParams.get('pais') === 'UY' ? 'UY' : 'AR';
-    const u = await usuarioDeSesion(req);
-    const filas = await db.publicacionesPorPais(pais, u ? u.id : '', 300);
-    const lista = filas.map(function (f) {
-        return Object.assign({}, f.datos, { id: f.datos.id, vendedorId: f.vendedorId, pais: f.pais, activo: f.activo });
-    });
-    responder(res, 200, { ok: true, publicaciones: lista });
-};
-
-RUTAS['POST /api/publicaciones/guardar'] = async function (req, res) {
-    const u = await usuarioDeSesion(req);
-    if (!u) return error(res, 401, 'No iniciaste sesión.');
-    const espera = seg.limitar('pub:' + u.id, 120, 3600 * 1000);
-    if (espera) return error(res, 429, 'Demasiados cambios seguidos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
-
-    const b = await leerJSON(req, 40 * 1024 * 1024);
-    const entrada = b.publicacion;
-    if (!entrada || typeof entrada !== 'object' || Array.isArray(entrada) || entrada.id == null) return error(res, 400, 'Publicación inválida.');
-    const id = String(entrada.id).slice(0, 40);
-
-    const previa = await db.publicacionPorId(id);
-    if (previa && previa.vendedorId !== u.id) return error(res, 403, 'Esa publicación no es tuya.');
-    if (!previa && (await db.publicacionesDeUsuario(u.id)).length >= MAX_PUBLICACIONES_POR_USUARIO) {
-        return error(res, 400, 'Llegaste al máximo de publicaciones.');
-    }
-
-    const datos = JSON.parse(JSON.stringify(entrada));          // copia limpia
-    const cuenta = { n: 0 };
-    datos.imagen = await guardarMedioDesde(datos.imagen, u.id, cuenta);
-    datos.medios = [];
-    const entradaMedios = Array.isArray(entrada.medios) ? entrada.medios.slice(0, MAX_MEDIOS_POR_PUBLICACION) : [];
-    for (const x of entradaMedios) {
-        const src = await guardarMedioDesde(x && x.src, u.id, cuenta);
-        if (src) datos.medios.push({ tipo: x.tipo === 'video' ? 'video' : 'imagen', src: src });
-    }
-    datos.vendedorId = u.id;
-    datos.pais = entrada.pais === 'UY' ? 'UY' : 'AR';
-    if (JSON.stringify(datos).length > 200 * 1024) return error(res, 413, 'La publicación es demasiado grande.');
-
-    const ahora = Date.now();
-    await db.guardarPublicacion({
-        id: id, vendedorId: u.id, pais: datos.pais, activo: datos.activo !== false, datos: datos,
-        creada: previa ? previa.creada : (+datos.fechaCreacion || ahora), actualizada: ahora
-    });
-    await limpiarMedios(u.id);
-    responder(res, 200, { ok: true, publicacion: datos });
-};
-
-RUTAS['POST /api/publicaciones/eliminar'] = async function (req, res) {
-    const u = await usuarioDeSesion(req);
-    if (!u) return error(res, 401, 'No iniciaste sesión.');
-    const b = await leerJSON(req);
-    const id = String(b.id == null ? '' : b.id).slice(0, 40);
-    const previa = await db.publicacionPorId(id);
-    if (previa && previa.vendedorId !== u.id) return error(res, 403, 'Esa publicación no es tuya.');
-    if (previa) { await db.eliminarPublicacion(id); await limpiarMedios(u.id); }
-    responder(res, 200, { ok: true });
-};
-
-async function servirMedio(req, res, id) {
-    const m = await db.medioPorId(id);
-    if (!m) return error(res, 404, 'No encontrado.');
-    res.writeHead(200, Object.assign({ 'Content-Type': m.tipo, 'Content-Length': m.bytes.length }, CABECERAS_SEGURIDAD,
-        { 'Cache-Control': 'public, max-age=31536000, immutable' }));
-    res.end(req.method === 'HEAD' ? undefined : m.bytes);
-}
-
-// ------------------------------
 // Archivos de la app
 // ------------------------------
 const MIME = {
@@ -370,11 +265,6 @@ const servidor = http.createServer(async function (req, res) {
         const url = new URL(req.url, 'http://localhost');
         const clave = req.method + ' ' + url.pathname;
 
-        if ((req.method === 'GET' || req.method === 'HEAD') && url.pathname.indexOf('/api/medio/') === 0) {
-            const m = REGEX_URL_MEDIO.exec(url.pathname);
-            if (!m) return error(res, 404, 'No encontrado.');
-            return await servirMedio(req, res, m[1]);
-        }
         if (url.pathname.indexOf('/api/') === 0) {
             const h = RUTAS[clave];
             if (!h) return error(res, 404, 'No existe esa ruta.');
