@@ -73,7 +73,9 @@ const MIGRACIONES = [
         enviada    BIGINT NOT NULL
     );`,
     // 4 · baneos de cuentas (permanente o con fecha de fin, siempre con motivo)
-    `ALTER TABLE usuarios ADD COLUMN baneo JSONB;`
+    `ALTER TABLE usuarios ADD COLUMN baneo JSONB;`,
+    // 5 · perfil público (bio, foto, posts del portafolio y datos de tienda), visible para todos los países
+    `ALTER TABLE usuarios ADD COLUMN perfil JSONB;`
 ];
 
 async function migrar() {
@@ -106,7 +108,7 @@ function aUsuario(f) {
     return {
         id: f.id, nombre: f.nombre, apodo: f.apodo, idPublico: f.id_publico, nombreTienda: f.nombre_tienda,
         email: f.email, passwordHash: f.password_hash, pais: f.pais, foto: f.foto, bio: f.bio, bioTrabajo: f.bio_trabajo,
-        verificacion: f.verificacion || null, baneo: f.baneo || null, creado: +f.creado
+        verificacion: f.verificacion || null, baneo: f.baneo || null, perfil: f.perfil || null, creado: +f.creado
     };
 }
 
@@ -209,11 +211,17 @@ async function publicacionesDeUsuario(usuarioId) {
     const r = await pool.query('SELECT * FROM publicaciones WHERE vendedor_id = $1', [usuarioId]);
     return r.rows.map(aPublicacion);
 }
+// Sin país (null) trae las de todos los países.
 async function publicacionesPorPais(pais, usuarioId, limite) {
-    const r = await pool.query(
-        'SELECT * FROM publicaciones WHERE pais = $1 AND (activo OR vendedor_id = $2) ORDER BY creada DESC LIMIT $3',
-        [pais, usuarioId || '', limite]);
+    const r = pais
+        ? await pool.query('SELECT * FROM publicaciones WHERE pais = $1 AND (activo OR vendedor_id = $2) ORDER BY creada DESC LIMIT $3', [pais, usuarioId || '', limite])
+        : await pool.query('SELECT * FROM publicaciones WHERE (activo OR vendedor_id = $1) ORDER BY creada DESC LIMIT $2', [usuarioId || '', limite]);
     return r.rows.map(aPublicacion);
+}
+async function guardarPerfil(id, perfil) { await pool.query('UPDATE usuarios SET perfil = $2 WHERE id = $1', [id, JSON.stringify(perfil)]); }
+async function usuariosPublicos(limite) {
+    const r = await pool.query('SELECT * FROM usuarios ORDER BY creado DESC LIMIT $1', [limite]);
+    return r.rows.map(aUsuario);
 }
 async function guardarPublicacion(p) {
     await pool.query(
@@ -249,7 +257,7 @@ module.exports = {
     publicacionPorId: publicacionPorId, publicacionesDeUsuario: publicacionesDeUsuario, publicacionesPorPais: publicacionesPorPais,
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,
     guardarMedio: guardarMedio, medioPorId: medioPorId, borrarMediosSobrantes: borrarMediosSobrantes,
-    eliminarUsuario: eliminarUsuario,
+    eliminarUsuario: eliminarUsuario, guardarPerfil: guardarPerfil, usuariosPublicos: usuariosPublicos,
     guardarVerificacion: guardarVerificacion, verificacionesPendientes: verificacionesPendientes,
     fotosVerificacion: fotosVerificacion, resolverVerificacion: resolverVerificacion,
     cambiarPassword: cambiarPassword, borrarSesionesDeUsuario: borrarSesionesDeUsuario,

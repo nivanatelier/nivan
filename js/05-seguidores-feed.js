@@ -811,7 +811,7 @@ function renderizarFeedNivan() {
                 <span class="feedPuesto">#${indice + 1}</span>
                 <img src="${escaparHTMLNivan(urlImagenNivan(p.imagen))}"${atributosImagenNivan()} alt="${escaparHTMLNivan(p.nombre)}">
                 <h4>${escaparHTMLNivan(p.nombre)}</h4>
-                <div class="feedPrecio">${simboloMonedaNivan()}${Number(p.precio).toLocaleString("es-AR")}</div>
+                <div class="feedPrecio">${simboloMonedaNivan(p.pais)}${Number(p.precio).toLocaleString("es-AR")}</div>
                 <div class="feedDato">${dato}</div>
             </div>
         `;
@@ -909,7 +909,7 @@ function revisarBajasDePrecio() {
                 tipo: "precio",
                 icono: "🏷️",
                 titulo: "Bajó el precio",
-                texto: `"${escaparHTMLNivan(producto.nombre)}" pasó de ${simboloMonedaNivan()}${formatearDineroNivan(precioAnterior)} a ${simboloMonedaNivan()}${formatearDineroNivan(producto.precio)} ${donde}`,
+                texto: `"${escaparHTMLNivan(producto.nombre)}" pasó de ${simboloMonedaNivan(producto.pais)}${formatearDineroNivan(precioAnterior)} a ${simboloMonedaNivan(producto.pais)}${formatearDineroNivan(producto.precio)} ${donde}`,
                 productoId: producto.id
             });
         }
@@ -1150,7 +1150,7 @@ function renderizarRecomendadosNivan() {
             <div class="feedItem" onclick="abrirProducto(${JSON.stringify(p.id)})">
                 <img src="${escaparHTMLNivan(urlImagenNivan(img))}"${atributosImagenNivan()} alt="${escaparHTMLNivan(p.nombre)}">
                 <h4>${escaparHTMLNivan(p.nombre)}</h4>
-                <div class="feedPrecio">${simboloMonedaNivan()}${Number(p.precio).toLocaleString("es-AR")}</div>
+                <div class="feedPrecio">${simboloMonedaNivan(p.pais)}${Number(p.precio).toLocaleString("es-AR")}</div>
             </div>
         `;
     }).join("");

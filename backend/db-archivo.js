@@ -140,10 +140,18 @@ async function publicacionesDeUsuario(usuarioId) {
     return datos.publicaciones.filter(function (p) { return p.vendedorId === usuarioId; });
 }
 // Públicas del país (activas) y, si viene usuarioId, también todas las suyas.
+// Sin país (null) trae las de todos los países.
 async function publicacionesPorPais(pais, usuarioId, limite) {
     return datos.publicaciones.filter(function (p) {
-        return p.pais === pais && (p.activo || p.vendedorId === usuarioId);
+        return (!pais || p.pais === pais) && (p.activo || p.vendedorId === usuarioId);
     }).sort(function (a, b) { return b.creada - a.creada; }).slice(0, limite);
+}
+async function guardarPerfil(id, perfil) {
+    const u = datos.usuarios.find(function (x) { return x.id === id; });
+    if (u) { u.perfil = perfil; guardar(); }
+}
+async function usuariosPublicos(limite) {
+    return datos.usuarios.slice().sort(function (a, b) { return (b.creado || 0) - (a.creado || 0); }).slice(0, limite);
 }
 async function guardarPublicacion(pub) {
     const i = datos.publicaciones.findIndex(function (p) { return p.id === pub.id; });
@@ -179,7 +187,7 @@ module.exports = {
     publicacionPorId: publicacionPorId, publicacionesDeUsuario: publicacionesDeUsuario, publicacionesPorPais: publicacionesPorPais,
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,
     guardarMedio: guardarMedio, medioPorId: medioPorId, borrarMediosSobrantes: borrarMediosSobrantes,
-    eliminarUsuario: eliminarUsuario,
+    eliminarUsuario: eliminarUsuario, guardarPerfil: guardarPerfil, usuariosPublicos: usuariosPublicos,
     guardarVerificacion: guardarVerificacion, verificacionesPendientes: verificacionesPendientes,
     fotosVerificacion: fotosVerificacion, resolverVerificacion: resolverVerificacion,
     cambiarPassword: cambiarPassword, borrarSesionesDeUsuario: borrarSesionesDeUsuario,

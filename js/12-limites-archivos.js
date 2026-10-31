@@ -531,11 +531,7 @@ obtenerPublicacionesNivan().forEach(function(publicacion) {
     productos.push(publicacion);
 });
 
-// Cada país ve solo las publicaciones de gente de ese país.
-// Las publicaciones anteriores (sin país cargado) cuentan como de Argentina.
-productos = productos.filter(function(p) {
-    return (p.pais || "AR") === (paisNivan() || "AR");
-});
+// Las publicaciones de todos los países se ven en el catálogo. Cada una guarda su país (las viejas sin país cuentan como Argentina).
 
     actualizarFavoritos();
     // Dibuja el carrito guardado y su contador apenas abre la app

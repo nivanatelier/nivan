@@ -126,7 +126,7 @@ function compartirProducto(idProducto) {
     if (!producto) return;
 
     const url = construirUrlProducto(idProducto);
-    const texto = `Mirá "${escaparHTMLNivan(producto.nombre)}" en NIVAN — ${simboloMonedaNivan()}${producto.precio.toLocaleString("es-AR")}`;
+    const texto = `Mirá "${escaparHTMLNivan(producto.nombre)}" en NIVAN — ${simboloMonedaNivan(producto.pais)}${producto.precio.toLocaleString("es-AR")}`;
     const textoCompleto = url ? texto + " " + url : texto;
 
     // navigator.share no existe (o falla siempre) en contextos no

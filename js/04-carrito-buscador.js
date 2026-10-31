@@ -58,7 +58,7 @@ function abrirEditorItemCarrito(indice) {
 
         <h3>${escaparHTMLNivan(producto.nombre)}</h3>
 
-        <p class="detallePrecio">${simboloMonedaNivan()}${Number(producto.precio).toLocaleString("es-AR")}</p>
+        <p class="detallePrecio">${simboloMonedaNivan(producto.pais)}${Number(producto.precio).toLocaleString("es-AR")}</p>
         <p class="precioSinImpuestosNivan">${textoSinImpuestosNivan(producto.precio, producto.pais || "AR")}</p>
 
         <p>${producto.descripcion || "Prenda publicada en NIVAN."}</p>

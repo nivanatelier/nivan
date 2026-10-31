@@ -84,7 +84,7 @@
         bajando = true;
         try {
             await cola;                                   // primero termina de subir lo mío
-            const r = await apiNivan("/api/publicaciones?pais=" + paisActual());
+            const r = await apiNivan("/api/publicaciones");
             if (!r.ok || !Array.isArray(r.publicaciones)) return;
 
             const local = leerJSONNivan(CLAVE_LISTA, []);
@@ -102,9 +102,8 @@
             r.publicaciones.forEach(function (p) { if (miId && p.vendedorId === miId) nuevasEnviadas[String(p.id)] = huella(p); });
             guardarEnviadas(nuevasEnviadas);
 
-            // Publicaciones de otros países que ya había en este dispositivo se mantienen sin tocar.
-            const otrosPaises = local.filter(function (p) { return (p.pais || "AR") !== paisActual(); });
-            const nueva = otrosPaises.concat(r.publicaciones, pendientes);
+            // Se muestran las publicaciones de todos los países: cada una conserva su propio país.
+            const nueva = r.publicaciones.concat(pendientes);
 
             if (huella(nueva) !== huella(local)) {
                 guardarOriginal(nueva);

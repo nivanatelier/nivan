@@ -559,6 +559,88 @@ RUTAS['POST /api/eliminar-cuenta'] = async function (req, res) {
 };
 
 // ------------------------------
+// Perfiles públicos: foto, bio, posts del portafolio y datos de tienda. Los ve cualquiera, de cualquier país.
+// ------------------------------
+const MAX_MEDIOS_PERFIL = 40;
+const MAX_POSTS_PERFIL = 60;
+// Recorre lo que manda la app: recorta textos y manda las fotos/videos en base64 a guardarse aparte.
+async function limpiarPerfil(valor, usuarioId, cuenta, prof) {
+    if (prof > 8) return null;
+    if (typeof valor === 'string') {
+        if (valor.indexOf('data:') === 0 || REGEX_URL_MEDIO.test(valor) || (REGEX_URL_NUBE && REGEX_URL_NUBE.test(valor))) {
+            return await guardarMedioDesde(valor, usuarioId, cuenta);
+        }
+        return valor.slice(0, 5000);
+    }
+    if (typeof valor === 'number') return isFinite(valor) ? valor : null;
+    if (typeof valor === 'boolean' || valor === null) return valor;
+    if (Array.isArray(valor)) {
+        const salida = [];
+        for (const x of valor.slice(0, 200)) salida.push(await limpiarPerfil(x, usuarioId, cuenta, prof + 1));
+        return salida;
+    }
+    if (valor && typeof valor === 'object') {
+        const salida = {};
+        for (const k of Object.keys(valor).slice(0, 60)) {
+            if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+            salida[k.slice(0, 60)] = await limpiarPerfil(valor[k], usuarioId, cuenta, prof + 1);
+        }
+        return salida;
+    }
+    return null;
+}
+
+RUTAS['POST /api/perfil/guardar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const espera = seg.limitar('perfil:' + u.id, 60, 3600 * 1000);
+    if (espera) return error(res, 429, 'Demasiados cambios seguidos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    const b = await leerJSON(req, 40 * 1024 * 1024);
+    const e = b.perfil;
+    if (!e || typeof e !== 'object' || Array.isArray(e)) return error(res, 400, 'Perfil inválido.');
+
+    const priv = e.privacidad && typeof e.privacidad === 'object' ? e.privacidad : {};
+    const base = {
+        apodo: e.apodo, bio: e.bio, bioTrabajo: e.bioTrabajo, foto: e.foto,
+        portafolio: Array.isArray(e.portafolio) ? e.portafolio.slice(0, MAX_POSTS_PERFIL) : [],
+        tiendas: e.tiendas && typeof e.tiendas === 'object' && !Array.isArray(e.tiendas) ? e.tiendas : {},
+        privacidad: { verPerfil: String(priv.verPerfil || 'todos').slice(0, 20), verTienda: String(priv.verTienda || '').slice(0, 20) }
+    };
+    let perfil;
+    try {
+        perfil = await limpiarPerfil(base, u.id, { n: 0, max: MAX_MEDIOS_PERFIL }, 0);
+    } catch (x) {
+        if (x && x.estado) return error(res, x.estado, x.mensaje);
+        throw x;
+    }
+    if (JSON.stringify(perfil).length > 300 * 1024) return error(res, 413, 'Tu perfil es demasiado grande.');
+    await db.guardarPerfil(u.id, perfil);
+    await limpiarMedios(u.id);
+    responder(res, 200, { ok: true, perfil: perfil });
+};
+
+RUTAS['GET /api/perfiles'] = async function (req, res) {
+    const lista = await db.usuariosPublicos(1000);
+    const perfiles = [], ocultos = [];
+    lista.forEach(function (u) {
+        if (baneoActivo(u)) { ocultos.push(u.id); return; }
+        const p = u.perfil || {};
+        const priv = p.privacidad || {};
+        const publico = (priv.verPerfil || 'todos') === 'todos';   // si la cuenta es privada, sus posts no salen del servidor
+        const elegir = function (propio, columna) { return propio !== undefined && propio !== null ? propio : (columna || ''); };
+        perfiles.push({
+            id: u.id, nombre: u.nombre, idPublico: u.idPublico, pais: u.pais || 'AR',
+            apodo: elegir(p.apodo, u.apodo), foto: elegir(p.foto, u.foto), bio: elegir(p.bio, u.bio), bioTrabajo: elegir(p.bioTrabajo, u.bioTrabajo),
+            verificado: esAdmin(u) || !!(u.verificacion && u.verificacion.estado === 'aprobada'),
+            privacidad: { verPerfil: priv.verPerfil || 'todos', verTienda: priv.verTienda || '' },
+            tiendas: p.tiendas || {},
+            portafolio: publico && Array.isArray(p.portafolio) ? p.portafolio : []
+        });
+    });
+    responder(res, 200, { ok: true, perfiles: perfiles, ocultos: ocultos });
+};
+
+// ------------------------------
 // Publicaciones (compartidas entre todos los usuarios del mismo país)
 // ------------------------------
 const MAX_MEDIO = 6 * 1024 * 1024;          // por foto o video
@@ -640,7 +722,7 @@ async function guardarMedioDesde(src, usuarioId, cuenta) {
     if (REGEX_URL_NUBE && REGEX_URL_NUBE.test(src)) return src;
     const m = REGEX_DATA_URL.exec(src);
     if (!m) return '';                                        // otra cosa (URL externa, texto): se descarta
-    if (++cuenta.n > MAX_MEDIOS_POR_PUBLICACION) return '';
+    if (++cuenta.n > (cuenta.max || MAX_MEDIOS_POR_PUBLICACION)) return '';
     const bytes = Buffer.from(m[2], 'base64');
     if (bytes.length > MAX_MEDIO || bytes.length === 0) return '';
     const id = crypto.randomBytes(12).toString('hex');
@@ -670,19 +752,31 @@ function idsDeMedios(pub) {
     ((pub.datos && pub.datos.medios) || []).forEach(function (x) { ver(x && x.src); });
     return ids;
 }
+function idsDeMediosEn(valor, usados, prof) {
+    if (prof > 8 || valor == null) return;
+    if (typeof valor === 'string') {
+        const a = REGEX_URL_MEDIO.exec(valor), b = REGEX_URL_NUBE && REGEX_URL_NUBE.exec(valor);
+        if (a) usados.push(a[1]); else if (b) usados.push(b[1]);
+    } else if (Array.isArray(valor)) valor.forEach(function (x) { idsDeMediosEn(x, usados, prof + 1); });
+    else if (typeof valor === 'object') Object.keys(valor).forEach(function (k) { idsDeMediosEn(valor[k], usados, prof + 1); });
+}
 async function limpiarMedios(usuarioId) {
     const todas = await db.publicacionesDeUsuario(usuarioId);
     const usados = [];
     todas.forEach(function (p) { idsDeMedios(p).forEach(function (i) { usados.push(i); }); });
+    const dueno = await db.usuarioPorId(usuarioId);
+    if (dueno && dueno.perfil) idsDeMediosEn(dueno.perfil, usados, 0);     // las fotos del perfil y de sus posts no se borran
     borrarQuitadosDeNube(await db.borrarMediosSobrantes(usuarioId, usados));
 }
 
 RUTAS['GET /api/publicaciones'] = async function (req, res) {
     const url = new URL(req.url, 'http://localhost');
-    const pais = url.searchParams.get('pais') === 'UY' ? 'UY' : 'AR';
+    // Sin ?pais= se devuelven las publicaciones de todos los países (así las ve cualquier persona).
+    const pedido = url.searchParams.get('pais');
+    const pais = pedido === 'UY' || pedido === 'AR' ? pedido : null;
     const u = await usuarioDeSesion(req);
     const baneados = new Set(await db.idsBaneados());
-    const filas = (await db.publicacionesPorPais(pais, u ? u.id : '', 300)).filter(function (f) { return !baneados.has(f.vendedorId); });
+    const filas = (await db.publicacionesPorPais(pais, u ? u.id : '', 600)).filter(function (f) { return !baneados.has(f.vendedorId); });
     const lista = filas.map(function (f) {
         return Object.assign({}, f.datos, { id: f.datos.id, vendedorId: f.vendedorId, pais: f.pais, activo: f.activo });
     });

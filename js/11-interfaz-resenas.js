@@ -1318,7 +1318,7 @@ function abrirProducto(id) {
                             <div class="tarjetaRecomendadaDetalle" onclick="abrirProducto(${p.id})">
                                 <img src="${escaparHTMLNivan(urlImagenNivan(p.imagen))}"${atributosImagenNivan()} alt="${escaparHTMLNivan(p.nombre)}">
                                 <p class="nombreRecomendadaDetalle">${escaparHTMLNivan(p.nombre)}</p>
-                                <p class="precioRecomendadaDetalle">${simboloMonedaNivan()}${Number(p.precio).toLocaleString("es-AR")}</p>
+                                <p class="precioRecomendadaDetalle">${simboloMonedaNivan(p.pais)}${Number(p.precio).toLocaleString("es-AR")}</p>
                             </div>
                         `;
                     }).join("")}
@@ -1368,7 +1368,7 @@ function abrirProducto(id) {
                 ${producto.marca ? `<p class="marcaProducto">${escaparHTMLNivan(producto.marca)}</p>` : ""}
 
                 <p class="detallePrecio">
-                    ${simboloMonedaNivan()}${Number(producto.precio).toLocaleString("es-AR")}
+                    ${simboloMonedaNivan(producto.pais)}${Number(producto.precio).toLocaleString("es-AR")}
                 </p>
                 <p class="precioSinImpuestosNivan">${textoSinImpuestosNivan(producto.precio, producto.pais || "AR")}</p>
 
@@ -1380,7 +1380,7 @@ function abrirProducto(id) {
                         ${producto.tramosPrecioMayor.map(function(tramo) {
                             const dias = tramo.dias != null ? tramo.dias : null;
                             const textoDias = dias == null ? "A consultar" : (dias === 0 ? "Al toque" : (dias + (dias === 1 ? " día" : " días")));
-                            return `<tr><td>${tramo.cantidadMinima}+ unidades</td><td>${simboloMonedaNivan()}${Number(tramo.precio).toLocaleString("es-AR")}</td><td>${textoDias}</td></tr>`;
+                            return `<tr><td>${tramo.cantidadMinima}+ unidades</td><td>${simboloMonedaNivan(producto.pais)}${Number(tramo.precio).toLocaleString("es-AR")}</td><td>${textoDias}</td></tr>`;
                         }).join("")}
                     </table>
                 ` : ""}

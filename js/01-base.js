@@ -269,7 +269,7 @@
                     ${producto.marca ? `<p class="marcaProducto">${escaparHTMLNivan(producto.marca)}</p>` : ""}
 
                     <p class="precio">
-                        ${simboloMonedaNivan()}${producto.precio.toLocaleString("es-AR")}
+                        ${simboloMonedaNivan(producto.pais)}${producto.precio.toLocaleString("es-AR")}
                     </p>
 
                     <p class="vendedor vendedorClickeable" onclick="event.stopPropagation(); abrirPerfilVendedorDesdeProducto(${producto.id})">

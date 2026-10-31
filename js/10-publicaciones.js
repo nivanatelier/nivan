@@ -527,7 +527,7 @@ function renderizarMisPublicaciones() {
 
                 <div class="infoMisPublicaciones">
                     <strong>${escaparHTMLNivan(producto.nombre)}</strong>
-                    <p>${simboloMonedaNivan()}${formatearDineroNivan(producto.precio)}</p>
+                    <p>${simboloMonedaNivan(producto.pais)}${formatearDineroNivan(producto.precio)}</p>
                 </div>
 
                 <div class="accionesMisPublicaciones">
@@ -719,7 +719,7 @@ function sincronizarCatalogoConPublicaciones() {
 
     publicaciones
         .filter(function(p) {
-            return p.activo !== false && (p.pais || "AR") === (paisNivan() || "AR");
+            return p.activo !== false;
         })
         .forEach(function(p) {
             productos.push(p);
