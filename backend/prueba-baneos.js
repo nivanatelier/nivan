@@ -35,6 +35,18 @@ function chequear(n, c, x) { console.log((c ? '  ✔ ' : '  ✘ ') + n + (c ? ''
     chequear('Devuelve el id de la cuenta admin', r.e === 200 && r.j.ids.indexOf(idAdmin) >= 0, r.t);
     chequear('Nunca muestra emails', r.t.indexOf('@') < 0, r.t);
 
+    console.log('\nVerificación de identidad');
+    r = await pedir('GET', '/api/yo', undefined, admin);
+    chequear('La cuenta admin ya figura como verificada', r.j.usuario.verificado === true && r.j.usuario.verificacion && r.j.usuario.verificacion.estado === 'aprobada', r.t);
+    r = await pedir('GET', '/api/yo', undefined, comun);
+    chequear('Una cuenta común sigue sin verificar', r.j.usuario.verificado === false && !r.j.usuario.verificacion, r.t);
+    r = await post('/api/verificacion', { fotos: {} }, admin);
+    chequear('La admin no necesita mandar documentos → 400', r.e === 400 && /ya está verificada/.test(r.j.error || ''), r.t);
+    r = await post('/api/publicaciones/guardar', { publicacion: { id: 'x' + Date.now(), nombre: 'Prueba', precio: 100 } }, comun);
+    chequear('Una cuenta común sin documentos no puede publicar → 403', r.e === 403, r.e + ' ' + r.t.slice(0, 100));
+    r = await post('/api/publicaciones/guardar', { publicacion: { id: 'x' + Date.now(), nombre: 'Prueba', precio: 100 } }, admin);
+    chequear('La admin pasa el control de verificación (no da 403)', r.e !== 403, r.e + ' ' + r.t.slice(0, 100));
+
     console.log('\nBuscar');
     r = await post('/api/admin/cuenta/buscar', { texto: mailA }, comun);
     chequear('Una cuenta común no puede buscar → 403', r.e === 403, r.e);

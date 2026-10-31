@@ -92,6 +92,8 @@ setInterval(function () {
     desbloqueos.forEach(function (v, k) { if (v < ahora) desbloqueos.delete(k); });
 }, 600 * 1000).unref();
 function verificacionPublica(u) {
+    // Las cuentas de administración de Nivan (ADMIN_EMAILS) siempre cuentan como verificadas: no tienen que mandar documentos.
+    if (esAdmin(u)) return { estado: 'aprobada', enviada: u.creado || 0, revisada: u.creado || 0, motivo: '', bloqueoReclamos: false };
     const v = u.verificacion;
     return v ? { estado: v.estado, enviada: v.enviada, revisada: v.revisada || null, motivo: v.motivo || '', bloqueoReclamos: !!v.bloqueoReclamos } : null;
 }
@@ -99,7 +101,7 @@ function usuarioPublico(u) {
     return {
         id: u.id, nombre: u.nombre, apodo: u.apodo || '', idPublico: u.idPublico, nombreTienda: u.nombreTienda || '',
         email: u.email, foto: u.foto || '', bio: u.bio || '', bioTrabajo: u.bioTrabajo || '', pais: u.pais || 'AR',
-        verificado: !!(u.verificacion && u.verificacion.estado === 'aprobada'),
+        verificado: esAdmin(u) || !!(u.verificacion && u.verificacion.estado === 'aprobada'),
         verificacion: verificacionPublica(u), admin: esAdmin(u)
     };
 }
@@ -378,7 +380,7 @@ RUTAS['POST /api/verificacion'] = async function (req, res) {
     if (!u) return error(res, 401, 'No iniciaste sesión.');
     const espera = seg.limitar('verif:' + u.id, 6, 24 * 3600 * 1000);
     if (espera) return error(res, 429, 'Enviaste muchas veces tus fotos. Probá de nuevo más tarde.');
-    if (u.verificacion && u.verificacion.estado === 'aprobada') return error(res, 400, 'Tu identidad ya está verificada.');
+    if (esAdmin(u) || (u.verificacion && u.verificacion.estado === 'aprobada')) return error(res, 400, 'Tu identidad ya está verificada.');
     const b = await leerJSON(req, 14 * 1024 * 1024);
     const fotos = {};
     for (const k of FOTOS_VERIF) {
@@ -693,7 +695,7 @@ RUTAS['POST /api/publicaciones/guardar'] = async function (req, res) {
     const espera = seg.limitar('pub:' + u.id, 120, 3600 * 1000);
     if (espera) return error(res, 429, 'Demasiados cambios seguidos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
 
-    const estadoVerif = u.verificacion && u.verificacion.estado;
+    const estadoVerif = esAdmin(u) ? 'aprobada' : (u.verificacion && u.verificacion.estado);
     if (estadoVerif !== 'aprobada' && estadoVerif !== 'pendiente') return error(res, 403, 'Primero enviá tu documentación para poder vender.');
 
     const b = await leerJSON(req, 40 * 1024 * 1024);
