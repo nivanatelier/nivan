@@ -130,3 +130,22 @@ Para entrar al panel hacen falta **tres cosas**: cuenta con sesión iniciada, qu
 3. Ingresá la clave del panel. Queda abierto 20 minutos desde el último uso; "Cerrar panel" lo bloquea ya.
 4. "Ver fotos" → Aprobar o Rechazar (con motivo). Al resolver, las fotos se borran del servidor.
 5. Cada ingreso, clave incorrecta y decisión queda en los logs de Render. 5 claves incorrectas = bloqueo de 15 minutos.
+
+## Banear cuentas (desde el panel de administración)
+Mi cuenta → **Revisar identidades** → clave del panel → sección **Cuentas**.
+1. Escribí el email o el ID de la persona (ej: `maria12`) y tocá **Buscar**.
+2. **Banear por días**: te pide la cantidad de días y el motivo. Cuando pasa la fecha, la cuenta vuelve sola.
+3. **Banear para siempre**: te pide el motivo.
+4. **Quitar baneo**: la cuenta vuelve a funcionar al instante.
+- El motivo es obligatorio y la persona lo ve (al intentar entrar o al abrir la app).
+- Con baneo: no puede entrar, no puede publicar y sus publicaciones dejan de verse en la app.
+- Una cuenta baneada **no puede eliminar su cuenta** (si no, se saltearía el baneo y podría registrarse de nuevo).
+- Las cuentas de administración (las de `ADMIN_EMAILS`) no se pueden banear.
+- Cada baneo queda anotado en los registros de Render (quién, a quién, motivo).
+- Rutas: `POST /api/admin/cuenta/buscar`, `/banear {usuarioId, tipo: permanente|temporal, dias, motivo}`, `/desbanear {usuarioId}`.
+
+## Chat con las cuentas de Nivan (sin restricciones)
+Las cuentas que están en `ADMIN_EMAILS` (por ejemplo `nivanatelier@gmail.com`) pueden mandar y recibir **números de teléfono y redes
+sociales** en el chat, y quien les escribe también. Una cuenta suspendida del chat por compartir redes puede escribirles igual, para apelar.
+La app sabe cuáles son esas cuentas por `GET /api/admins` (solo ids, nunca emails). Para que funcione, el email tiene que estar en
+`ADMIN_EMAILS` en Render y la cuenta tiene que existir (haber iniciado sesión al menos una vez).

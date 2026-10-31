@@ -103,10 +103,33 @@ function usuarioPublico(u) {
         verificacion: verificacionPublica(u), admin: esAdmin(u)
     };
 }
+// ---- Baneos ----
+// Cuenta baneada: no puede entrar, no puede publicar, y sus publicaciones dejan de verse.
+// Un baneo temporal se termina solo cuando pasa la fecha (no hace falta hacer nada).
+function baneoActivo(u) {
+    const b = u && u.baneo;
+    if (!b) return null;
+    if (b.permanente) return b;
+    return (b.hasta && b.hasta > Date.now()) ? b : null;
+}
+function fechaCorta(ms) {   // en hora de Uruguay/Argentina (UTC-3)
+    const d = new Date(ms - 3 * 3600000);
+    return String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + d.getUTCFullYear();
+}
+function textoBaneo(b) {
+    const razon = b.motivo ? ' Motivo: ' + b.motivo : '';
+    if (b.permanente) return 'Tu cuenta fue suspendida de forma permanente.' + razon;
+    return 'Tu cuenta está suspendida hasta el ' + fechaCorta(b.hasta) + '.' + razon;
+}
+function baneoPublico(u) {
+    const b = baneoActivo(u);
+    return b ? { permanente: !!b.permanente, hasta: b.hasta || null, motivo: b.motivo || '', fecha: b.fecha || null, por: b.por || '' } : null;
+}
 async function usuarioDeSesion(req) {
     const s = await seg.sesionDe(req);
     if (!s) return null;
-    return await db.usuarioPorId(s.usuarioId);
+    const u = await db.usuarioPorId(s.usuarioId);
+    return baneoActivo(u) ? null : u;   // con baneo, la sesión deja de servir
 }
 async function iniciarSesionEn(res, req, usuario, estado) {
     const token = await seg.crearSesion(usuario.id, req);
@@ -177,6 +200,8 @@ RUTAS['POST /api/login'] = async function (req, res) {
     else await seg.gastarTiempo(password);
 
     if (!ok) return error(res, 401, 'Email o contraseña incorrectos.');
+    const baneo = baneoActivo(usuario);
+    if (baneo) return responder(res, 403, { ok: false, baneada: true, error: textoBaneo(baneo) });
     seg.olvidar(claveEmail);
     await iniciarSesionEn(res, req, usuario);
 };
@@ -187,7 +212,11 @@ RUTAS['POST /api/logout'] = async function (req, res) {
 };
 
 RUTAS['GET /api/yo'] = async function (req, res) {
-    const u = await usuarioDeSesion(req);
+    const sesion = await seg.sesionDe(req);
+    const cuenta = sesion ? await db.usuarioPorId(sesion.usuarioId) : null;
+    const baneo = baneoActivo(cuenta);
+    if (baneo) return responder(res, 403, { ok: false, baneada: true, error: textoBaneo(baneo) }, { 'Set-Cookie': seg.cookieBorrar(HTTPS) });
+    const u = cuenta;
     if (!u) return error(res, 401, 'No iniciaste sesión.');
     responder(res, 200, { ok: true, usuario: usuarioPublico(u) });
 };
@@ -441,6 +470,67 @@ RUTAS['POST /api/admin/verificacion/resolver'] = async function (req, res) {
     responder(res, 200, { ok: true });
 };
 
+
+// ---- Cuentas: buscar y banear (solo admins, con la clave del panel) ----
+async function buscarCuenta(texto) {
+    const t = String(texto || '').trim().toLowerCase().slice(0, 80);
+    if (!t) return null;
+    return (await db.usuarioPorEmail(t)) || (await db.usuarioPorIdPublico(t)) || (await db.usuarioPorId(String(texto).trim().slice(0, 80)));
+}
+function resumenCuenta(u) {
+    return { id: u.id, nombre: u.nombre, email: u.email, idPublico: u.idPublico, admin: esAdmin(u), baneo: baneoPublico(u) };
+}
+RUTAS['POST /api/admin/cuenta/buscar'] = async function (req, res) {
+    if (!(await soloAdmin(req, res))) return;
+    const b = await leerJSON(req);
+    const u = await buscarCuenta(b.texto);
+    if (!u) return error(res, 404, 'No encontramos esa cuenta. Probá con el email o con el ID (ej: maria12).');
+    responder(res, 200, { ok: true, cuenta: resumenCuenta(u) });
+};
+RUTAS['POST /api/admin/cuenta/banear'] = async function (req, res) {
+    const admin = await soloAdmin(req, res);
+    if (!admin) return;
+    const b = await leerJSON(req);
+    const u = await db.usuarioPorId(String(b.usuarioId || ''));
+    if (!u) return error(res, 404, 'Esa cuenta ya no existe.');
+    if (esAdmin(u)) return error(res, 400, 'Una cuenta de administración no se puede banear.');
+    const motivo = String(b.motivo || '').replace(/[<>\u0000-\u001f]/g, ' ').trim().slice(0, 300);
+    if (motivo.length < 3) return error(res, 400, 'Escribí el motivo (la persona lo va a ver).');
+    let baneo;
+    if (b.tipo === 'permanente') {
+        baneo = { permanente: true, hasta: null, motivo: motivo, fecha: Date.now(), por: admin.email };
+    } else if (b.tipo === 'temporal') {
+        const dias = Number(b.dias);
+        if (!Number.isInteger(dias) || dias < 1 || dias > 3650) return error(res, 400, 'Los días tienen que ser un número entero entre 1 y 3650.');
+        baneo = { permanente: false, hasta: Date.now() + dias * 86400000, motivo: motivo, fecha: Date.now(), por: admin.email };
+    } else return error(res, 400, 'Elegí si el baneo es permanente o temporal.');
+    await db.fijarBaneo(u.id, baneo);
+    // Sus sesiones abiertas no se borran: dejan de servir solas y así la app le muestra el motivo en vez de "tu sesión venció".
+    console.log('[admin] ' + admin.email + ' baneó (' + (baneo.permanente ? 'permanente' : 'hasta ' + fechaCorta(baneo.hasta)) + ') a ' + u.email + ' · ' + motivo);
+    responder(res, 200, { ok: true, cuenta: resumenCuenta(Object.assign({}, u, { baneo: baneo })) });
+};
+RUTAS['POST /api/admin/cuenta/desbanear'] = async function (req, res) {
+    const admin = await soloAdmin(req, res);
+    if (!admin) return;
+    const b = await leerJSON(req);
+    const u = await db.usuarioPorId(String(b.usuarioId || ''));
+    if (!u) return error(res, 404, 'Esa cuenta ya no existe.');
+    await db.fijarBaneo(u.id, null);
+    console.log('[admin] ' + admin.email + ' quitó el baneo a ' + u.email);
+    responder(res, 200, { ok: true, cuenta: resumenCuenta(Object.assign({}, u, { baneo: null })) });
+};
+
+// ids de las cuentas de administración (el chat no les aplica el filtro de números). Solo ids, nunca emails.
+let adminsCache = { t: 0, ids: [] };
+RUTAS['GET /api/admins'] = async function (req, res) {
+    if (Date.now() - adminsCache.t > 5 * 60 * 1000) {
+        const ids = [];
+        for (let i = 0; i < ADMINS.length; i++) { const u = await db.usuarioPorEmail(ADMINS[i]); if (u) ids.push(u.id); }
+        adminsCache = { t: Date.now(), ids: ids };
+    }
+    responder(res, 200, { ok: true, ids: adminsCache.ids });
+};
+
 RUTAS['POST /api/eliminar-cuenta'] = async function (req, res) {
     const ip = seg.ipDe(req);
     const b = await leerJSON(req);
@@ -458,6 +548,8 @@ RUTAS['POST /api/eliminar-cuenta'] = async function (req, res) {
     else await seg.gastarTiempo(password);
     if (!ok) return error(res, 401, 'Email o contraseña incorrectos.');
 
+    // Si pudiera borrarse estando baneada, se iría el baneo y podría volver a registrarse.
+    if (baneoActivo(usuario)) return error(res, 403, 'Tu cuenta está suspendida y no se puede eliminar mientras dure la suspensión. Escribinos por el contacto que figura en la app.');
     borrarQuitadosDeNube(await db.borrarMediosSobrantes(usuario.id, []));   // sus fotos/videos en Cloudinary también se borran
     await db.eliminarUsuario(usuario.id);
     seg.olvidar(claveEmail);
@@ -587,7 +679,8 @@ RUTAS['GET /api/publicaciones'] = async function (req, res) {
     const url = new URL(req.url, 'http://localhost');
     const pais = url.searchParams.get('pais') === 'UY' ? 'UY' : 'AR';
     const u = await usuarioDeSesion(req);
-    const filas = await db.publicacionesPorPais(pais, u ? u.id : '', 300);
+    const baneados = new Set(await db.idsBaneados());
+    const filas = (await db.publicacionesPorPais(pais, u ? u.id : '', 300)).filter(function (f) { return !baneados.has(f.vendedorId); });
     const lista = filas.map(function (f) {
         return Object.assign({}, f.datos, { id: f.datos.id, vendedorId: f.vendedorId, pais: f.pais, activo: f.activo });
     });

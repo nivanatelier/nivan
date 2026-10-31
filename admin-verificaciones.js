@@ -34,12 +34,16 @@ function texto(el, t) { el.textContent = t; return el; }
 async function cargar() {
     lista.innerHTML = "";
     formClave.hidden = true; barra.hidden = true;
+    document.getElementById("seccionCuentas").hidden = true;
+    document.getElementById("tituloPendientes").hidden = true;
     const r = await api("/api/admin/verificaciones");
     if (r.estado === 423) { estado.textContent = "Panel bloqueado."; formClave.hidden = false; document.getElementById("clave").focus(); return; }
     if (r.estado === 401) { estado.textContent = "Primero iniciá sesión en la app de Nivan con tu cuenta de administradora y volvé a esta página."; return; }
     if (r.estado === 403) { estado.textContent = "Esta cuenta no tiene permiso para revisar identidades."; return; }
     if (!r.ok) { estado.textContent = r.error || "Error."; return; }
     barra.hidden = false;
+    document.getElementById("seccionCuentas").hidden = false;
+    document.getElementById("tituloPendientes").hidden = false;
     const espacio = document.getElementById("espacio");
     if (r.almacen && r.almacen.esPostgres) {
         espacio.textContent = "Espacio de la base: " + r.almacen.usadoMB + " MB usados. Al llegar a " + r.almacen.limiteMB + " MB se frena la subida de fotos y videos (la base gratis se llena a los ~512 MB).";
@@ -90,5 +94,70 @@ async function resolver(p, decision, motivo) {
     const r = await api("/api/admin/verificacion/resolver", { usuarioId: p.id, decision: decision, motivo: motivo });
     if (!r.ok) { alert(r.error || "No se pudo guardar."); return; }
     cargar();
+}
+// ---------- Cuentas: banear / quitar baneo ----------
+const resultadoCuenta = document.getElementById("resultadoCuenta");
+document.getElementById("formBuscar").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    resultadoCuenta.textContent = "Buscando…";
+    const r = await api("/api/admin/cuenta/buscar", { texto: document.getElementById("buscar").value });
+    if (r.estado === 423) { resultadoCuenta.textContent = ""; cargar(); return; }
+    if (!r.ok) { resultadoCuenta.textContent = r.error || "No se pudo buscar."; return; }
+    mostrarCuenta(r.cuenta);
+});
+
+function mostrarCuenta(c) {
+    resultadoCuenta.innerHTML = "";
+    const div = document.createElement("div"); div.className = "tarjeta";
+    const titulo = document.createElement("strong"); titulo.textContent = c.nombre + " (" + c.idPublico + ")";
+    const mail = document.createElement("div"); mail.textContent = c.email;
+    const est = document.createElement("div"); est.className = "estadoCuenta";
+    if (c.baneo) {
+        est.classList.add("baneada");
+        est.textContent = (c.baneo.permanente ? "🚫 Baneada de forma permanente" : "⏳ Baneada hasta el " + new Date(c.baneo.hasta).toLocaleDateString("es-UY")) + " · Motivo: " + c.baneo.motivo;
+    } else { est.classList.add("libre"); est.textContent = "✅ Sin baneo"; }
+    div.append(titulo, mail, est);
+
+    const acciones = document.createElement("div"); acciones.className = "acciones";
+    if (c.admin) {
+        acciones.textContent = "Es una cuenta de administración: no se puede banear.";
+    } else {
+        const temp = document.createElement("button"); temp.className = "naranja"; temp.textContent = "Banear por días";
+        temp.onclick = function () {
+            const dias = prompt("¿Cuántos días? (número entero)", "7");
+            if (dias === null) return;
+            const n = Number(dias);
+            if (!Number.isInteger(n) || n < 1) { alert("Escribí un número entero de días, por ejemplo 7."); return; }
+            const motivo = prompt("Motivo (la persona lo va a ver):", "");
+            if (motivo === null) return;
+            banear(c, { tipo: "temporal", dias: n, motivo: motivo }, "¿Banear a " + c.nombre + " por " + n + " día(s)?");
+        };
+        const perm = document.createElement("button"); perm.className = "no"; perm.textContent = "Banear para siempre";
+        perm.onclick = function () {
+            const motivo = prompt("Motivo (la persona lo va a ver):", "");
+            if (motivo === null) return;
+            banear(c, { tipo: "permanente", motivo: motivo }, "¿Banear PARA SIEMPRE a " + c.nombre + "?");
+        };
+        acciones.append(temp, perm);
+        if (c.baneo) {
+            const quitar = document.createElement("button"); quitar.className = "si"; quitar.textContent = "Quitar baneo";
+            quitar.onclick = async function () {
+                if (!confirm("¿Quitar el baneo a " + c.nombre + "?")) return;
+                const r = await api("/api/admin/cuenta/desbanear", { usuarioId: c.id });
+                if (!r.ok) { alert(r.error || "No se pudo."); return; }
+                mostrarCuenta(r.cuenta);
+            };
+            acciones.append(quitar);
+        }
+    }
+    div.append(acciones);
+    resultadoCuenta.appendChild(div);
+}
+
+async function banear(c, datos, pregunta) {
+    if (!confirm(pregunta)) return;
+    const r = await api("/api/admin/cuenta/banear", Object.assign({ usuarioId: c.id }, datos));
+    if (!r.ok) { alert(r.error || "No se pudo banear."); return; }
+    mostrarCuenta(r.cuenta);
 }
 cargar();

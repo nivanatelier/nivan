@@ -71,7 +71,9 @@ const MIGRACIONES = [
         usuario_id TEXT PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
         fotos      JSONB NOT NULL,
         enviada    BIGINT NOT NULL
-    );`
+    );`,
+    // 4 · baneos de cuentas (permanente o con fecha de fin, siempre con motivo)
+    `ALTER TABLE usuarios ADD COLUMN baneo JSONB;`
 ];
 
 async function migrar() {
@@ -104,7 +106,7 @@ function aUsuario(f) {
     return {
         id: f.id, nombre: f.nombre, apodo: f.apodo, idPublico: f.id_publico, nombreTienda: f.nombre_tienda,
         email: f.email, passwordHash: f.password_hash, pais: f.pais, foto: f.foto, bio: f.bio, bioTrabajo: f.bio_trabajo,
-        verificacion: f.verificacion || null, creado: +f.creado
+        verificacion: f.verificacion || null, baneo: f.baneo || null, creado: +f.creado
     };
 }
 
@@ -178,6 +180,19 @@ async function resolverVerificacion(id, estado) {
     await pool.query('UPDATE usuarios SET verificacion = $2 WHERE id = $1', [id, JSON.stringify(estado)]);
     await pool.query('DELETE FROM verificaciones_fotos WHERE usuario_id = $1', [id]);
 }
+async function usuarioPorIdPublico(idPublico) {
+    const r = await pool.query('SELECT * FROM usuarios WHERE id_publico = $1', [idPublico]);
+    return aUsuario(r.rows[0]);
+}
+// baneo = { permanente, hasta, motivo, fecha, por }  ·  null = quitar el baneo
+async function fijarBaneo(id, baneo) {
+    await pool.query('UPDATE usuarios SET baneo = $2 WHERE id = $1', [id, baneo ? JSON.stringify(baneo) : null]);
+}
+// Ids de las cuentas que hoy están baneadas (permanente, o temporal que todavía no venció).
+async function idsBaneados() {
+    const r = await pool.query("SELECT id FROM usuarios WHERE baneo IS NOT NULL AND ((baneo->>'permanente') = 'true' OR COALESCE((baneo->>'hasta')::bigint, 0) > $1)", [Date.now()]);
+    return r.rows.map(function (f) { return f.id; });
+}
 async function cambiarPassword(id, hash) { await pool.query('UPDATE usuarios SET password_hash = $1 WHERE id = $2', [hash, id]); }
 // Borra la cuenta; las sesiones se van solas por ON DELETE CASCADE.
 async function eliminarUsuario(id) { await pool.query('DELETE FROM usuarios WHERE id = $1', [id]); }
@@ -230,6 +245,7 @@ process.on('SIGTERM', function () { cerrar().finally(function () { process.exit(
 process.on('SIGINT', function () { cerrar().finally(function () { process.exit(0); }); });
 
 module.exports = {
+    usuarioPorIdPublico: usuarioPorIdPublico, fijarBaneo: fijarBaneo, idsBaneados: idsBaneados,
     publicacionPorId: publicacionPorId, publicacionesDeUsuario: publicacionesDeUsuario, publicacionesPorPais: publicacionesPorPais,
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,
     guardarMedio: guardarMedio, medioPorId: medioPorId, borrarMediosSobrantes: borrarMediosSobrantes,

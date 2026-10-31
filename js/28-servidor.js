@@ -44,8 +44,20 @@ function sincronizarVerificacionNivan(usuarioServidor) {
 async function refrescarSesionNivan() {
     if (!usuarioActual) return;
     const r = await apiNivan("/api/yo");
+    if (r.estado === 403 && r.baneada) return cerrarSesionBaneadaNivan(r.error);
     if (r.estado === 401) return cerrarSesionVencidaNivan();
     if (r.ok && r.usuario) sincronizarVerificacionNivan(r.usuario);
+}
+
+// La cuenta fue suspendida por Nivan: se cierra la sesión acá y se muestra el motivo.
+function cerrarSesionBaneadaNivan(mensaje) {
+    usuarioActual = null;
+    localStorage.removeItem("nivanSesion");
+    localStorage.removeItem("nivanSesionId");
+    try { sincronizarFavoritosConCuentaNivan(true); } catch (e) {}
+    try { cerrarCuenta(); } catch (e) {}
+    try { actualizarBadgeNotificaciones(); } catch (e) {}
+    alert(mensaje || "Tu cuenta está suspendida.");
 }
 
 function cerrarSesionVencidaNivan() {

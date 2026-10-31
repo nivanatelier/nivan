@@ -26,6 +26,14 @@
     #formClave button, .barra button { background: #fff; color: #000; }
     .barra { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
     .barra button { background: #2d2d2d; color: #fff; }
+    h2 { font-size: 17px; margin: 22px 0 6px; }
+    #formBuscar { display: flex; gap: 8px; margin-bottom: 12px; }
+    #formBuscar input { flex: 1; min-width: 0; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #0b0b0b; color: #fff; font-size: 16px; }
+    #formBuscar button { background: #fff; color: #000; }
+    .estadoCuenta { margin: 6px 0 10px; font-size: 14px; }
+    .estadoCuenta.baneada { color: #ff8a80; }
+    .estadoCuenta.libre { color: #81c784; }
+    .naranja { background: #e65100; color: #fff; }
 </style>
 </head>
 <body>
@@ -43,6 +51,16 @@
     <button type="button" id="botonMail">Probar envío de mails</button>
     <button type="button" id="botonSalir">Cerrar panel</button>
 </div>
+<div id="seccionCuentas" hidden>
+    <h2>Cuentas</h2>
+    <p class="aviso">Buscá por email o por ID (ej: maria12) para banear o quitar un baneo.</p>
+    <form id="formBuscar">
+        <input id="buscar" type="text" placeholder="Email o ID de la persona" autocomplete="off" required>
+        <button type="submit">Buscar</button>
+    </form>
+    <div id="resultadoCuenta"></div>
+</div>
+<h2 id="tituloPendientes" hidden>Identidades pendientes</h2>
 <div id="lista"></div>
 <script src="admin-verificaciones.js"></script>
 </body>

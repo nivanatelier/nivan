@@ -104,6 +104,19 @@ async function resolverVerificacion(id, estado) {
     delete datos.fotosVerif[id];
     guardar();
 }
+async function usuarioPorIdPublico(idPublico) {
+    return datos.usuarios.find(function (u) { return u.idPublico === idPublico; }) || null;
+}
+async function fijarBaneo(id, baneo) {
+    const u = datos.usuarios.find(function (x) { return x.id === id; });
+    if (!u) return;
+    if (baneo) u.baneo = baneo; else delete u.baneo;
+    guardar();
+}
+async function idsBaneados() {
+    const ahora = Date.now();
+    return datos.usuarios.filter(function (u) { return u.baneo && (u.baneo.permanente || (u.baneo.hasta || 0) > ahora); }).map(function (u) { return u.id; });
+}
 async function cambiarPassword(id, hash) {
     const u = datos.usuarios.find(function (x) { return x.id === id; });
     if (u) { u.passwordHash = hash; guardar(); }
@@ -161,6 +174,7 @@ async function borrarMediosSobrantes(usuarioId, usados) {
 async function tamanoBytes() { return Buffer.byteLength(JSON.stringify(datos)); }
 
 module.exports = {
+    usuarioPorIdPublico: usuarioPorIdPublico, fijarBaneo: fijarBaneo, idsBaneados: idsBaneados,
     tamanoBytes: tamanoBytes,
     publicacionPorId: publicacionPorId, publicacionesDeUsuario: publicacionesDeUsuario, publicacionesPorPais: publicacionesPorPais,
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,

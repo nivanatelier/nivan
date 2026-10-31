@@ -1183,7 +1183,7 @@ function enviarMensajeChatNivan(propuesta) {
         const ladoEmisor = (chatParNivan.lados && chatParNivan.lados[usuarioActual.id]) || modoCuentaNivan();
         const ladoReceptor = (chatParNivan.lados && chatParNivan.lados[idDestinoPrivacidadNivan]) ||
             identidadEnChatNivan(chatParaLados, idDestinoPrivacidadNivan);
-        const bloqueo = revisarMensajeChatNivan(chat, usuarioActual.id, esPropuesta ? propuesta.textoFiltro : texto, ladoEmisor, ladoReceptor, chatSinTiendasNivan(chatParNivan.vendedorId, chatParNivan.compradorId));
+        const bloqueo = revisarMensajeChatNivan(chat, usuarioActual.id, esPropuesta ? propuesta.textoFiltro : texto, ladoEmisor, ladoReceptor, chatSinTiendasNivan(chatParNivan.vendedorId, chatParNivan.compradorId), idDestinoPrivacidadNivan);
         if (bloqueo) {
             mostrarAvisoChatNivan(bloqueo);
             return;

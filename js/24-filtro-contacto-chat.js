@@ -372,7 +372,11 @@ function registrarInfraccionRedSocialNivan(idUsuario) {
 // o el texto del aviso si el mensaje se tiene que frenar.
 //   chat: el chat (puede ser nuevo, sin mensajes)
 //   ladoEmisor / ladoReceptor: "tienda" | "personal"
-function revisarMensajeChatNivan(chat, idEmisor, texto, ladoEmisor, ladoReceptor, sinTiendas) {
+function revisarMensajeChatNivan(chat, idEmisor, texto, ladoEmisor, ladoReceptor, sinTiendas, idReceptor) {
+    // Chats con las cuentas de Nivan (administración): sin ninguna restricción, en los dos sentidos.
+    // Así la gente puede mandarnos su número o su red para resolver un reclamo, y nosotros también.
+    if (esAdminNivan(idEmisor) || esAdminNivan(idReceptor)) return null;
+
     const suspension = textoSuspensionChatNivan(idEmisor);
     if (suspension) return suspension;
 
@@ -402,3 +406,21 @@ function revisarMensajeChatNivan(chat, idEmisor, texto, ladoEmisor, ladoReceptor
 
     return null;
 }
+
+
+// ---------- Cuentas de administración ----------
+// El servidor dice cuáles son (solo ids, nunca emails). Se guarda una copia para que ande también sin internet.
+const CLAVE_ADMINS_NIVAN = "nivanAdminIds";
+
+function esAdminNivan(idUsuario) {
+    if (!idUsuario) return false;
+    const ids = leerJSONNivan(CLAVE_ADMINS_NIVAN, []);
+    return Array.isArray(ids) && ids.indexOf(idUsuario) !== -1;
+}
+
+async function cargarAdminsNivan() {
+    if (typeof apiNivan !== "function") return;
+    const r = await apiNivan("/api/admins");
+    if (r.ok && Array.isArray(r.ids)) guardarJSONNivan(CLAVE_ADMINS_NIVAN, r.ids);
+}
+window.addEventListener("load", function () { setTimeout(cargarAdminsNivan, 600); });
