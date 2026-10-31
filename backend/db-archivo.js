@@ -9,7 +9,7 @@ const path = require('path');
 
 const DIR = process.env.NIVAN_DATOS || path.join(__dirname, 'datos');
 const ARCHIVO = path.join(DIR, 'db.json');
-const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [] };
+const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [], chats: [], chatMensajes: [] };
 const MAX_SESIONES_POR_USUARIO = 10;
 
 fs.mkdirSync(DIR, { recursive: true });
@@ -147,6 +147,34 @@ async function registrarDispositivo(id, h) {
     guardar();
 }
 async function borrarDispositivos(id) { delete datos.dispositivos[id]; guardar(); }
+// ---- Chats ----
+async function chatPorId(id) { return datos.chats.find(function (c) { return c.id === id; }) || null; }
+async function guardarChat(c) {
+    const i = datos.chats.findIndex(function (x) { return x.id === c.id; });
+    if (i >= 0) datos.chats[i] = c; else datos.chats.push(c);
+    guardar();
+}
+async function mensajePorId(chatId, id) { return datos.chatMensajes.find(function (m) { return m.chatId === chatId && m.id === id; }) || null; }
+async function agregarMensaje(chatId, m) {
+    if (await mensajePorId(chatId, m.id)) return false;
+    datos.chatMensajes.push({ chatId: chatId, id: m.id, fecha: m.fecha, modificado: m.modificado, datos: m.datos });
+    guardar();
+    return true;
+}
+async function actualizarMensaje(chatId, id, d, modificado) {
+    const m = await mensajePorId(chatId, id);
+    if (m) { m.datos = d; m.modificado = modificado; guardar(); }
+}
+async function chatsDeUsuarioDesde(usuarioId, desde, limite) {
+    return datos.chats.filter(function (c) { return (c.aId === usuarioId || c.bId === usuarioId) && c.actualizado > desde; })
+        .sort(function (a, b) { return a.actualizado - b.actualizado; }).slice(0, limite);
+}
+async function mensajesDeUsuarioDesde(usuarioId, desde, limite) {
+    const mios = {};
+    datos.chats.forEach(function (c) { if (c.aId === usuarioId || c.bId === usuarioId) mios[c.id] = true; });
+    return datos.chatMensajes.filter(function (m) { return mios[m.chatId] && m.modificado > desde; })
+        .sort(function (a, b) { return a.modificado - b.modificado || (a.id < b.id ? -1 : 1); }).slice(0, limite);
+}
 async function cambiarPassword(id, hash) {
     const u = datos.usuarios.find(function (x) { return x.id === id; });
     if (u) { u.passwordHash = hash; guardar(); }
@@ -159,6 +187,9 @@ async function eliminarUsuario(id) {
     datos.sesiones = datos.sesiones.filter(function (s) { return s.usuarioId !== id; });
     datos.publicaciones = datos.publicaciones.filter(function (p) { return p.vendedorId !== id; });
     datos.medios = datos.medios.filter(function (m) { return m.usuarioId !== id; });
+    const idsChats = datos.chats.filter(function (c) { return c.aId === id || c.bId === id; }).map(function (c) { return c.id; });
+    datos.chats = datos.chats.filter(function (c) { return idsChats.indexOf(c.id) < 0; });
+    datos.chatMensajes = datos.chatMensajes.filter(function (m) { return idsChats.indexOf(m.chatId) < 0; });
     guardar();
 }
 
@@ -233,6 +264,8 @@ async function guardarPedido(ped) {
 async function tamanoBytes() { return Buffer.byteLength(JSON.stringify(datos)); }
 
 module.exports = {
+    chatPorId: chatPorId, guardarChat: guardarChat, mensajePorId: mensajePorId, agregarMensaje: agregarMensaje, actualizarMensaje: actualizarMensaje,
+    chatsDeUsuarioDesde: chatsDeUsuarioDesde, mensajesDeUsuarioDesde: mensajesDeUsuarioDesde,
     pedidoPorId: pedidoPorId, pedidosDeUsuario: pedidosDeUsuario, crearPedidos: crearPedidos, guardarPedido: guardarPedido,
     crearReporte: crearReporte, reportesDeObjetivo: reportesDeObjetivo, contarReportesDeCuenta: contarReportesDeCuenta, cerrarReportes: cerrarReportes,
     usuarioPorIdPublico: usuarioPorIdPublico, fijarBaneo: fijarBaneo, idsBaneados: idsBaneados,

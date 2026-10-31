@@ -112,7 +112,26 @@ const MIGRACIONES = [
         actualizado  BIGINT NOT NULL
     );
     CREATE INDEX pedidos_comprador_idx ON pedidos (comprador_id, creado DESC);
-    CREATE INDEX pedidos_vendedor_idx ON pedidos (vendedor_id, creado DESC);`
+    CREATE INDEX pedidos_vendedor_idx ON pedidos (vendedor_id, creado DESC);`,
+    // 9 · chats entre dos personas y sus mensajes (solo texto). Sin clave foránea a usuarios: se borran a mano al eliminar la cuenta.
+    `CREATE TABLE chats (
+        id          TEXT PRIMARY KEY,
+        a_id        TEXT NOT NULL,
+        b_id        TEXT NOT NULL,
+        datos       JSONB NOT NULL,
+        actualizado BIGINT NOT NULL
+    );
+    CREATE INDEX chats_a_idx ON chats (a_id, actualizado);
+    CREATE INDEX chats_b_idx ON chats (b_id, actualizado);
+    CREATE TABLE chat_mensajes (
+        chat_id    TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        id         TEXT NOT NULL,
+        fecha      BIGINT NOT NULL,
+        modificado BIGINT NOT NULL,
+        datos      JSONB NOT NULL,
+        PRIMARY KEY (chat_id, id)
+    );
+    CREATE INDEX chat_mensajes_mod_idx ON chat_mensajes (modificado);`
 ];
 
 async function migrar() {
@@ -244,7 +263,10 @@ async function registrarDispositivo(id, h) {
 async function borrarDispositivos(id) { await pool.query('DELETE FROM dispositivos WHERE usuario_id = $1', [id]); }
 async function cambiarPassword(id, hash) { await pool.query('UPDATE usuarios SET password_hash = $1 WHERE id = $2', [hash, id]); }
 // Borra la cuenta; las sesiones se van solas por ON DELETE CASCADE.
-async function eliminarUsuario(id) { await pool.query('DELETE FROM usuarios WHERE id = $1', [id]); }
+async function eliminarUsuario(id) {
+    await pool.query('DELETE FROM chats WHERE a_id = $1 OR b_id = $1', [id]);     // sus chats (y mensajes) se van con la cuenta
+    await pool.query('DELETE FROM usuarios WHERE id = $1', [id]);
+}
 
 // ---- Publicaciones y medios ----
 function aPublicacion(f) {
@@ -323,6 +345,44 @@ async function guardarPedido(p) {
     await pool.query('UPDATE pedidos SET datos = $2, actualizado = $3 WHERE id = $1', [p.id, JSON.stringify(p.datos), p.actualizado]);
 }
 
+// ---- Chats ----
+function aChat(f) { return f ? { id: f.id, aId: f.a_id, bId: f.b_id, datos: f.datos, actualizado: +f.actualizado } : null; }
+function aMensaje(f) { return { chatId: f.chat_id, id: f.id, fecha: +f.fecha, modificado: +f.modificado, datos: f.datos }; }
+async function chatPorId(id) {
+    const r = await pool.query('SELECT * FROM chats WHERE id = $1', [id]);
+    return aChat(r.rows[0]);
+}
+async function guardarChat(c) {
+    await pool.query(
+        `INSERT INTO chats (id, a_id, b_id, datos, actualizado) VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (id) DO UPDATE SET datos = $4, actualizado = $5`,
+        [c.id, c.aId, c.bId, JSON.stringify(c.datos), c.actualizado]);
+}
+async function mensajePorId(chatId, id) {
+    const r = await pool.query('SELECT * FROM chat_mensajes WHERE chat_id = $1 AND id = $2', [chatId, id]);
+    return r.rows[0] ? aMensaje(r.rows[0]) : null;
+}
+// true si se guardó, false si ya estaba (un reintento del mismo mensaje no se duplica).
+async function agregarMensaje(chatId, m) {
+    const r = await pool.query(
+        'INSERT INTO chat_mensajes (chat_id, id, fecha, modificado, datos) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (chat_id, id) DO NOTHING',
+        [chatId, m.id, m.fecha, m.modificado, JSON.stringify(m.datos)]);
+    return r.rowCount > 0;
+}
+async function actualizarMensaje(chatId, id, datos, modificado) {
+    await pool.query('UPDATE chat_mensajes SET datos = $3, modificado = $4 WHERE chat_id = $1 AND id = $2', [chatId, id, JSON.stringify(datos), modificado]);
+}
+async function chatsDeUsuarioDesde(usuarioId, desde, limite) {
+    const r = await pool.query('SELECT * FROM chats WHERE (a_id = $1 OR b_id = $1) AND actualizado > $2 ORDER BY actualizado LIMIT $3', [usuarioId, desde, limite]);
+    return r.rows.map(aChat);
+}
+async function mensajesDeUsuarioDesde(usuarioId, desde, limite) {
+    const r = await pool.query(
+        `SELECT m.* FROM chat_mensajes m JOIN chats c ON c.id = m.chat_id
+         WHERE (c.a_id = $1 OR c.b_id = $1) AND m.modificado > $2 ORDER BY m.modificado, m.id LIMIT $3`, [usuarioId, desde, limite]);
+    return r.rows.map(aMensaje);
+}
+
 // ---- Reportes ----
 function aReporte(f) {
     return { id: f.id, tipo: f.tipo, objetivoId: f.objetivo_id, objetivoNombre: f.objetivo_nombre, cuentaId: f.cuenta_id, motivo: f.motivo,
@@ -356,6 +416,8 @@ process.on('SIGTERM', function () { cerrar().finally(function () { process.exit(
 process.on('SIGINT', function () { cerrar().finally(function () { process.exit(0); }); });
 
 module.exports = {
+    chatPorId: chatPorId, guardarChat: guardarChat, mensajePorId: mensajePorId, agregarMensaje: agregarMensaje, actualizarMensaje: actualizarMensaje,
+    chatsDeUsuarioDesde: chatsDeUsuarioDesde, mensajesDeUsuarioDesde: mensajesDeUsuarioDesde,
     pedidoPorId: pedidoPorId, pedidosDeUsuario: pedidosDeUsuario, crearPedidos: crearPedidos, guardarPedido: guardarPedido,
     usuarioPorIdPublico: usuarioPorIdPublico, fijarBaneo: fijarBaneo, idsBaneados: idsBaneados,
     crearReporte: crearReporte, reportesDeObjetivo: reportesDeObjetivo, contarReportesDeCuenta: contarReportesDeCuenta, cerrarReportes: cerrarReportes,

@@ -161,3 +161,16 @@ Las cuentas que están en `ADMIN_EMAILS` (por ejemplo `nivanatelier@gmail.com`) 
 sociales** en el chat, y quien les escribe también. Una cuenta suspendida del chat por compartir redes puede escribirles igual, para apelar.
 La app sabe cuáles son esas cuentas por `GET /api/admins` (solo ids, nunca emails). Para que funcione, el email tiene que estar en
 `ADMIN_EMAILS` en Render y la cuenta tiene que existir (haber iniciado sesión al menos una vez).
+
+## Chats entre personas (en el servidor)
+- Los mensajes de los chats ahora los guarda el servidor: dos personas en celulares distintos (y de países distintos) pueden escribirse.
+- Archivo de la app: `js/33-chats-servidor.js`. Cada mensaje que mandás se sube solo; si no hay internet queda guardado en el celular y se sube cuando vuelva.
+  La app busca mensajes nuevos cada 4 segundos con un chat abierto y cada 15 segundos si no.
+- Solo van al servidor los mensajes de texto, las propuestas, el aviso de compra y el contexto. Lo personal (silenciar un chat, borrarlo solo para uno,
+  ocultar un mensaje solo para uno) se queda en cada celular.
+- El servidor controla: nadie puede mandar un mensaje "de" otra persona, solo se borran los mensajes propios (y dentro del primer día),
+  y cada uno marca como leído solo su lado. Los textos se limpian de `<` y `>`.
+- Al eliminar una cuenta se borran sus chats.
+- Los mensajes de antes del servidor (los viejos que estaban solo en el celular) se quedan en ese celular.
+- La base crea las tablas nuevas sola al arrancar (migración 9). Rutas: `GET /api/chats?desde=`, `POST /api/chats/enviar`, `/eliminar`, `/leido`.
+- Prueba: `node prueba-chats.js` (con el servidor corriendo con una carpeta de datos nueva).

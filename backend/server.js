@@ -1260,6 +1260,175 @@ async function servirMedio(req, res, id) {
     res.end(req.method === 'HEAD' ? undefined : m.bytes);
 }
 
+
+// ------------------------------
+// Chats entre dos personas (solo texto)
+// ------------------------------
+// El servidor guarda los mensajes y decide quién puede qué: cada persona solo manda mensajes "de" ella misma,
+// solo borra los suyos (y dentro del primer día) y solo marca como leído su propio lado.
+// Lo personal (silenciar, borrar un chat solo para uno, ocultar un mensaje solo para uno) queda en cada celular.
+const MAX_TEXTO_CHAT = 2000;
+const MAX_MENSAJES_POR_ENVIO_CHAT = 20;
+const LIMITE_ELIMINAR_PARA_TODOS = 24 * 60 * 60 * 1000;
+const LADOS_CHAT = ['tienda', 'personal'];
+const REGEX_ID_MENSAJE = /^M\d{10,15}-[a-z0-9]{1,12}$/;
+
+function textoChat(v, max) { return typeof v === 'string' ? v.replace(/[<>\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').slice(0, max) : ''; }
+function numeroChat(v, min, max) { const n = Number(v); return Number.isFinite(n) && n >= min && n <= max ? n : null; }
+function idChatCanonico(vendedorId, compradorId, lados) {
+    return 'CH-' + [vendedorId + ':' + lados[vendedorId], compradorId + ':' + lados[compradorId]].sort().join('|');
+}
+
+// Comprueba que el chat sea de verdad entre la persona de la sesión y otra cuenta que existe.
+async function validarChatDe(u, c) {
+    if (!c || typeof c !== 'object') throw { estado: 400, mensaje: 'Chat inválido.' };
+    const v = String(c.vendedorId || '').slice(0, 60), co = String(c.compradorId || '').slice(0, 60);
+    if (!v || !co || v === co || (u.id !== v && u.id !== co)) throw { estado: 403, mensaje: 'Ese chat no es tuyo.' };
+    const l = c.lados;
+    if (!l || typeof l !== 'object' || LADOS_CHAT.indexOf(l[v]) < 0 || LADOS_CHAT.indexOf(l[co]) < 0) throw { estado: 400, mensaje: 'Chat inválido.' };
+    const lados = {}; lados[v] = l[v]; lados[co] = l[co];
+    if (c.id !== idChatCanonico(v, co, lados)) throw { estado: 400, mensaje: 'Chat inválido.' };
+    const otroId = u.id === v ? co : v;
+    if (!(await db.usuarioPorId(otroId))) throw { estado: 404, mensaje: 'Esa cuenta ya no existe.' };
+    return { id: c.id, vendedorId: v, compradorId: co, lados: lados, otroId: otroId };
+}
+
+// Arma el mensaje limpio (o dice por qué no).
+async function construirMensajeChat(m, u, info, ahora) {
+    if (!m || typeof m !== 'object' || typeof m.id !== 'string' || !REGEX_ID_MENSAJE.test(m.id)) throw 'Mensaje inválido.';
+    const f = Number(m.fecha);
+    const fecha = Number.isFinite(f) && f > 1e12 ? Math.min(f, ahora + 5 * 60 * 1000) : ahora;
+    const base = { id: m.id, fecha: fecha };
+    const tipo = m.tipo == null ? 'texto' : m.tipo;
+    if (tipo === 'texto') {
+        const texto = textoChat(m.texto, MAX_TEXTO_CHAT).trim();
+        if (!texto) throw 'Mensaje vacío.';
+        return Object.assign(base, { de: u.id, texto: texto, ambito: info.lados[u.id] });
+    }
+    if (tipo === 'propuesta') {
+        const items = (Array.isArray(m.items) ? m.items : []).slice(0, 20).map(function (it) {
+            const cantidad = numeroChat(it && it.cantidad, 1, 100000);
+            const prenda = textoChat(it && it.prenda, 80).trim();
+            return cantidad && prenda ? { prenda: prenda, cantidad: cantidad } : null;
+        }).filter(Boolean);
+        if (!items.length) throw 'La propuesta no tiene prendas.';
+        return Object.assign(base, {
+            tipo: 'propuesta', de: u.id, ambito: info.lados[u.id], texto: textoChat(m.texto, MAX_TEXTO_CHAT), items: items,
+            presupuesto: numeroChat(m.presupuesto, 0, 1e10) || 0, moneda: textoChat(m.moneda, 6), nota: textoChat(m.nota, 500)
+        });
+    }
+    if (tipo === 'contexto') {
+        const texto = textoChat(m.texto, 300).trim();
+        if (!texto) throw 'Mensaje vacío.';
+        return Object.assign(base, { tipo: 'contexto', texto: texto });
+    }
+    if (tipo === 'compra') {
+        const pedido = await db.pedidoPorId(String(m.pedidoId || '').slice(0, 60));
+        if (!pedido || pedido.compradorId !== u.id || pedido.vendedorId !== info.otroId) throw 'Esa compra no es tuya.';
+        const items = (Array.isArray(m.items) ? m.items : []).slice(0, 30).map(function (it) {
+            return { nombre: textoChat(it && it.nombre, 80), cantidad: numeroChat(it && it.cantidad, 1, 100000) || 1, talle: textoChat(it && it.talle, 20), color: textoChat(it && it.color, 30) };
+        });
+        return Object.assign(base, { tipo: 'compra', pedidoId: pedido.id, compradorId: u.id, items: items, total: numeroChat(m.total, 0, 1e10) || 0, moneda: textoChat(m.moneda, 6) });
+    }
+    throw 'Tipo de mensaje no permitido.';
+}
+
+RUTAS['POST /api/chats/enviar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const espera = seg.limitar('chat:' + u.id, 200, 60 * 1000);
+    if (espera) return error(res, 429, 'Estás mandando mensajes demasiado rápido. Probá de nuevo en un momento.');
+    const b = await leerJSON(req, 256 * 1024);
+    const info = await validarChatDe(u, b.chat);
+    const ahora = Date.now();
+
+    const previa = await db.chatPorId(info.id);
+    const datos = previa ? previa.datos : { vendedorId: info.vendedorId, compradorId: info.compradorId, lados: info.lados, lecturas: {}, tiendaDe: null, ambitoUltimo: null, vendedorNombre: '', compradorNombre: '' };
+    datos.lecturas = datos.lecturas || {};
+
+    const aceptados = [], rechazados = [];
+    let nuevos = 0, ultimaFecha = 0;
+    const lista = Array.isArray(b.mensajes) ? b.mensajes.slice(0, MAX_MENSAJES_POR_ENVIO_CHAT) : [];
+    for (let i = 0; i < lista.length; i++) {
+        const idOriginal = lista[i] && typeof lista[i].id === 'string' ? lista[i].id.slice(0, 40) : '';
+        let limpio;
+        try { limpio = await construirMensajeChat(lista[i], u, info, ahora); }
+        catch (e) { if (typeof e === 'string') { rechazados.push({ id: idOriginal, error: e }); continue; } throw e; }
+        if (!previa && nuevos === 0 && !(await db.chatPorId(info.id))) {
+            await db.guardarChat({ id: info.id, aId: info.vendedorId, bId: info.compradorId, datos: datos, actualizado: ahora });   // el chat tiene que existir antes que sus mensajes
+        }
+        if (await db.agregarMensaje(info.id, { id: limpio.id, fecha: limpio.fecha, modificado: ahora, datos: limpio })) nuevos++;
+        aceptados.push(limpio.id);
+        if (limpio.fecha > ultimaFecha) ultimaFecha = limpio.fecha;
+    }
+
+    if (aceptados.length) {
+        const c = b.chat;
+        if (c.tiendaDe === null || c.tiendaDe === info.vendedorId || c.tiendaDe === info.compradorId) datos.tiendaDe = c.tiendaDe;
+        datos.ambitoUltimo = info.lados[u.id];
+        if (!datos.vendedorNombre) datos.vendedorNombre = textoChat(c.vendedorNombre, 80);
+        if (!datos.compradorNombre) datos.compradorNombre = textoChat(c.compradorNombre, 80);
+        datos.lecturas[u.id] = Math.max(datos.lecturas[u.id] || 0, ultimaFecha);
+        await db.guardarChat({ id: info.id, aId: info.vendedorId, bId: info.compradorId, datos: datos, actualizado: ahora });
+    }
+    responder(res, 200, { ok: true, aceptados: aceptados, rechazados: rechazados });
+};
+
+RUTAS['POST /api/chats/eliminar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    const chat = await db.chatPorId(String(b.chatId || '').slice(0, 200));
+    if (!chat || (chat.aId !== u.id && chat.bId !== u.id)) return error(res, 404, 'No encontrado.');
+    const m = await db.mensajePorId(chat.id, String(b.mensajeId || '').slice(0, 40));
+    if (!m) return error(res, 404, 'No encontrado.');
+    if (m.datos.de !== u.id) return error(res, 403, 'Solo podés eliminar tus propios mensajes.');
+    if (Date.now() - m.fecha > LIMITE_ELIMINAR_PARA_TODOS) return error(res, 400, 'Ya pasó más de un día: solo podés eliminarlo para vos.');
+    await db.actualizarMensaje(chat.id, m.id, Object.assign({}, m.datos, { eliminado: true, texto: '' }), Date.now());
+    responder(res, 200, { ok: true });
+};
+
+RUTAS['POST /api/chats/leido'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    const chat = await db.chatPorId(String(b.chatId || '').slice(0, 200));
+    if (!chat || (chat.aId !== u.id && chat.bId !== u.id)) return error(res, 404, 'No encontrado.');
+    const hasta = numeroChat(b.hasta, 1e12, Date.now() + 5 * 60 * 1000);
+    if (hasta === null) return error(res, 400, 'Fecha inválida.');
+    const datos = chat.datos; datos.lecturas = datos.lecturas || {};
+    if (hasta > (datos.lecturas[u.id] || 0)) {
+        datos.lecturas[u.id] = hasta;
+        await db.guardarChat({ id: chat.id, aId: chat.aId, bId: chat.bId, datos: datos, actualizado: Date.now() });
+    }
+    responder(res, 200, { ok: true });
+};
+
+// Todo lo que cambió en mis chats desde "desde" (la hora del servidor que devolvió la vez anterior).
+RUTAS['GET /api/chats'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const url = new URL(req.url, 'http://localhost');
+    const desde = Math.max(0, Number(url.searchParams.get('desde')) || 0);
+    const ahora = Date.now();
+    const chats = await db.chatsDeUsuarioDesde(u.id, desde, 500);
+    const mensajes = await db.mensajesDeUsuarioDesde(u.id, desde, 1000);
+    let cursor = ahora - 3000;      // 3 segundos de margen: si algo llegó justo al mismo tiempo, se vuelve a pedir (no se duplica)
+    if (mensajes.length >= 1000) cursor = Math.min(cursor, mensajes[mensajes.length - 1].modificado);
+    if (chats.length >= 500) cursor = Math.min(cursor, chats[chats.length - 1].actualizado);
+    const hayMas = cursor < ahora - 3000 && cursor > desde;
+    if (cursor <= desde && !hayMas) cursor = Math.max(desde, ahora - 3000);
+    responder(res, 200, {
+        ok: true, cursor: cursor, hayMas: hayMas,
+        chats: chats.map(function (c) {
+            const d = c.datos;
+            return { id: c.id, vendedorId: d.vendedorId, compradorId: d.compradorId, lados: d.lados, tiendaDe: d.tiendaDe || null, ambitoUltimo: d.ambitoUltimo || null,
+                lecturas: d.lecturas || {}, vendedorNombre: d.vendedorNombre || '', compradorNombre: d.compradorNombre || '' };
+        }),
+        mensajes: mensajes.map(function (m) { return Object.assign({ chatId: m.chatId }, m.datos); })
+    });
+};
+
 // ------------------------------
 // Archivos de la app
 // ------------------------------
