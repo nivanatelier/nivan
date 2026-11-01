@@ -155,7 +155,41 @@ const MIGRACIONES = [
         creado    BIGINT NOT NULL,
         PRIMARY KEY (coleccion, clave, valor)
     );
-    CREATE INDEX conjuntos_valor_idx ON conjuntos (coleccion, valor);`
+    CREATE INDEX conjuntos_valor_idx ON conjuntos (coleccion, valor);`,
+    // 13 · comentarios de los posts de perfil (con respuestas y likes) y preguntas al vendedor en las publicaciones
+    `CREATE TABLE post_comentarios (
+        id         TEXT PRIMARY KEY,
+        post_id    TEXT NOT NULL,
+        usuario_id TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        nombre     TEXT NOT NULL DEFAULT '',
+        texto      TEXT NOT NULL,
+        id_padre   TEXT,
+        likes      JSONB NOT NULL DEFAULT '[]',
+        fecha      BIGINT NOT NULL
+    );
+    CREATE INDEX post_comentarios_post_idx ON post_comentarios (post_id, fecha);
+    CREATE TABLE preguntas (
+        id             TEXT PRIMARY KEY,
+        publicacion_id TEXT NOT NULL REFERENCES publicaciones(id) ON DELETE CASCADE,
+        usuario_id     TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        nombre         TEXT NOT NULL DEFAULT '',
+        texto          TEXT NOT NULL,
+        respuesta      TEXT,
+        fecha          BIGINT NOT NULL,
+        respondida     BIGINT
+    );
+    CREATE INDEX preguntas_pub_idx ON preguntas (publicacion_id, fecha);`,
+    // 14 · buzón de avisos entre personas ("te dieron like", "nuevo pedido", ...). Se borran con la cuenta de quien los recibe o los manda.
+    `CREATE TABLE notificaciones (
+        para     TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        id       TEXT NOT NULL,
+        de       TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        dedupe   TEXT,
+        datos    JSONB NOT NULL,
+        recibida BIGINT NOT NULL,
+        PRIMARY KEY (para, id)
+    );
+    CREATE INDEX notificaciones_para_idx ON notificaciones (para, recibida);`
 ];
 
 async function migrar() {
@@ -297,6 +331,7 @@ async function eliminarUsuario(id) {
     await pool.query('DELETE FROM chats WHERE a_id = $1 OR b_id = $1', [id]);     // sus chats (y mensajes) se van con la cuenta
     // sus seguimientos, los de otras personas hacia sus cuentas y los likes de sus posts (las claves de posts empiezan con "id_")
     await pool.query("DELETE FROM conjuntos WHERE valor = ANY($1::text[]) OR clave = ANY($1::text[]) OR clave LIKE $2 ESCAPE '\\'", [[id, 'T:' + id], id + '\\_%']);
+    await pool.query("DELETE FROM post_comentarios WHERE post_id LIKE $1 ESCAPE '\\'", [id + '\\_%']);    // los comentarios de sus posts
     await pool.query('DELETE FROM usuarios WHERE id = $1', [id]);
 }
 
@@ -359,6 +394,22 @@ async function conjuntoLeer(coleccion) {
     const r = await pool.query('SELECT clave, valor FROM conjuntos WHERE coleccion = $1 LIMIT 100000', [coleccion]);
     return r.rows;
 }
+// ---- Notificaciones (avisos para otras personas) ----
+// Si trae "dedupe", reemplaza al aviso anterior igual de esa persona (un solo "le gustó tu publicación" por persona y publicación).
+async function guardarNotificacion(x) {
+    if (x.dedupe) await pool.query('DELETE FROM notificaciones WHERE para = $1 AND dedupe = $2', [x.para, x.dedupe]);
+    await pool.query('INSERT INTO notificaciones (para, id, de, dedupe, datos, recibida) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (para, id) DO NOTHING',
+        [x.para, x.id, x.de, x.dedupe || null, JSON.stringify(x.datos), x.recibida]);
+}
+async function notificacionesDe(usuarioId, desde, limite) {
+    const r = await pool.query('SELECT id, de, datos, recibida FROM notificaciones WHERE para = $1 AND recibida > $2 ORDER BY recibida ASC LIMIT $3', [usuarioId, desde, limite]);
+    return r.rows.map(function (f) { return { id: f.id, de: f.de, datos: f.datos, recibida: +f.recibida }; });
+}
+// Se quedan los últimos 150 avisos de cada persona y nada de más de 45 días.
+async function podarNotificaciones(usuarioId, antesDe) {
+    await pool.query('DELETE FROM notificaciones WHERE para = $1 AND recibida < $2', [usuarioId, antesDe]);
+    await pool.query('DELETE FROM notificaciones WHERE para = $1 AND id IN (SELECT id FROM notificaciones WHERE para = $1 ORDER BY recibida DESC OFFSET 150)', [usuarioId]);
+}
 async function cerrar() { await pool.end(); }
 
 // ---- Pedidos ----
@@ -411,6 +462,53 @@ async function crearResenia(x) {
         [x.id, x.publicacionId, x.usuarioId, x.nombre, x.estrellas, x.texto, x.fecha]);
 }
 async function borrarResenia(id, ts) { await pool.query('UPDATE resenias SET borrada = $2 WHERE id = $1', [id, ts]); }
+
+// ---- Comentarios de posts ----
+function aComentario(f) {
+    return f ? { id: f.id, postId: f.post_id, usuarioId: f.usuario_id, nombre: f.nombre, texto: f.texto, idPadre: f.id_padre || null, likes: Array.isArray(f.likes) ? f.likes : [], fecha: +f.fecha } : null;
+}
+async function comentariosDePost(postId) {
+    const r = await pool.query('SELECT * FROM post_comentarios WHERE post_id = $1 ORDER BY fecha, id LIMIT 1000', [postId]);
+    return r.rows.map(aComentario);
+}
+async function comentarioPorId(id) {
+    const r = await pool.query('SELECT * FROM post_comentarios WHERE id = $1', [id]);
+    return aComentario(r.rows[0]);
+}
+async function crearComentario(c) {
+    await pool.query('INSERT INTO post_comentarios (id, post_id, usuario_id, nombre, texto, id_padre, likes, fecha) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+        [c.id, c.postId, c.usuarioId, c.nombre, c.texto, c.idPadre || null, JSON.stringify(c.likes || []), c.fecha]);
+}
+async function borrarComentarioYRespuestas(id) {
+    await pool.query('DELETE FROM post_comentarios WHERE id = $1 OR id_padre = $1', [id]);
+}
+async function guardarLikesComentario(id, likes) {
+    await pool.query('UPDATE post_comentarios SET likes = $2 WHERE id = $1', [id, JSON.stringify(likes)]);
+}
+
+// ---- Preguntas al vendedor ----
+function aPregunta(f) {
+    return f ? { id: f.id, publicacionId: f.publicacion_id, usuarioId: f.usuario_id, nombre: f.nombre, texto: f.texto, respuesta: f.respuesta || null, fecha: +f.fecha, respondida: f.respondida ? +f.respondida : null } : null;
+}
+// Las preguntas de las publicaciones de un país (null = todos).
+async function preguntasPublicas(pais, limite) {
+    const r = await pool.query('SELECT q.* FROM preguntas q JOIN publicaciones p ON p.id = q.publicacion_id WHERE ($1::text IS NULL OR p.pais = $1) ORDER BY q.fecha LIMIT $2', [pais, limite]);
+    return r.rows.map(aPregunta);
+}
+async function preguntaPorId(id) {
+    const r = await pool.query('SELECT * FROM preguntas WHERE id = $1', [id]);
+    return aPregunta(r.rows[0]);
+}
+async function contarPreguntasDe(publicacionId) {
+    const r = await pool.query('SELECT COUNT(*)::int AS n FROM preguntas WHERE publicacion_id = $1', [publicacionId]);
+    return r.rows[0].n;
+}
+async function crearPregunta(x) {
+    await pool.query('INSERT INTO preguntas (id, publicacion_id, usuario_id, nombre, texto, fecha) VALUES ($1,$2,$3,$4,$5,$6)', [x.id, x.publicacionId, x.usuarioId, x.nombre, x.texto, x.fecha]);
+}
+async function responderPregunta(id, texto, ts) {
+    await pool.query('UPDATE preguntas SET respuesta = $2, respondida = $3 WHERE id = $1', [id, texto, ts]);
+}
 
 // ---- Chats ----
 function aChat(f) { return f ? { id: f.id, aId: f.a_id, bId: f.b_id, datos: f.datos, actualizado: +f.actualizado } : null; }
@@ -483,7 +581,10 @@ process.on('SIGTERM', function () { cerrar().finally(function () { process.exit(
 process.on('SIGINT', function () { cerrar().finally(function () { process.exit(0); }); });
 
 module.exports = {
+    comentariosDePost: comentariosDePost, comentarioPorId: comentarioPorId, crearComentario: crearComentario, borrarComentarioYRespuestas: borrarComentarioYRespuestas, guardarLikesComentario: guardarLikesComentario,
+    preguntasPublicas: preguntasPublicas, preguntaPorId: preguntaPorId, contarPreguntasDe: contarPreguntasDe, crearPregunta: crearPregunta, responderPregunta: responderPregunta,
     conjuntoAgregar: conjuntoAgregar, conjuntoQuitar: conjuntoQuitar, conjuntoLeer: conjuntoLeer,
+    guardarNotificacion: guardarNotificacion, notificacionesDe: notificacionesDe, podarNotificaciones: podarNotificaciones,
     chatPorId: chatPorId, guardarChat: guardarChat, mensajePorId: mensajePorId, agregarMensaje: agregarMensaje, actualizarMensaje: actualizarMensaje,
     chatsDeUsuarioDesde: chatsDeUsuarioDesde, mensajesDeUsuarioDesde: mensajesDeUsuarioDesde,
     reseniasPublicas: reseniasPublicas, reseniasDeUsuarioEn: reseniasDeUsuarioEn, reseniaPorId: reseniaPorId, crearResenia: crearResenia, borrarResenia: borrarResenia,

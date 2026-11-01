@@ -198,3 +198,29 @@ La app sabe cuáles son esas cuentas por `GET /api/admins` (solo ids, nunca emai
 - Si una cuenta es privada, quién la sigue no se ve para terceros (sí para ella y para quien la sigue).
 - Al borrar una cuenta se borran sus seguimientos, los de otras personas hacia ella y los likes de sus posts.
 - Cliente: `js/35-conjuntos-servidor.js`.
+
+## Comentarios de posts y preguntas al vendedor (en el servidor)
+- Archivo de la app: `js/36-comentarios-preguntas-servidor.js`. Las claves de siempre (`nivanComentariosPosts` y `nivanPreguntas`) pasan a ser una copia de lo que dice el servidor.
+- **Comentarios de posts** (con respuestas y likes en cada comentario): se bajan al abrir un post y se refrescan cada 6 segundos mientras está abierto.
+  Quien comenta, da like o borra lo ve al instante; si no hay internet, el comentario queda pendiente y se manda cuando vuelve la conexión.
+  Pueden borrar un comentario quien lo escribió y la dueña o el dueño del post (se van también sus respuestas).
+  Si la cuenta del post pasa a privada, los demás dejan de ver y de escribir comentarios.
+- **Preguntas al vendedor**: las ve cualquiera; solo responde quien vende, y una sola vez por pregunta. Máximo 100 preguntas por publicación.
+  A quien vende le llega el aviso "Nueva pregunta" y a quien preguntó "Te respondieron" (la primera vez que se bajan no se avisa de lo viejo).
+- Los textos se limpian de `<` y `>`. Límites: comentario 300 caracteres, pregunta 300, respuesta 500.
+- Las publicaciones del catálogo base (sin vendedor) siguen guardando sus preguntas solo en el celular.
+- Al eliminar una cuenta se borran sus comentarios, sus preguntas y los comentarios de sus posts.
+- La base crea las tablas nuevas sola al arrancar (migración 13). Rutas: `GET /api/comentarios?post=`, `POST /api/comentarios/crear|eliminar|like`,
+  `GET /api/preguntas?pais=`, `POST /api/preguntas/crear|responder`.
+- Prueba: `node prueba-comentarios.js` (con el servidor corriendo con una carpeta de datos nueva).
+
+## Avisos (notificaciones) entre personas, en el servidor
+- Un aviso para OTRA persona ("te dieron like", "empezó a seguirte", "nuevo pedido", "te respondieron un comentario", cupones, reclamos...) antes solo se guardaba en el celular de quien lo generaba.
+  Ahora la app lo manda al servidor (`POST /api/notificaciones/enviar`) y la app de quien lo recibe lo baja desde cualquier celular (`GET /api/notificaciones?desde=`). Archivo de la app: `js/37-avisos-servidor.js`.
+- Los avisos para uno mismo (recomendaciones, bajó el precio...) siguen locales. Los de mensajes de chat y de preguntas al vendedor no pasan por acá: ya se generan solos al bajar chats y preguntas.
+- Reglas del servidor: solo tipos conocidos; los textos se limpian de `<` y `>`; un aviso de un pedido solo lo pueden mandar las dos personas de ese pedido; el de reseña solo le llega a quien vende esa publicación;
+  tope de 1500 avisos por hora por persona y 120 por hora hacia una misma persona; no se manda a cuentas baneadas.
+- Avisos que se reemplazan en vez de repetirse: nuevo seguidor, solicitud de perfil, like a publicación, like a comentario (uno por persona y cosa).
+- Cada persona conserva los últimos 150 avisos y nada de más de 45 días. Marcar como leído o borrar sigue siendo solo en cada celular.
+- La base crea la tabla sola al arrancar (migración 14). Se borran con la cuenta de quien los manda o los recibe.
+- Prueba: `node prueba-avisos.js` (con el servidor corriendo con una carpeta de datos nueva y `ADMIN_EMAILS`/`ADMIN_CLAVE`).

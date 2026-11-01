@@ -1611,6 +1611,254 @@ RUTAS['GET /api/conjuntos'] = async function (req, res) {
     responder(res, 200, { ok: true, datos: datos });
 };
 
+
+// ------------------------------
+// Comentarios de los posts de perfil (con respuestas y likes)
+// ------------------------------
+// El id de un post es  idDeLaCuenta_fecha  (la fecha es la del post dentro del portafolio de esa cuenta).
+const MAX_COMENTARIO_POST = 300;
+const MAX_COMENTARIOS_POR_POST = 500;
+const REGEX_ID_COMENTARIO = /^COM-\d{10,15}-\d{1,6}$/;
+
+function nombreVisible(u) { return String((u.perfil && u.perfil.apodo) || u.apodo || u.nombre || 'Cliente').replace(/[<>]/g, '').slice(0, 60); }
+
+// Comprueba que el post exista y que quien mira pueda verlo (si la cuenta es privada, solo su dueña/o).
+async function postAccesible(u, idPost) {
+    const id = String(idPost || '').slice(0, 120);
+    const i = id.lastIndexOf('_');
+    const fecha = Number(id.slice(i + 1));
+    if (i < 1 || !Number.isFinite(fecha)) throw { estado: 400, mensaje: 'Post inválido.' };
+    const dueno = await db.usuarioPorId(id.slice(0, i));
+    const portafolio = dueno && dueno.perfil && Array.isArray(dueno.perfil.portafolio) ? dueno.perfil.portafolio : [];
+    if (!dueno || baneoActivo(dueno) || dueno.desactivada || !portafolio.some(function (p) { return p && Number(p.fecha) === fecha; })) throw { estado: 404, mensaje: 'Ese post ya no existe.' };
+    const priv = dueno.perfil && dueno.perfil.privacidad;
+    const privado = !!(priv && priv.verPerfil && priv.verPerfil !== 'todos');
+    if (privado && (!u || u.id !== dueno.id)) throw { estado: 404, mensaje: 'Ese post ya no existe.' };
+    return { id: id, dueno: dueno };
+}
+function comentarioPublico(c) {
+    const o = { id: c.id, idUsuario: c.usuarioId, nombre: c.nombre, texto: c.texto, fecha: c.fecha, likes: Array.isArray(c.likes) ? c.likes : [] };
+    if (c.idPadre) o.idPadre = c.idPadre;
+    return o;
+}
+async function listaComentariosPublica(idPost) { return (await db.comentariosDePost(idPost)).map(comentarioPublico); }
+
+RUTAS['GET /api/comentarios'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    const url = new URL(req.url, 'http://localhost');
+    const post = await postAccesible(u, url.searchParams.get('post'));
+    responder(res, 200, { ok: true, comentarios: await listaComentariosPublica(post.id) });
+};
+
+RUTAS['POST /api/comentarios/crear'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'Iniciá sesión para comentar.');
+    const espera = seg.limitar('coment:' + u.id, 30, 10 * 60 * 1000);
+    if (espera) return error(res, 429, 'Comentaste muchas veces seguidas. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    const b = await leerJSON(req);
+    const post = await postAccesible(u, b.postId);
+    const texto = textoChat(b.texto, MAX_COMENTARIO_POST).trim();
+    if (!texto) return error(res, 400, 'Escribí un comentario.');
+    const existentes = await db.comentariosDePost(post.id);
+    if (existentes.length >= MAX_COMENTARIOS_POR_POST) return error(res, 400, 'Este post ya tiene el máximo de comentarios.');
+    let idPadre = null;
+    if (b.idPadre) {
+        const padre = existentes.find(function (c) { return c.id === String(b.idPadre); });
+        if (!padre) return error(res, 404, 'El comentario al que respondés ya no existe.');
+        idPadre = padre.idPadre || padre.id;      // las respuestas quedan siempre dentro del mismo hilo
+    }
+    let id = typeof b.id === 'string' && REGEX_ID_COMENTARIO.test(b.id) ? b.id : null;
+    if (id && (await db.comentarioPorId(id))) id = null;
+    if (!id) id = 'COM-' + Date.now() + '-' + Math.floor(Math.random() * 900000 + 100);
+    await db.crearComentario({ id: id, postId: post.id, usuarioId: u.id, nombre: nombreVisible(u), texto: texto, idPadre: idPadre, likes: [], fecha: Date.now() });
+    responder(res, 200, { ok: true, id: id, comentarios: await listaComentariosPublica(post.id) });
+};
+
+RUTAS['POST /api/comentarios/eliminar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const espera = seg.limitar('comentdel:' + u.id, 60, 10 * 60 * 1000);
+    if (espera) return error(res, 429, 'Demasiados cambios seguidos. Probá de nuevo en un momento.');
+    const b = await leerJSON(req);
+    const c = await db.comentarioPorId(String(b.id || '').slice(0, 60));
+    if (!c) return responder(res, 200, { ok: true, comentarios: [] });          // ya estaba borrado
+    const duenoPost = c.postId.slice(0, c.postId.lastIndexOf('_'));
+    if (c.usuarioId !== u.id && duenoPost !== u.id) return error(res, 403, 'Solo podés borrar tus comentarios o los de tus posts.');
+    await db.borrarComentarioYRespuestas(c.id);                                  // se van también sus respuestas
+    responder(res, 200, { ok: true, comentarios: await listaComentariosPublica(c.postId) });
+};
+
+RUTAS['POST /api/comentarios/like'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const espera = seg.limitar('comentlike:' + u.id, 300, 10 * 60 * 1000);
+    if (espera) return error(res, 429, 'Demasiados cambios seguidos. Probá de nuevo en un momento.');
+    const b = await leerJSON(req);
+    const c = await db.comentarioPorId(String(b.id || '').slice(0, 60));
+    if (!c) return error(res, 404, 'Ese comentario ya no existe.');
+    await postAccesible(u, c.postId);
+    const likes = (Array.isArray(c.likes) ? c.likes : []).filter(function (x) { return x !== u.id; });
+    if (b.like === true) likes.push(u.id);
+    await db.guardarLikesComentario(c.id, likes);
+    responder(res, 200, { ok: true, comentarios: await listaComentariosPublica(c.postId) });
+};
+
+// ------------------------------
+// Preguntas al vendedor en una publicación (las ve cualquiera; solo responde quien la vende)
+// ------------------------------
+const MAX_PREGUNTA = 300;
+const MAX_RESPUESTA = 500;
+const MAX_PREGUNTAS_POR_PUBLICACION = 100;
+function preguntaPublica(q) {
+    return { id: q.id, publicacionId: q.publicacionId, usuarioId: q.usuarioId, usuarioNombre: q.nombre, texto: q.texto, respuesta: q.respuesta || null, fecha: q.fecha };
+}
+
+// ------------------------------
+// Buzón de avisos entre personas (notificaciones para otra persona: pedidos, likes, seguidores, respuestas...)
+// ------------------------------
+// La app de quien hace algo manda el aviso (POST /api/notificaciones/enviar) y la app de quien lo recibe lo baja
+// (GET /api/notificaciones?desde=...), desde cualquier celular. Los avisos "para uno mismo" no pasan por acá.
+// Los de mensajes de chat y de preguntas al vendedor no se mandan: esos ya se generan solos al bajar chats y preguntas.
+const TIPOS_AVISO_ENTRE_PERSONAS = ['reclamo', 'pedidoEstado', 'ventaEstado', 'calificacion', 'venta', 'devolucion', 'compra',
+    'seguidor', 'cupon', 'cuponTienda', 'nuevaPublicacion', 'solicitudPerfil', 'solicitudAceptada', 'resenia', 'postulacion',
+    'likePost', 'likeComentario', 'comentarioPost', 'respuestaComentario', 'etiquetaPost'];
+const TIPOS_AVISO_UNICO = ['seguidor', 'solicitudPerfil', 'likePost', 'likeComentario'];   // uno solo por persona y cosa
+const MAX_AVISOS_POR_ENVIO = 100;
+const DIAS_AVISOS_MS = 45 * 86400000;
+let ultimaMarcaAviso = 0;
+function marcaAviso() { ultimaMarcaAviso = Math.max(Date.now(), ultimaMarcaAviso + 1); return ultimaMarcaAviso; }
+
+function textoOpcionalAviso(v, max) {
+    if (typeof v === 'number' && isFinite(v)) v = String(v);
+    const t = textoChat(v, max).trim();
+    return t || null;
+}
+function limpiarAviso(d) {
+    if (!d || typeof d !== 'object') return null;
+    const tipo = String(d.tipo || '');
+    if (TIPOS_AVISO_ENTRE_PERSONAS.indexOf(tipo) < 0) return null;
+    const titulo = textoOpcionalAviso(d.titulo, 120);
+    if (!titulo) return null;
+    const ahora = Date.now();
+    let fecha = Number(d.fecha);
+    if (!isFinite(fecha) || fecha > ahora || fecha < ahora - DIAS_AVISOS_MS) fecha = ahora;
+    const ambito = function (v) { return v === 'personal' || v === 'tienda' ? v : null; };
+    const limpio = {
+        tipo: tipo, icono: textoOpcionalAviso(d.icono, 12) || '🔔', titulo: titulo, texto: textoOpcionalAviso(d.texto, 300) || '',
+        productoId: textoOpcionalAviso(d.productoId, 60), pedidoId: textoOpcionalAviso(d.pedidoId, 60), chatId: textoOpcionalAviso(d.chatId, 60),
+        usuarioId: textoOpcionalAviso(d.usuarioId, 70), cuponCodigo: textoOpcionalAviso(d.cuponCodigo, 40),
+        ambito: ambito(d.ambito), cuenta: ambito(d.cuenta), pais: d.pais === 'AR' || d.pais === 'UY' ? d.pais : null, fecha: fecha
+    };
+    if (d.extra && typeof d.extra === 'object' && !Array.isArray(d.extra)) {
+        const extra = {};
+        Object.keys(d.extra).slice(0, 8).forEach(function (k) {
+            const v = d.extra[k];
+            if (!/^[A-Za-z0-9_]{1,30}$/.test(k)) return;
+            if (typeof v === 'string') extra[k] = textoChat(v, 120);
+            else if (typeof v === 'number' && isFinite(v)) extra[k] = v;
+            else if (typeof v === 'boolean') extra[k] = v;
+        });
+        limpio.extra = extra;
+    }
+    return limpio;
+}
+function claveAvisoUnico(a) {
+    if (TIPOS_AVISO_UNICO.indexOf(a.tipo) < 0) return null;
+    const e = a.extra || {};
+    return [a.tipo, a.usuarioId || '', a.cuenta || a.ambito || '', e.postId || '', e.comentarioId || '', e.quien || ''].join('|');
+}
+
+RUTAS['POST /api/notificaciones/enviar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req, 400000);
+    const lista = Array.isArray(b.lista) ? b.lista.slice(0, MAX_AVISOS_POR_ENVIO) : [];
+    const destinatarios = {};
+    const podar = {};
+    let aceptadas = 0, rechazadas = 0;
+
+    for (const item of lista) {
+        const para = item && typeof item.para === 'string' ? item.para.slice(0, 60) : '';
+        const id = item && typeof item.id === 'string' && /^[A-Za-z0-9_-]{4,60}$/.test(item.id) ? item.id : '';
+        const aviso = item ? limpiarAviso(item.datos) : null;
+        if (!para || !id || !aviso || para === u.id) { rechazadas++; continue; }
+        // límites: en total y hacia una misma persona (así nadie puede llenar de avisos a otra)
+        if (seg.limitar('aviso:' + u.id, 1500, 3600 * 1000) || seg.limitar('aviso:' + u.id + ':' + para, 120, 3600 * 1000)) { rechazadas++; continue; }
+
+        if (!(para in destinatarios)) destinatarios[para] = await db.usuarioPorId(para);
+        const dest = destinatarios[para];
+        if (!dest || baneoActivo(dest)) { rechazadas++; continue; }
+
+        // Los avisos de un pedido solo los pueden mandar las dos personas del pedido, entre sí.
+        if (aviso.pedidoId) {
+            const ped = await db.pedidoPorId(aviso.pedidoId);
+            const entreEllas = ped && ((ped.compradorId === u.id && ped.vendedorId === para) || (ped.vendedorId === u.id && ped.compradorId === para));
+            if (!entreEllas) { rechazadas++; continue; }
+        }
+        // Una reseña solo se le avisa a quien vende esa publicación.
+        if (aviso.tipo === 'resenia') {
+            const pub = aviso.productoId ? await db.publicacionPorId(aviso.productoId) : null;
+            if (!pub || pub.vendedorId !== para) { rechazadas++; continue; }
+        }
+
+        await db.guardarNotificacion({ para: para, id: id, de: u.id, dedupe: claveAvisoUnico(aviso), datos: aviso, recibida: marcaAviso() });
+        podar[para] = true;
+        aceptadas++;
+    }
+    for (const para of Object.keys(podar)) await db.podarNotificaciones(para, Date.now() - DIAS_AVISOS_MS);
+    responder(res, 200, { ok: true, aceptadas: aceptadas, rechazadas: rechazadas });
+};
+
+RUTAS['GET /api/notificaciones'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const url = new URL(req.url, 'http://localhost');
+    const desde = Number(url.searchParams.get('desde')) || 0;
+    const filas = await db.notificacionesDe(u.id, desde, 200);
+    responder(res, 200, { ok: true, notificaciones: filas.map(function (f) { return Object.assign({}, f.datos, { id: f.id, de: f.de, recibida: f.recibida }); }) });
+};
+
+RUTAS['GET /api/preguntas'] = async function (req, res) {
+    const url = new URL(req.url, 'http://localhost');
+    const pedido = url.searchParams.get('pais');
+    const pais = pedido === 'UY' || pedido === 'AR' ? pedido : null;
+    const lista = await db.preguntasPublicas(pais, 5000);
+    responder(res, 200, { ok: true, preguntas: lista.map(preguntaPublica) });
+};
+
+RUTAS['POST /api/preguntas/crear'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'Iniciá sesión para hacerle una pregunta al vendedor.');
+    const espera = seg.limitar('pregunta:' + u.id, 10, 10 * 60 * 1000);
+    if (espera) return error(res, 429, 'Hiciste muchas preguntas seguidas. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    const b = await leerJSON(req);
+    const pubId = String(b.publicacionId == null ? '' : b.publicacionId).slice(0, 40);
+    const pub = pubId ? await db.publicacionPorId(pubId) : null;
+    if (!pub) return error(res, 404, 'Esa publicación ya no existe.');
+    if (pub.vendedorId === u.id) return error(res, 403, 'No podés hacerte preguntas a vos mismo.');
+    const texto = textoChat(b.texto, MAX_PREGUNTA).trim();
+    if (!texto) return error(res, 400, 'Escribí tu pregunta antes de enviarla.');
+    if ((await db.contarPreguntasDe(pubId)) >= MAX_PREGUNTAS_POR_PUBLICACION) return error(res, 400, 'Esta publicación ya tiene el máximo de preguntas.');
+    const q = { id: 'PG-' + crypto.randomBytes(8).toString('hex'), publicacionId: pubId, usuarioId: u.id, nombre: nombreVisible(u), texto: texto, fecha: Date.now() };
+    await db.crearPregunta(q);
+    responder(res, 200, { ok: true, pregunta: preguntaPublica(Object.assign({ respuesta: null }, q)) });
+};
+
+RUTAS['POST /api/preguntas/responder'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    const q = await db.preguntaPorId(String(b.id || '').slice(0, 40));
+    if (!q) return error(res, 404, 'Esa pregunta ya no existe.');
+    const pub = await db.publicacionPorId(q.publicacionId);
+    if (!pub || pub.vendedorId !== u.id) return error(res, 403, 'Solo quien vende puede responder.');
+    if (q.respuesta) return error(res, 409, 'Esa pregunta ya tiene respuesta.');
+    const texto = textoChat(b.respuesta, MAX_RESPUESTA).trim();
+    if (!texto) return error(res, 400, 'Escribí una respuesta antes de enviarla.');
+    await db.responderPregunta(q.id, texto, Date.now());
+    responder(res, 200, { ok: true, pregunta: preguntaPublica(Object.assign({}, q, { respuesta: texto })) });
+};
+
 // ------------------------------
 // Archivos de la app
 // ------------------------------

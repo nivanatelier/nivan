@@ -9,7 +9,7 @@ const path = require('path');
 
 const DIR = process.env.NIVAN_DATOS || path.join(__dirname, 'datos');
 const ARCHIVO = path.join(DIR, 'db.json');
-const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [], chats: [], chatMensajes: [], resenias: [], conjuntos: [] };
+const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [], chats: [], chatMensajes: [], resenias: [], conjuntos: [], postComentarios: [], preguntas: [], notificaciones: [] };
 const MAX_SESIONES_POR_USUARIO = 10;
 
 fs.mkdirSync(DIR, { recursive: true });
@@ -212,6 +212,8 @@ async function eliminarUsuario(id) {
     datos.sesiones = datos.sesiones.filter(function (s) { return s.usuarioId !== id; });
     const idsPubs = datos.publicaciones.filter(function (p) { return p.vendedorId === id; }).map(function (p) { return p.id; });
     datos.resenias = datos.resenias.filter(function (x) { return x.usuarioId !== id && idsPubs.indexOf(x.publicacionId) < 0; });
+    datos.preguntas = datos.preguntas.filter(function (q) { return q.usuarioId !== id && idsPubs.indexOf(q.publicacionId) < 0; });
+    datos.postComentarios = datos.postComentarios.filter(function (c) { return c.usuarioId !== id && c.postId.indexOf(id + '_') !== 0; });
     datos.publicaciones = datos.publicaciones.filter(function (p) { return p.vendedorId !== id; });
     datos.medios = datos.medios.filter(function (m) { return m.usuarioId !== id; });
     const idsChats = datos.chats.filter(function (c) { return c.aId === id || c.bId === id; }).map(function (c) { return c.id; });
@@ -219,9 +221,29 @@ async function eliminarUsuario(id) {
     datos.chatMensajes = datos.chatMensajes.filter(function (m) { return idsChats.indexOf(m.chatId) < 0; });
     const dueno = function (s) { return s.indexOf('T:') === 0 ? s.slice(2) : s; };
     datos.conjuntos = datos.conjuntos.filter(function (e) { return dueno(e.valor) !== id && dueno(e.clave) !== id && e.clave.indexOf(id + '_') !== 0; });
+    datos.notificaciones = datos.notificaciones.filter(function (n) { return n.para !== id && n.de !== id; });
     guardar();
 }
 
+// ---- Notificaciones (avisos para otras personas) ----
+async function guardarNotificacion(x) {
+    if (x.dedupe) datos.notificaciones = datos.notificaciones.filter(function (n) { return !(n.para === x.para && n.dedupe === x.dedupe); });
+    if (!datos.notificaciones.some(function (n) { return n.para === x.para && n.id === x.id; })) {
+        datos.notificaciones.push({ para: x.para, id: x.id, de: x.de, dedupe: x.dedupe || null, datos: x.datos, recibida: x.recibida });
+        guardar();
+    }
+}
+async function notificacionesDe(usuarioId, desde, limite) {
+    return datos.notificaciones.filter(function (n) { return n.para === usuarioId && n.recibida > desde; })
+        .sort(function (a, b) { return a.recibida - b.recibida; }).slice(0, limite)
+        .map(function (n) { return { id: n.id, de: n.de, datos: n.datos, recibida: n.recibida }; });
+}
+async function podarNotificaciones(usuarioId, antesDe) {
+    const mias = datos.notificaciones.filter(function (n) { return n.para === usuarioId && n.recibida >= antesDe; })
+        .sort(function (a, b) { return b.recibida - a.recibida; }).slice(0, 150);
+    datos.notificaciones = datos.notificaciones.filter(function (n) { return n.para !== usuarioId; }).concat(mias);
+    guardar();
+}
 // ---- Conjuntos (seguidores y likes) ----
 async function conjuntoAgregar(coleccion, clave, valor) {
     if (!datos.conjuntos.some(function (e) { return e.coleccion === coleccion && e.clave === clave && e.valor === valor; })) {
@@ -268,6 +290,7 @@ async function guardarPublicacion(pub) {
 async function eliminarPublicacion(id) {
     datos.publicaciones = datos.publicaciones.filter(function (p) { return p.id !== id; });
     datos.resenias = datos.resenias.filter(function (x) { return x.publicacionId !== id; });
+    datos.preguntas = datos.preguntas.filter(function (q) { return q.publicacionId !== id; });
     guardar();
 }
 async function guardarMedio(m) {   // m: { id, usuarioId, tipo, b64, creado }
@@ -307,9 +330,42 @@ async function guardarPedido(ped) {
     guardar();
 }
 // Tamaño aproximado de los datos (en esta modalidad solo sirve para probar).
+// ---- Comentarios de posts ----
+async function comentariosDePost(postId) {
+    return datos.postComentarios.filter(function (c) { return c.postId === postId; }).sort(function (a, b) { return a.fecha - b.fecha || (a.id < b.id ? -1 : 1); }).slice(0, 1000);
+}
+async function comentarioPorId(id) { return datos.postComentarios.find(function (c) { return c.id === id; }) || null; }
+async function crearComentario(c) { datos.postComentarios.push(Object.assign({ likes: [], idPadre: null }, c)); guardar(); }
+async function borrarComentarioYRespuestas(id) {
+    datos.postComentarios = datos.postComentarios.filter(function (c) { return c.id !== id && c.idPadre !== id; });
+    guardar();
+}
+async function guardarLikesComentario(id, likes) {
+    const c = datos.postComentarios.find(function (x) { return x.id === id; });
+    if (c) { c.likes = likes; guardar(); }
+}
+
+// ---- Preguntas al vendedor ----
+async function preguntasPublicas(pais, limite) {
+    return datos.preguntas.filter(function (q) {
+        const p = datos.publicaciones.find(function (x) { return x.id === q.publicacionId; });
+        return !!p && (!pais || p.pais === pais);
+    }).sort(function (a, b) { return a.fecha - b.fecha; }).slice(0, limite);
+}
+async function preguntaPorId(id) { return datos.preguntas.find(function (q) { return q.id === id; }) || null; }
+async function contarPreguntasDe(publicacionId) { return datos.preguntas.filter(function (q) { return q.publicacionId === publicacionId; }).length; }
+async function crearPregunta(x) { datos.preguntas.push(Object.assign({ respuesta: null, respondida: null }, x)); guardar(); }
+async function responderPregunta(id, texto, ts) {
+    const q = datos.preguntas.find(function (y) { return y.id === id; });
+    if (q) { q.respuesta = texto; q.respondida = ts; guardar(); }
+}
+
 async function tamanoBytes() { return Buffer.byteLength(JSON.stringify(datos)); }
 
 module.exports = {
+    comentariosDePost: comentariosDePost, comentarioPorId: comentarioPorId, crearComentario: crearComentario, borrarComentarioYRespuestas: borrarComentarioYRespuestas, guardarLikesComentario: guardarLikesComentario,
+    preguntasPublicas: preguntasPublicas, preguntaPorId: preguntaPorId, contarPreguntasDe: contarPreguntasDe, crearPregunta: crearPregunta, responderPregunta: responderPregunta,
+    guardarNotificacion: guardarNotificacion, notificacionesDe: notificacionesDe, podarNotificaciones: podarNotificaciones,
     conjuntoAgregar: conjuntoAgregar, conjuntoQuitar: conjuntoQuitar, conjuntoLeer: conjuntoLeer,
     chatPorId: chatPorId, guardarChat: guardarChat, mensajePorId: mensajePorId, agregarMensaje: agregarMensaje, actualizarMensaje: actualizarMensaje,
     chatsDeUsuarioDesde: chatsDeUsuarioDesde, mensajesDeUsuarioDesde: mensajesDeUsuarioDesde,
