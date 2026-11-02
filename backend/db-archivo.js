@@ -9,7 +9,7 @@ const path = require('path');
 
 const DIR = process.env.NIVAN_DATOS || path.join(__dirname, 'datos');
 const ARCHIVO = path.join(DIR, 'db.json');
-const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [], chats: [], chatMensajes: [], resenias: [], conjuntos: [], postComentarios: [], preguntas: [], notificaciones: [], busquedas: [], cupones: [], cuponesGuardados: [], loginBloqueos: {} };
+const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [], chats: [], chatMensajes: [], resenias: [], conjuntos: [], postComentarios: [], preguntas: [], notificaciones: [], busquedas: [], cupones: [], cuponesGuardados: [], loginBloqueos: {}, push: [] };
 const MAX_SESIONES_POR_USUARIO = 10;
 
 fs.mkdirSync(DIR, { recursive: true });
@@ -242,6 +242,7 @@ async function eliminarUsuario(id) {
     const dueno = function (s) { return s.indexOf('T:') === 0 ? s.slice(2) : s; };
     datos.conjuntos = datos.conjuntos.filter(function (e) { return dueno(e.valor) !== id && dueno(e.clave) !== id && e.clave.indexOf(id + '_') !== 0 && e.clave.indexOf(id + '|') !== 0; });
     datos.notificaciones = datos.notificaciones.filter(function (n) { return n.para !== id && n.de !== id; });
+    datos.push = datos.push.filter(function (p) { return p.usuarioId !== id; });
     datos.busquedas = datos.busquedas.filter(function (b) { return b.usuarioId !== id; });
     datos.cupones = datos.cupones.filter(function (c) { return c.vendedorId !== id; });
     datos.cuponesGuardados = datos.cuponesGuardados.filter(function (g) { return g.usuarioId !== id; });
@@ -314,6 +315,20 @@ async function conjuntoQuitar(coleccion, clave, valor) {
     const antes = datos.conjuntos.length;
     datos.conjuntos = datos.conjuntos.filter(function (e) { return !(e.coleccion === coleccion && e.clave === clave && e.valor === valor); });
     if (datos.conjuntos.length !== antes) guardar();
+}
+async function pushGuardar(s, maximo) {
+    datos.push = datos.push.filter(function (p) { return p.endpoint !== s.endpoint; });
+    datos.push.push({ endpoint: s.endpoint, usuarioId: s.usuarioId, p256dh: s.p256dh, auth: s.auth, creado: Date.now() });
+    const mios = datos.push.filter(function (p) { return p.usuarioId === s.usuarioId; }).sort(function (a, b) { return b.creado - a.creado; }).slice(maximo);
+    if (mios.length) datos.push = datos.push.filter(function (p) { return mios.indexOf(p) < 0; });
+    guardar();
+}
+async function pushDeUsuario(usuarioId) {
+    return datos.push.filter(function (p) { return p.usuarioId === usuarioId; }).map(function (p) { return { endpoint: p.endpoint, p256dh: p.p256dh, auth: p.auth }; });
+}
+async function pushBorrar(endpoint, usuarioId) {
+    datos.push = datos.push.filter(function (p) { return !(p.endpoint === endpoint && (!usuarioId || p.usuarioId === usuarioId)); });
+    guardar();
 }
 async function conjuntoTiene(coleccion, clave, valor) {
     return datos.conjuntos.some(function (e) { return e.coleccion === coleccion && e.clave === clave && e.valor === valor; });
@@ -449,7 +464,7 @@ async function cerrarBusqueda(id, ts) { const b = datos.busquedas.find(function 
 async function tamanoBytes() { return Buffer.byteLength(JSON.stringify(datos)); }
 
 module.exports = {
-    conjuntoTiene: conjuntoTiene, conjuntoClavesDeValores: conjuntoClavesDeValores,
+    pushGuardar: pushGuardar, pushDeUsuario: pushDeUsuario, pushBorrar: pushBorrar, conjuntoTiene: conjuntoTiene, conjuntoClavesDeValores: conjuntoClavesDeValores,
     estadosVendedores: estadosVendedores,
     loginBloqueoGet: loginBloqueoGet, loginBloqueoPut: loginBloqueoPut, loginBloqueoBorrar: loginBloqueoBorrar,
     crearBusqueda: crearBusqueda, busquedasAbiertas: busquedasAbiertas, busquedaPorId: busquedaPorId, busquedaAbiertaDe: busquedaAbiertaDe, cerrarBusqueda: cerrarBusqueda,

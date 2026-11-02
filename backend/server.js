@@ -12,6 +12,7 @@ const path = require('path');
 const crypto = require('crypto');
 const db = require('./db');
 const seg = require('./seguridad');
+const push = require('./push');
 
 const PORT = +process.env.PORT || 3000;
 const EN_RENDER = !!process.env.RENDER;             // Render define esta variable solo: ahí todo se configura automáticamente.
@@ -1580,6 +1581,7 @@ RUTAS['POST /api/chats/enviar'] = async function (req, res) {
         datos.lecturas[u.id] = Math.max(datos.lecturas[u.id] || 0, ultimaFecha);
         await db.guardarChat({ id: info.id, aId: info.vendedorId, bId: info.compradorId, datos: datos, actualizado: ahora });
     }
+    if (nuevos > 0) avisarPush(info.otroId, '💬 Mensaje nuevo', nombreVisible(u) + ' te escribió.', 'chat:' + info.id);
     responder(res, 200, { ok: true, aceptados: aceptados, rechazados: rechazados });
 };
 
@@ -1909,6 +1911,9 @@ RUTAS['POST /api/comentarios/crear'] = async function (req, res) {
     if (id && (await db.comentarioPorId(id))) id = null;
     if (!id) id = 'COM-' + Date.now() + '-' + Math.floor(Math.random() * 900000 + 100);
     await db.crearComentario({ id: id, postId: post.id, usuarioId: u.id, nombre: nombreVisible(u), texto: texto, idPadre: idPadre, likes: [], fecha: Date.now() });
+    const padreCom = idPadre ? existentes.find(function (c) { return c.id === idPadre; }) : null;
+    if (post.dueno.id !== u.id) avisarPush(post.dueno.id, '💬 Nuevo comentario', nombreVisible(u) + ' comentó tu post.', 'com:' + post.id);
+    if (padreCom && padreCom.usuarioId !== u.id && padreCom.usuarioId !== post.dueno.id) avisarPush(padreCom.usuarioId, '💬 Te respondieron', nombreVisible(u) + ' respondió tu comentario.', 'com:' + post.id);
     responder(res, 200, { ok: true, id: id, comentarios: await listaComentariosPublica(post.id) });
 };
 
@@ -2007,6 +2012,53 @@ function claveAvisoUnico(a) {
     return [a.tipo, a.usuarioId || '', a.cuenta || a.ambito || '', e.postId || '', e.comentarioId || '', e.quien || ''].join('|');
 }
 
+// ------------------------------
+// Avisos push al celular (aunque la app esté cerrada)
+// ------------------------------
+const MAX_CELULARES_PUSH = 5;
+function textoPlanoPush(t, max) {
+    return String(t == null ? '' : t).replace(/&(amp|lt|gt|quot|#39);/g, function (m, e) { return { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[e]; })
+        .replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+// Manda un aviso a todos los celulares de esa persona. Nunca frena ni rompe lo que la causó.
+function avisarPush(usuarioId, titulo, texto, etiqueta) {
+    if (!push.activo() || !usuarioId) return;
+    (async function () {
+        if (seg.limitar('pushpara:' + usuarioId, 40, 10 * 60 * 1000)) return;          // tope por persona, para no inundar un celular
+        const subs = await db.pushDeUsuario(usuarioId);
+        const aviso = { titulo: textoPlanoPush(titulo, 80) || 'Nivan', texto: textoPlanoPush(texto, 140), etiqueta: String(etiqueta || 'nivan').slice(0, 40), url: '/' };
+        for (const s of subs) {
+            const r = await push.enviar(s, aviso);
+            if (r.estado === 404 || r.estado === 410) await db.pushBorrar(s.endpoint);    // el celular ya no los recibe (desinstaló o revocó el permiso)
+        }
+    })().catch(function (e) { console.error('Aviso push:', e && e.message); });
+}
+RUTAS['GET /api/push/clave'] = async function (req, res) {
+    responder(res, 200, { ok: true, activo: push.activo(), clave: push.clavePublica() });
+};
+RUTAS['POST /api/push/suscribir'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    if (!push.activo()) return error(res, 503, 'Los avisos al celular todavía no están activados en el servidor.');
+    const espera = seg.limitar('pushsub:' + u.id, 30, 3600 * 1000);
+    if (espera) return error(res, 429, 'Demasiados intentos. Probá de nuevo más tarde.');
+    const b = await leerJSON(req);
+    const s = b.suscripcion || {};
+    const endpoint = typeof s.endpoint === 'string' ? s.endpoint : '';
+    const p256dh = s.keys && typeof s.keys.p256dh === 'string' ? s.keys.p256dh : '';
+    const auth = s.keys && typeof s.keys.auth === 'string' ? s.keys.auth : '';
+    if (!push.endpointValido(endpoint) || !/^[A-Za-z0-9_-]{80,100}$/.test(p256dh) || !/^[A-Za-z0-9_-]{16,32}$/.test(auth)) return error(res, 400, 'Suscripción inválida.');
+    await db.pushGuardar({ endpoint: endpoint, usuarioId: u.id, p256dh: p256dh, auth: auth }, MAX_CELULARES_PUSH);
+    responder(res, 200, { ok: true });
+};
+RUTAS['POST /api/push/baja'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    if (typeof b.endpoint === 'string' && b.endpoint.length <= 600) await db.pushBorrar(b.endpoint, u.id);
+    responder(res, 200, { ok: true });
+};
+
 RUTAS['POST /api/notificaciones/enviar'] = async function (req, res) {
     const u = await usuarioDeSesion(req);
     if (!u) return error(res, 401, 'No iniciaste sesión.');
@@ -2042,6 +2094,7 @@ RUTAS['POST /api/notificaciones/enviar'] = async function (req, res) {
 
         await db.guardarNotificacion({ para: para, id: id, de: u.id, dedupe: claveAvisoUnico(aviso), datos: aviso, recibida: marcaAviso() });
         podar[para] = true;
+        avisarPush(para, aviso.titulo, aviso.texto, aviso.tipo + ':' + (aviso.chatId || aviso.pedidoId || aviso.productoId || aviso.usuarioId || ''));
         aceptadas++;
     }
     for (const para of Object.keys(podar)) await db.podarNotificaciones(para, Date.now() - DIAS_AVISOS_MS);
@@ -2081,6 +2134,7 @@ RUTAS['POST /api/preguntas/crear'] = async function (req, res) {
     if ((await db.contarPreguntasDe(pubId)) >= MAX_PREGUNTAS_POR_PUBLICACION) return error(res, 400, 'Esta publicación ya tiene el máximo de preguntas.');
     const q = { id: 'PG-' + crypto.randomBytes(8).toString('hex'), publicacionId: pubId, usuarioId: u.id, nombre: nombreVisible(u), texto: texto, fecha: Date.now() };
     await db.crearPregunta(q);
+    avisarPush(pub.vendedorId, '❓ Nueva pregunta', nombreVisible(u) + ' hizo una pregunta en tu publicación.', 'preg:' + pubId);
     responder(res, 200, { ok: true, pregunta: preguntaPublica(Object.assign({ respuesta: null }, q)) });
 };
 
@@ -2096,6 +2150,7 @@ RUTAS['POST /api/preguntas/responder'] = async function (req, res) {
     const texto = textoChat(b.respuesta, MAX_RESPUESTA).trim();
     if (!texto) return error(res, 400, 'Escribí una respuesta antes de enviarla.');
     await db.responderPregunta(q.id, texto, Date.now());
+    avisarPush(q.usuarioId, '💬 Respondieron tu pregunta', nombreVisible(u) + ' respondió tu pregunta.', 'preg:' + q.publicacionId);
     responder(res, 200, { ok: true, pregunta: preguntaPublica(Object.assign({}, q, { respuesta: texto })) });
 };
 

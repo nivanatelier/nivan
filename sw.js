@@ -1,6 +1,6 @@
 // NIVAN · Service worker: la app abre rápido y muestra algo aunque no haya internet.
 // Al cambiar archivos de la app, subí el número de VERSION para que todos reciban lo nuevo.
-const VERSION = 'nivan-v27';
+const VERSION = 'nivan-v28';
 const BASICOS = ['/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 // Guarda la pantalla de inicio SOLO si es de verdad la de Nivan. Si el servidor está despertando (Render gratis),
@@ -52,5 +52,27 @@ self.addEventListener('fetch', function (e) {
             return r;
         }).catch(function () { return hit; });
         return hit || red;
+    }));
+});
+
+// ---- Avisos push: llegan aunque la app esté cerrada ----
+self.addEventListener('push', function (e) {
+    let d = {};
+    try { d = e.data ? e.data.json() : {}; } catch (x) {}
+    e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
+        // Si la app está abierta y a la vista, ya muestra la novedad ella misma: no se duplica con un cartel.
+        if (cs.some(function (c) { return c.visibilityState === 'visible'; })) return;
+        return self.registration.showNotification(d.titulo || 'Nivan', {
+            body: d.texto || '', icon: '/icons/icon-192.png', badge: '/icons/icon-192.png',
+            tag: d.etiqueta || 'nivan', renotify: true, data: { url: d.url || '/' }
+        });
+    }));
+});
+self.addEventListener('notificationclick', function (e) {
+    e.notification.close();
+    const url = (e.notification.data && e.notification.data.url) || '/';
+    e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
+        for (let i = 0; i < cs.length; i++) { if ('focus' in cs[i]) return cs[i].focus(); }
+        return self.clients.openWindow(url);
     }));
 });

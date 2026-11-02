@@ -1983,7 +1983,8 @@ function cerrarSesion() {
     const confirmado = confirm("¿Estás seguro/a que querés cerrar sesión? Podés volver a abrir tu cuenta cuando desees.");
     if (!confirmado) return false;
 
-    apiNivan("/api/logout", {});
+    // Primero este celular deja de recibir los avisos de la cuenta, y recién después se cierra la sesión.
+    (window.quitarPushNivan ? window.quitarPushNivan() : Promise.resolve()).then(function () { return apiNivan("/api/logout", {}); });
     cerrarSesionActivaActualNivan();
     usuarioActual = null;
     localStorage.removeItem("nivanSesion");

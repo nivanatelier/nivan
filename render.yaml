@@ -25,5 +25,9 @@ services:
         sync: false
       - key: LIMITE_ALMACEN_MB
         value: "350"
+      - key: VAPID_PUBLIC
+        sync: false
+      - key: VAPID_PRIVATE
+        sync: false
       - key: CLOUDINARY_URL
         sync: false

@@ -232,7 +232,16 @@ const MIGRACIONES = [
         codigo     TEXT NOT NULL,
         fecha      BIGINT NOT NULL,
         PRIMARY KEY (usuario_id, codigo)
-    );`
+    );`,
+    // 18 · celulares que activaron los avisos push (uno por celular; si otra cuenta entra en ese celular, pasa a ser de ella). Se borran con la cuenta.
+    `CREATE TABLE push_suscripciones (
+        endpoint   TEXT PRIMARY KEY,
+        usuario_id TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        p256dh     TEXT NOT NULL,
+        auth       TEXT NOT NULL,
+        creado     BIGINT NOT NULL
+    );
+    CREATE INDEX push_usuario_idx ON push_suscripciones (usuario_id);`
 ];
 
 async function migrar() {
@@ -489,6 +498,19 @@ async function conjuntoAgregar(coleccion, clave, valor) {
 async function conjuntoQuitar(coleccion, clave, valor) {
     await pool.query('DELETE FROM conjuntos WHERE coleccion = $1 AND clave = $2 AND valor = $3', [coleccion, clave, valor]);
 }
+async function pushGuardar(s, maximo) {
+    await pool.query('INSERT INTO push_suscripciones (endpoint, usuario_id, p256dh, auth, creado) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (endpoint) DO UPDATE SET usuario_id = $2, p256dh = $3, auth = $4, creado = $5',
+        [s.endpoint, s.usuarioId, s.p256dh, s.auth, Date.now()]);
+    await pool.query('DELETE FROM push_suscripciones WHERE usuario_id = $1 AND endpoint NOT IN (SELECT endpoint FROM push_suscripciones WHERE usuario_id = $1 ORDER BY creado DESC LIMIT $2)', [s.usuarioId, maximo]);
+}
+async function pushDeUsuario(usuarioId) {
+    const r = await pool.query('SELECT endpoint, p256dh, auth FROM push_suscripciones WHERE usuario_id = $1', [usuarioId]);
+    return r.rows;
+}
+async function pushBorrar(endpoint, usuarioId) {
+    if (usuarioId) await pool.query('DELETE FROM push_suscripciones WHERE endpoint = $1 AND usuario_id = $2', [endpoint, usuarioId]);
+    else await pool.query('DELETE FROM push_suscripciones WHERE endpoint = $1', [endpoint]);
+}
 async function conjuntoTiene(coleccion, clave, valor) {
     const r = await pool.query('SELECT 1 FROM conjuntos WHERE coleccion = $1 AND clave = $2 AND valor = $3', [coleccion, clave, valor]);
     return r.rowCount > 0;
@@ -719,7 +741,7 @@ process.on('SIGTERM', function () { cerrar().finally(function () { process.exit(
 process.on('SIGINT', function () { cerrar().finally(function () { process.exit(0); }); });
 
 module.exports = {
-    conjuntoTiene: conjuntoTiene, conjuntoClavesDeValores: conjuntoClavesDeValores,
+    pushGuardar: pushGuardar, pushDeUsuario: pushDeUsuario, pushBorrar: pushBorrar, conjuntoTiene: conjuntoTiene, conjuntoClavesDeValores: conjuntoClavesDeValores,
     comentariosDePost: comentariosDePost, comentarioPorId: comentarioPorId, crearComentario: crearComentario, borrarComentarioYRespuestas: borrarComentarioYRespuestas, guardarLikesComentario: guardarLikesComentario,
     preguntasPublicas: preguntasPublicas, preguntaPorId: preguntaPorId, contarPreguntasDe: contarPreguntasDe, crearPregunta: crearPregunta, responderPregunta: responderPregunta,
     conjuntoAgregar: conjuntoAgregar, conjuntoQuitar: conjuntoQuitar, conjuntoLeer: conjuntoLeer,

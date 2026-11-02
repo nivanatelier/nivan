@@ -268,3 +268,21 @@ La app sabe cuáles son esas cuentas por `GET /api/admins` (solo ids, nunca emai
 - Rutas: `GET /api/cupones`, `POST /api/cupones/crear|actualizar|eliminar|habilitar|buscar|reclamar|quitar`.
 - Prueba: `node prueba-cupones.js` (con el servidor corriendo con una carpeta de datos nueva y `ADMIN_EMAILS`/`ADMIN_CLAVE`).
 - Todavía local: el aviso y el mensaje de chat de "te envío un cupón" se generan en el celular de la tienda y le llegan a la otra persona por los buzones de avisos y de chats.
+
+
+## Avisos en el celular (notificaciones push)
+Llegan aunque la app esté cerrada: mensajes de chat, preguntas y respuestas, comentarios y respuestas en posts, y todos los avisos entre personas
+(pedidos, reseñas, seguidores, cupones, solicitudes...). Cada persona los activa con el botón de **Notificaciones → "Activar avisos en este celular"** y los puede apagar ahí mismo.
+No usa librerías externas: el servidor firma con VAPID y cifra cada aviso (`backend/push.js`).
+
+**Para encenderlos (una sola vez):**
+1. En tu compu: `cd backend && node generar-vapid.js` → te da `VAPID_PUBLIC` y `VAPID_PRIVATE`.
+2. En Render → Environment pegá las dos (la privada es secreta). Opcional: `VAPID_ASUNTO` (por defecto `mailto:nivanatelier@gmail.com`).
+3. Redeploy. Sin esas dos variables el botón no aparece y todo lo demás funciona igual. Si cambiás las claves, cada persona tiene que volver a activar los avisos.
+
+**Cómo se cuida:**
+- Una cuenta puede tener hasta 5 celulares. Si otra cuenta entra en ese celular, el celular pasa a ser de ella; al cerrar sesión el celular deja de recibir los avisos de esa cuenta.
+- Tope de 40 avisos push cada 10 minutos por persona. Los celulares que desinstalaron la app se borran solos.
+- Si la app está abierta y a la vista no sale el cartel (ya se ve adentro). El aviso de chat no incluye el texto del mensaje, solo quién escribió.
+- iPhone: solo funciona si la app está agregada a la pantalla de inicio (iOS 16.4 o más).
+- Rutas: `GET /api/push/clave`, `POST /api/push/suscribir`, `POST /api/push/baja`. Prueba: `node prueba-push.js` (arranca su propio servidor).
