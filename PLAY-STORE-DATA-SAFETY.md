@@ -78,21 +78,19 @@ público, y comprador/vendedor ven nombre, teléfono y dirección del pedido que
 - Eliminación: **Sí**, con las dos vías de arriba. Al eliminar se borran la cuenta, sesiones, publicaciones,
   reseñas, chats, dispositivos, fotos de verificación y las fotos/videos en Cloudinary. **Se conservan** los pedidos ya
   hechos en el historial de la otra persona. Si Play lo pregunta, declará esa excepción.
-- Las fotos del documento y la selfie se borran al rechazar la verificación. Si se aprueba, se guardan en el servidor hasta que la administración las borre (también se borran al cancelar la identidad, con un baneo permanente o al eliminar la cuenta). **Ajustá la política de privacidad y el formulario de Play a esto.**
+- Las fotos del documento y la selfie se borran del servidor cuando termina la revisión.
 
 ## 6. Antes de enviar el formulario, corregí esto
 
 1. **`privacidad.html` tiene el contacto sin completar**: `[PEGAR-CORREO-DE-CONTACTO]`.
    Corré `node backend/generar-privacidad.js tu-correo@ejemplo.com` y volvé a desplegar. Sin eso Google rechaza la política.
-2. **La política dice cosas que el servidor hoy no hace.** La cláusula 3 habla de conservar una huella (hash) del
-   número de documento y de guardar de forma permanente las fotos de usuarios sancionados, para que no vuelvan a registrarse.
-   En el código, al rechazar la verificación se borran las fotos (al aprobar se conservan hasta que la administración las borre), no se guarda ninguna huella del documento
-   y el baneo se aplica por cuenta/email. La política tiene que describir lo que realmente pasa: o se implementa
-   eso, o se ajusta el texto. (No toqué la política: es un texto legal y es decisión tuya.)
-3. **La política dice que se recopilan "registros técnicos" y "tipo de dispositivo"**: está bien, pero acordate de
-   que tiene que coincidir con lo declarado arriba (IP y navegador).
+2. ~~La política decía cosas que el servidor no hace~~ **Resuelto**: `js/27-legal.js` (Términos cláusula 5 y Política cláusulas 1, 2, 3, 5, 6 y 10)
+   ahora describe lo que el servidor hace de verdad: las fotos del documento y la selfie se borran siempre al terminar la revisión,
+   no se guarda ninguna huella del documento y solo se conserva el resultado de la verificación y el registro de las sanciones.
+   Se corrió `generar-privacidad.js`, así que `privacidad.html` ya está al día (solo falta el correo, punto 1).
+3. ~~Registros técnicos~~ **Resuelto**: la política ya nombra la IP, el navegador y el dispositivo, igual que el formulario.
 4. **La app carga código desde terceros mientras funciona**: `face-api` y sus modelos desde `cdn.jsdelivr.net`,
    y fuentes de Google Fonts e imágenes de Imgur. No son "datos que vos recopilás", pero esos sitios ven la IP
-   de quien usa la app. Lo más prolijo es mencionarlo en la política y, a futuro, alojarlos en tu propio servidor.
+   de quien usa la app. La política ya lo menciona (cláusula 5); a futuro conviene alojarlos en tu propio servidor.
 5. Probá `https://TU-URL/.well-known/assetlinks.json` (con la huella SHA-256 de Play App Signing) y
    `https://TU-URL/eliminar-cuenta.html` desde el celular antes de enviar.

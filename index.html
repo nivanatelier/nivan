@@ -645,6 +645,28 @@
 
 </div>
 
+<div class="campo" id="bloqueEnvioMedida">
+
+    <h4 id="tituloEnvioMedida">📦 Datos para el envío</h4>
+    <p class="notaEnvioMedida" id="paisEnvioMedida"></p>
+
+    <label for="nombreMedida">Nombre y apellido</label>
+    <input type="text" id="nombreMedida" maxlength="80" autocomplete="name" placeholder="Como figura en tu documento">
+
+    <label for="direccionMedida">Dirección</label>
+    <input type="text" id="direccionMedida" maxlength="120" autocomplete="street-address" placeholder="Calle y número (y piso / apto)">
+
+    <label for="ciudadMedida">Ciudad</label>
+    <input type="text" id="ciudadMedida" maxlength="60" autocomplete="address-level2">
+
+    <label for="regionMedida" id="etiquetaRegionMedida">Provincia</label>
+    <input type="text" id="regionMedida" maxlength="60" autocomplete="address-level1">
+
+    <label for="codigoPostalMedida">Código postal</label>
+    <input type="text" id="codigoPostalMedida" maxlength="10" autocomplete="postal-code">
+
+</div>
+
 <div class="campo">
 
     <label for="emailMedida">
@@ -1345,7 +1367,6 @@
         <button type="button" onclick="abrirMiTiendaNivan()">🏪 Mi tienda</button>
         <button type="button" onclick="abrirCrearPublicacion()">🧾 Crear publicación nueva</button>
         <button type="button" onclick="irAMisPublicaciones()">📋 Mis publicaciones</button>
-        <button type="button" onclick="abrirSeBuscaNivan()">🔎 Se busca en mi país</button>
         <button type="button" onclick="abrirGestionPedidosNivan()">📦 Gestión <span class="badgeGestionNivan" id="badgeGestionNivan" hidden></span></button>
         <button type="button" onclick="abrirMisVentas()">📦 Mis ventas</button>
         <button type="button" onclick="abrirEstadisticasVentaNivan()">📊 Estadísticas de venta</button>
@@ -2704,7 +2725,6 @@
 <script src="js/35-conjuntos-servidor.js"></script>
 <script src="js/36-comentarios-preguntas-servidor.js"></script>
 <script src="js/37-avisos-servidor.js"></script>
-<script src="js/38-otro-pais-busquedas.js"></script>
 <script src="js/39-solicitudes-servidor.js"></script>
 <script src="js/40-cupones-servidor.js"></script>
 <script src="js/41-push.js"></script>

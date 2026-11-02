@@ -37,6 +37,7 @@ function toggleSeccionMedida() {
 
     tipoSolicitudMedida = tipo;
     formulario.style.display = "block";
+    prepararEnvioMedidaNivan();
 
 
     // OCULTAR TODAS LAS OPCIONES
@@ -169,6 +170,12 @@ const presupuestosMinimos = {
 };
 
 
+// Uruguay: mismos criterios, en pesos uruguayos (el tope de precio por prenda allá es UYU 7.000,
+// así que los mínimos de Argentina no se podrían ni escribir).
+const presupuestosMinimosUY = {
+    "Vestido": 1500, "Remera": 700, "Blusa": 800, "Pantalón": 1100, "Falda": 850, "Campera": 2000, "Otro": 800
+};
+
 function obtenerPresupuestoMinimo() {
 
     const tipoPrenda =
@@ -177,8 +184,11 @@ function obtenerPresupuestoMinimo() {
         ).value;
 
 
-    let minimo =
-        presupuestosMinimos[tipoPrenda] || 25000;
+    const esUY = typeof paisActualMedidaNivan === "function" && paisActualMedidaNivan() === "UY";
+
+    let minimo = esUY
+        ? (presupuestosMinimosUY[tipoPrenda] || 700)
+        : (presupuestosMinimos[tipoPrenda] || 25000);
 
 
     // QUIERO QUE ME DISEÑEN ALGO
@@ -186,7 +196,7 @@ function obtenerPresupuestoMinimo() {
 
     if (tipoSolicitudMedida === "disenador") {
 
-        minimo = minimo + 25000;
+        minimo = minimo + (esUY ? 700 : 25000);
 
     }
 
@@ -369,6 +379,12 @@ const mensajePresupuesto =
     return;
        }
 
+      const envioMedida = leerEnvioMedidaNivan();
+      if (!envioMedida) {
+          alert("Completá tu nombre, dirección, ciudad, " + (paisActualMedidaNivan() === "UY" ? "departamento" : "provincia") + " y código postal para poder enviarte la prenda.");
+          return;
+      }
+
       if (!esEmailValidoNivan(emailMedida)) {
           alert(MENSAJE_EMAIL_INVALIDO_NIVAN);
           document.getElementById("emailMedida").focus();
@@ -408,6 +424,7 @@ const mensajePresupuesto =
         document.querySelectorAll("#formularioMedida input, #formularioMedida select, #formularioMedida textarea").forEach(function (el) {
             if (!el.id || el.type === "file" || el.type === "button" || el.type === "hidden") return;
             if (el.offsetParent === null) return;   // campos que no se están mostrando
+            if (el.closest("#bloqueEnvioMedida")) return;   // la dirección viaja aparte, en "envio"
             let valor = el.type === "checkbox" ? (el.checked ? "Sí" : "") : String(el.value || "").trim();
             if (el.tagName === "SELECT" && el.selectedIndex >= 0 && el.value) valor = el.options[el.selectedIndex].text.trim();
             if (!valor) return;
@@ -426,12 +443,35 @@ const mensajePresupuesto =
         const botonEnviar = document.getElementById("enviarSolicitudMedida");
         if (botonEnviar.disabled) return;
         botonEnviar.disabled = true;
-        apiNivan("/api/medida", { email: emailMedida, numero: numeroSolicitud, pais: typeof paisNivan === "function" ? paisNivan() : "", campos: campos }).then(function (r) {
-            botonEnviar.disabled = false;
-            if (!r.ok) { alert(r.error || "No pudimos enviar tu solicitud. Probá de nuevo."); return; }
-            mostrarResultadoSolicitudMedida(numeroSolicitud, emailMedida);
+        // La foto de referencia (si la subió) se manda junto con el pedido y llega adjunta en el mail.
+        leerFotoReferenciaMedidaNivan().then(function (foto) {
+            if (foto === false) {
+                botonEnviar.disabled = false;
+                alert("No pudimos leer la foto de referencia. Probá con otra imagen o quitala para enviar la solicitud.");
+                return null;
+            }
+            const datos = { email: emailMedida, numero: numeroSolicitud, pais: paisActualMedidaNivan(), envio: envioMedida, campos: campos };
+            if (foto) datos.foto = foto;
+            return apiNivan("/api/medida", datos).then(function (r) {
+                botonEnviar.disabled = false;
+                if (!r.ok) { alert(r.error || "No pudimos enviar tu solicitud. Probá de nuevo."); return; }
+                mostrarResultadoSolicitudMedida(numeroSolicitud, emailMedida);
+            });
         });
     });
+
+// Devuelve la foto de referencia como texto (data URL), null si no hay foto, o false si no se pudo leer.
+function leerFotoReferenciaMedidaNivan() {
+    const el = document.getElementById("fotoReferencia");
+    const archivo = el && el.offsetParent !== null && el.files && el.files[0];
+    if (!archivo) return Promise.resolve(null);
+    return new Promise(function (ok) {
+        const lector = new FileReader();
+        lector.onload = function () { const t = String(lector.result || ""); ok(t.indexOf("data:image/") === 0 ? t : false); };
+        lector.onerror = function () { ok(false); };
+        lector.readAsDataURL(archivo);
+    });
+}
 
 function mostrarResultadoSolicitudMedida(numeroSolicitud, emailMedida) {
 
@@ -496,4 +536,41 @@ function mostrarResultadoSolicitudMedida(numeroSolicitud, emailMedida) {
         resultado.scrollIntoView({
             behavior: "smooth"
         });
+}
+
+
+// ==============================
+// DATOS DE ENVÍO DE LA SOLICITUD A MEDIDA
+// ==============================
+// La dirección depende del país: de ahí sale la moneda y el medio de pago, así no hay que adivinarlos.
+function paisActualMedidaNivan() {
+    return (typeof paisNivan === "function" && paisNivan()) || "AR";
+}
+
+function prepararEnvioMedidaNivan() {
+    const pais = paisActualMedidaNivan();
+    const d = datosPaisNivan(pais);
+    const nota = document.getElementById("paisEnvioMedida");
+    if (nota) nota.textContent = d.bandera + " Envío a " + d.nombre + " · " + d.moneda;
+    const etiqueta = document.getElementById("etiquetaRegionMedida");
+    if (etiqueta) etiqueta.textContent = pais === "UY" ? "Departamento" : "Provincia";
+    const nombre = document.getElementById("nombreMedida");
+    if (nombre && !nombre.value && typeof usuarioActual !== "undefined" && usuarioActual && usuarioActual.nombre) nombre.value = usuarioActual.nombre;
+    // Si tiene una dirección guardada (la predeterminada), la usamos de punto de partida.
+    try {
+        const dirs = typeof obtenerDireccionesNivan === "function" ? obtenerDireccionesNivan() : [];
+        const d0 = dirs.find(function (x) { return x.predeterminada; }) || dirs[0];
+        if (d0 && !document.getElementById("direccionMedida").value) {
+            document.getElementById("direccionMedida").value = d0.direccion || "";
+            document.getElementById("ciudadMedida").value = d0.ciudad || "";
+            document.getElementById("codigoPostalMedida").value = d0.codigoPostal || "";
+        }
+    } catch (e) { /* sin direcciones guardadas */ }
+}
+
+// Devuelve los datos de envío, o null si falta alguno.
+function leerEnvioMedidaNivan() {
+    const v = function (id) { return String(document.getElementById(id).value || "").trim(); };
+    const envio = { nombre: v("nombreMedida"), direccion: v("direccionMedida"), ciudad: v("ciudadMedida"), region: v("regionMedida"), codigoPostal: v("codigoPostalMedida") };
+    return Object.keys(envio).every(function (k) { return envio[k]; }) ? envio : null;
 }

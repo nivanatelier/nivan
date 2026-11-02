@@ -5385,3 +5385,7 @@ body.favoritosSobreCarritoNivan .modalProducto { z-index: 10003; }
 .etiquetaProduccionNivan.mano { background: #c79bff; }
 .etiquetaProduccionNivan.produccion { background: #5aa9ff; }
 .bloqueHistoriaPublicacionNivan input[type="month"] { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #111; color: #fff; font-size: 14px; }
+
+/* A medida: datos de envío según el país */
+#bloqueEnvioMedida h4 { margin: 0 0 4px; font-size: 15px; }
+#bloqueEnvioMedida .notaEnvioMedida { margin: 0 0 10px; font-size: 13px; opacity: 0.75; }

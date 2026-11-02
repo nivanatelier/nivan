@@ -125,12 +125,10 @@ sigue andando. El panel de administración muestra cuántos MB se usan. Neon pue
 - Los posts del feed y los comentarios todavía no están en el servidor: su botón de reportar sigue funcionando como antes (solo en el celular).
 - Prueba automática: `ADMIN_EMAILS=admin@gmail.com ADMIN_CLAVE=... node server.js` y en otra terminal `ADMIN_CLAVE=... node prueba-reportes.js`.
 
-## Ver otro país y "Se busca"
-- Desde el menú lateral, cualquier persona puede **mirar** las publicaciones del otro país (Argentina ↔ Uruguay). Es solo para mirar: no hay carrito, comprar ni chat.
-- Si le gusta algo, toca **"¿Alguien vende algo así en mi país?"** y deja un pedido (con una nota opcional).
-- Los pedidos se juntan en **"Se busca"** (menú lateral y Panel de Vendedor): cada pedido se muestra una sola vez con cuántas personas lo buscan, para que quienes venden en ese país vean qué falta. Desde ahí se puede sumar ("Yo también lo busco"), cerrar el propio pedido o ir a **Publicar algo así**.
-- Límites: 10 pedidos por día por cuenta, uno por publicación, y el servidor ignora los de cuentas baneadas. Las publicaciones que se muestran son las mismas que ya eran públicas (nada nuevo se expone).
-- Prueba automática: `node prueba-busquedas.js` con el servidor andando (ver el encabezado del archivo).
+## Publicaciones por país
+- Las publicaciones de venta de Uruguay solo las ve gente de Uruguay, y las de Argentina solo gente de Argentina. `GET /api/publicaciones?pais=UY|AR` devuelve solo ese país (sin el parámetro usa el país de la cuenta, o Argentina).
+- Los perfiles y sus posts del portafolio sí son de todos y viajan aparte (`GET /api/perfiles`).
+- Se sacó del menú "Ver publicaciones del otro país" y "Se busca en mi país". Las rutas `/api/busquedas*` y la prueba `prueba-busquedas.js` quedaron en el servidor por si se quiere volver a usar, pero la app ya no las muestra.
 
 ## Si los mails de "Olvidé mi contraseña" no llegan
 La app siempre responde "te mandamos un código" aunque el envío falle (así nadie puede averiguar qué emails tienen cuenta).
@@ -286,3 +284,9 @@ No usa librerías externas: el servidor firma con VAPID y cifra cada aviso (`bac
 - Si la app está abierta y a la vista no sale el cartel (ya se ve adentro). El aviso de chat no incluye el texto del mensaje, solo quién escribió.
 - iPhone: solo funciona si la app está agregada a la pantalla de inicio (iOS 16.4 o más).
 - Rutas: `GET /api/push/clave`, `POST /api/push/suscribir`, `POST /api/push/baja`. Prueba: `node prueba-push.js` (arranca su propio servidor).
+
+## Solicitud a medida: foto de referencia adjunta en el mail
+- La foto que sube la clienta en "Subí una imagen de referencia" viaja con la solicitud y llega **adjunta** al mail de nivanatelier (`referencia-<número>.jpg`).
+- Una sola foto, máximo 3 MB (la app ya la achica antes de mandarla). Solo JPG, PNG o WebP: SVG, HTML o enlaces se rechazan.
+- Si la clienta no sube foto, el mail sale como siempre. El mail dice "Foto de referencia: adjunta" cuando hay una.
+- Prueba: `node prueba-medida-foto.js` (levanta su propio servidor y un "Brevo" falso).

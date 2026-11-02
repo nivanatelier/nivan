@@ -928,8 +928,6 @@ function renderizarConfigLateral() {
             ${bloqueCuenta}
             ${usuarioActual ? `<button type="button" id="botonVerificacionLateralNivan" onclick="cerrarPerfilLateral(); abrirEstadoVerificacionNivan();"><span>✅ Estado de verificación</span></button>` : ""}
             <button type="button" onclick="abrirDesdeConfigNivan(abrirMisCompras, 'pantallaMisCompras');"><span>Mis compras</span></button>
-            <button type="button" onclick="cerrarPerfilLateral(); abrirOtroPaisNivan();"><span>🌎 Ver publicaciones del otro país</span></button>
-            <button type="button" onclick="cerrarPerfilLateral(); abrirSeBuscaNivan();"><span>🔎 Se busca en mi país</span></button>
             <button type="button" id="botonVenderLateralNivan" onclick="abrirDesdeConfigNivan(irAVender, 'pantallaVender');"><span>Panel de Vendedor</span></button>
                         <button type="button" id="botonHerramientasLateralNivan" onclick="abrirDesdeConfigNivan(abrirHerramientasAvanzadasNivan, 'pantallaPatronajeNivan');"><span>Herramientas avanzadas <span class="patPildoraBeta">BETA</span></span></button>
             <button type="button" onclick="cerrarPerfilLateral(); abrirConfigAppNivan();"><span>Configuración</span></button>
@@ -956,8 +954,6 @@ const BUSCADOR_CONFIG_NIVAN = [
     { texto: "Panel de Vendedor", ruta: "Configuración", accion: function () { abrirDesdeConfigNivan(irAVender, "pantallaVender"); } },
     { texto: "Crear publicación nueva", ruta: "Panel de Vendedor", accion: function () { abrirCrearPublicacion(); } },
     { texto: "Mis publicaciones", ruta: "Panel de Vendedor", accion: function () { irAMisPublicaciones(); } },
-    { texto: "Ver publicaciones del otro país", ruta: "Menú", accion: function () { cerrarPerfilLateral(); abrirOtroPaisNivan(); } },
-    { texto: "Se busca en mi país", ruta: "Menú", accion: function () { cerrarPerfilLateral(); abrirSeBuscaNivan(); } },
     { texto: "Mis ventas", ruta: "Panel de Vendedor", accion: function () { abrirMisVentas(); } },
     { texto: "Estadísticas de venta", ruta: "Panel de Vendedor", accion: function () { abrirEstadisticasVentaNivan(); } },
     { texto: "Vacantes disponibles de mi negocio", ruta: "Panel de Vendedor", accion: function () { abrirPanelVacantesNivan(); } },

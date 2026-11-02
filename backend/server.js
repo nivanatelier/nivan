@@ -233,14 +233,14 @@ async function avisarNuevoDispositivo(u, req) {
     const ip = seg.ipDe(req);
     const lugar = await ubicacionDeIp(ip);
     let cuando;
-    try { cuando = new Date().toLocaleString('es-UY', { timeZone: 'America/Montevideo', dateStyle: 'long', timeStyle: 'short' }) + ' (hora de Uruguay)'; }
+    try { cuando = new Date().toLocaleString('es-UY', { timeZone: 'America/Montevideo', dateStyle: 'long', timeStyle: 'short' }); }
     catch (e) { cuando = new Date().toISOString(); }
     const texto = 'Alguien inició sesión en tu cuenta de Nivan.\n\n' +
         'Cuándo: ' + cuando + '\n' +
         'Dispositivo: ' + descripcionDispositivo(req.headers['user-agent']) + '\n' +
         'Ubicación aproximada: ' + lugar + '\n' +
         'IP: ' + ip + '\n\n' +
-        '¿Fuiste vos? Entonces no tenés que hacer nada.\n\n' +
+        '¿Fuiste vos?\n\n' +
         'Si no fuiste vos, tocá acá para cambiar tu contraseña y cerrar sesión en todos los dispositivos:\n' +
         baseUrl() + '/seguridad.html#t=' + crearTokenSeguridad(u) + '\n\n' +
         '(El enlace vale 7 días. La ubicación es aproximada: sale de la IP y puede no ser exacta.)';
@@ -357,23 +357,48 @@ RUTAS['POST /api/medida'] = async function (req, res) {
     if (!u) return error(res, 401, 'Iniciá sesión o creá tu cuenta para enviar la solicitud.');
     const espera = seg.limitar('medida:' + u.id, 5, 24 * 3600 * 1000);
     if (espera) return error(res, 429, 'Ya enviaste varias solicitudes hoy. Probá de nuevo más tarde.');
-    const b = await leerJSON(req);
+    const b = await leerJSON(req, 5 * 1024 * 1024);      // la foto de referencia viaja dentro del pedido
     const emailCliente = String(b.email || '').trim().toLowerCase().slice(0, 120);
     if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(emailCliente)) return error(res, 400, 'El correo electrónico no es válido.');
     const campos = (Array.isArray(b.campos) ? b.campos : []).slice(0, 40).map(function (c) {
         return { k: String(c && c.etiqueta || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 80), v: String(c && c.valor || '').replace(/\r/g, '').trim().slice(0, 1500) };
     }).filter(function (c) { return c.k && c.v; });
     if (!campos.length) return error(res, 400, 'La solicitud está vacía.');
+    // Datos de envío: sin ellos no sabemos adónde mandar la prenda ni en qué moneda/medio de pago cobrarla.
+    const pais = String(b.pais || '').toUpperCase();
+    if (pais !== 'AR' && pais !== 'UY') return error(res, 400, 'Elegí tu país (Argentina o Uruguay) para enviar la solicitud.');
+    const e0 = b.envio && typeof b.envio === 'object' ? b.envio : {};
+    const limpio = function (x, max) { return String(x == null ? '' : x).replace(/[\r\n]+/g, ' ').trim().slice(0, max); };
+    const envio = { nombre: limpio(e0.nombre, 80), direccion: limpio(e0.direccion, 120), ciudad: limpio(e0.ciudad, 60), region: limpio(e0.region, 60), codigoPostal: limpio(e0.codigoPostal, 10) };
+    if (!envio.nombre || !envio.direccion || !envio.ciudad || !envio.region || !envio.codigoPostal) return error(res, 400, 'Completá tu nombre y tu dirección de envío (calle, ciudad, ' + (pais === 'UY' ? 'departamento' : 'provincia') + ' y código postal).');
     const numero = String(b.numero || '').replace(/\D/g, '').slice(0, 8) || String(Date.now()).slice(-6);
     const tipo = String((campos.find(function (c) { return /qué querés crear|tipo de prenda/i.test(c.k); }) || {}).v || 'prenda').replace(/[\r\n]+/g, ' ').slice(0, 60);
+    // Foto de referencia (opcional): una sola imagen que llega adjunta en el mail.
+    let adjuntos = [];
+    if (b.foto != null && b.foto !== '') {
+        const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+\/]+={0,2})$/.exec(String(b.foto));
+        if (!m) return error(res, 400, 'La foto de referencia no es válida. Probá con otra imagen (JPG o PNG).');
+        const buf = Buffer.from(m[2], 'base64');
+        if (!buf.length || buf.length > 3 * 1024 * 1024) return error(res, 413, 'La foto de referencia pesa demasiado (máximo 3 MB). Probá con una más liviana.');
+        adjuntos = [{ name: 'referencia-' + numero + '.' + (m[1] === 'jpeg' ? 'jpg' : m[1]), content: buf.toString('base64') }];
+    }
     if (!emailConfigurado()) return error(res, 503, 'Por ahora no podemos recibir solicitudes por correo. Probá de nuevo más tarde o escribinos a ' + MAIL_ATELIER + '.');
     const texto = 'Nueva solicitud a medida #' + numero + '\n\n'
         + 'Cuenta: ' + u.nombre + ' (' + u.email + ')' + (u.idPublico ? ' · ID ' + u.idPublico : '') + '\n'
-        + 'Correo de contacto: ' + emailCliente + '\n'
-        + 'País: ' + String(b.pais || '').slice(0, 2).toUpperCase() + '\n\n'
+        + 'Correo de contacto: ' + emailCliente + '\n\n'
+        + 'DATOS PARA EL ENVÍO\n'
+        + 'Usuario: ' + (u.idPublico ? u.idPublico : u.nombre) + '\n'
+        + 'Nombre y apellido: ' + envio.nombre + '\n'
+        + 'Dirección: ' + envio.direccion + '\n'
+        + 'Ciudad: ' + envio.ciudad + '\n'
+        + (pais === 'UY' ? 'Departamento' : 'Provincia') + ': ' + envio.region + '\n'
+        + 'Código postal: ' + envio.codigoPostal + '\n'
+        + 'País: ' + (pais === 'UY' ? 'Uruguay (pesos uruguayos)' : 'Argentina (pesos argentinos)') + '\n\n'
+        + 'SOLICITUD\n'
         + campos.map(function (c) { return c.k + ': ' + c.v; }).join('\n')
+        + (adjuntos.length ? '\nFoto de referencia: adjunta a este mail (' + adjuntos[0].name + ')' : '')
         + '\n\nPodés responder este mail: la respuesta va al correo de contacto.';
-    const d = await enviarEmailDetalle(MAIL_ATELIER, 'Solicitud a medida #' + numero + ' · ' + tipo, texto, emailCliente);
+    const d = await enviarEmailDetalle(MAIL_ATELIER, 'Solicitud a medida #' + numero + ' · ' + tipo, texto, emailCliente, adjuntos);
     if (!d.ok) return error(res, 502, 'No pudimos enviar tu solicitud. Probá de nuevo en unos minutos.');
     responder(res, 200, { ok: true, numero: numero });
 };
@@ -434,14 +459,15 @@ const MIN_CODIGO = 10;
 function emailConfigurado() { return !!(process.env.BREVO_API_KEY && process.env.MAIL_DE); }
 const BREVO_URL = process.env.BREVO_URL || 'https://api.brevo.com/v3/smtp/email';
 // Devuelve { ok, estado, detalle }. estado = código HTTP de Brevo (0 si ni siquiera se pudo conectar).
-async function enviarEmailDetalle(para, asunto, texto, responderA) {
+// adjuntos (opcional): [{ name, content }] con el contenido en base64.
+async function enviarEmailDetalle(para, asunto, texto, responderA, adjuntos) {
     if (!emailConfigurado()) return { ok: false, estado: -1, detalle: 'faltan variables' };
     try {
         const r = await fetch(BREVO_URL, {
             method: 'POST',
             headers: { 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify(Object.assign({ sender: { name: 'Nivan', email: process.env.MAIL_DE }, to: [{ email: para }], subject: asunto, textContent: texto }, responderA ? { replyTo: { email: responderA } } : {})),
-            signal: AbortSignal.timeout(15000)
+            body: JSON.stringify(Object.assign({ sender: { name: 'Nivan', email: process.env.MAIL_DE }, to: [{ email: para }], subject: asunto, textContent: texto }, responderA ? { replyTo: { email: responderA } } : {}, adjuntos && adjuntos.length ? { attachment: adjuntos } : {})),
+            signal: AbortSignal.timeout(adjuntos && adjuntos.length ? 30000 : 15000)
         });
         if (r.ok) return { ok: true, estado: r.status, detalle: '' };
         const t = await r.text().catch(function () { return ''; });
@@ -1163,10 +1189,10 @@ async function limpiarMedios(usuarioId) {
 
 RUTAS['GET /api/publicaciones'] = async function (req, res) {
     const url = new URL(req.url, 'http://localhost');
-    // Sin ?pais= se devuelven las publicaciones de todos los países (así las ve cualquier persona).
+    // Cada país ve solo sus publicaciones. Si no se indica ?pais=, se usa el de la cuenta (o Argentina): nunca "todos".
     const pedido = url.searchParams.get('pais');
-    const pais = pedido === 'UY' || pedido === 'AR' ? pedido : null;
     const u = await usuarioDeSesion(req);
+    const pais = pedido === 'UY' || pedido === 'AR' ? pedido : (u && u.pais === 'UY' ? 'UY' : 'AR');
     const baneados = new Set(await db.idsBaneados());
     const todas = (await db.publicacionesPorPais(pais, u ? u.id : '', 600)).filter(function (f) { return !baneados.has(f.vendedorId); });
     // Las publicaciones de cuentas sin identidad aprobada no se muestran a los demás (cada persona sí ve las suyas).
