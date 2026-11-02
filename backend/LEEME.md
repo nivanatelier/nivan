@@ -64,7 +64,9 @@ Dejá Termux abierto mientras lo usás. Para frenar el servidor: `Ctrl + C` (en 
 |---|---|
 | `GET /api/salud` | Dice si el servidor está vivo. |
 | `POST /api/registro` | `{nombre, email, password, pais}` → crea la cuenta y deja la sesión iniciada. |
-| `POST /api/login` | `{email, password}` → inicia sesión. |
+| `POST /api/medida` | Solicitud de prenda a medida: se manda por mail a `MAIL_ATELIER` (por defecto nivanatelier@gmail.com, necesita Brevo configurado); responder el mail va a la clienta. Máx. 5 por día y cuenta. |
+| `POST /api/reportes` | `{tipo, objetivoId, motivo, detalle}` con tipo `publicacion`, `usuario`, `post` (post de perfil: id `idDueño_fecha`) o `comentario`. Llega al mismo panel de moderación de la administración. |
+| `POST /api/login` | `{email, password}` → inicia sesión. Si la contraseña es incorrecta hay bloqueo escalonado por cuenta (se guarda en la base): 3 intentos → espera de 5 min; 2 intentos más → 30 min; 1 intento más → 24 h (y se repite cada 24 h). Durante la espera ni la contraseña correcta entra. Un ingreso correcto o restablecer la contraseña por email lo reinicia. |
 | `POST /api/logout` | Cierra la sesión. |
 | `GET /api/yo` | Devuelve la cuenta de la sesión actual (o 401). |
 
@@ -123,9 +125,16 @@ sigue andando. El panel de administración muestra cuántos MB se usan. Neon pue
 - Los posts del feed y los comentarios todavía no están en el servidor: su botón de reportar sigue funcionando como antes (solo en el celular).
 - Prueba automática: `ADMIN_EMAILS=admin@gmail.com ADMIN_CLAVE=... node server.js` y en otra terminal `ADMIN_CLAVE=... node prueba-reportes.js`.
 
+## Ver otro país y "Se busca"
+- Desde el menú lateral, cualquier persona puede **mirar** las publicaciones del otro país (Argentina ↔ Uruguay). Es solo para mirar: no hay carrito, comprar ni chat.
+- Si le gusta algo, toca **"¿Alguien vende algo así en mi país?"** y deja un pedido (con una nota opcional).
+- Los pedidos se juntan en **"Se busca"** (menú lateral y Panel de Vendedor): cada pedido se muestra una sola vez con cuántas personas lo buscan, para que quienes venden en ese país vean qué falta. Desde ahí se puede sumar ("Yo también lo busco"), cerrar el propio pedido o ir a **Publicar algo así**.
+- Límites: 10 pedidos por día por cuenta, uno por publicación, y el servidor ignora los de cuentas baneadas. Las publicaciones que se muestran son las mismas que ya eran públicas (nada nuevo se expone).
+- Prueba automática: `node prueba-busquedas.js` con el servidor andando (ver el encabezado del archivo).
+
 ## Si los mails de "Olvidé mi contraseña" no llegan
 La app siempre responde "te mandamos un código" aunque el envío falle (así nadie puede averiguar qué emails tienen cuenta).
-Para ver el error real: **Mi cuenta → Revisar identidades → clave del panel → "Probar envío de mails"**. Manda un mail de prueba a tu propio email y explica el motivo si falla. Causas más comunes:
+El panel ya no tiene botón de prueba de mails: el error real se ve en los logs de Render (busca "Brevo respondió"). Causas más comunes:
 1. **Brevo bloquea la IP de Render** (error 401 "unrecognised IP"): Brevo → Security → Authorized IPs → *Deactivate blocking*.
 2. `BREVO_API_KEY` tiene que ser una **API key** (`xkeysib-...`), no una clave SMTP (`xsmtpsib-...`).
 3. `MAIL_DE` tiene que estar agregado y verificado en Brevo → Senders.
@@ -140,7 +149,10 @@ Para entrar al panel hacen falta **tres cosas**: cuenta con sesión iniciada, qu
    - `ADMIN_CLAVE` = una clave larga (mínimo 10 caracteres) que sepan solo ustedes dos. Sin esta variable el panel queda apagado.
 2. Iniciá sesión en la app con tu cuenta → **Mi cuenta → Revisar identidades** (el botón solo aparece si sos admin).
 3. Ingresá la clave del panel. Queda abierto 20 minutos desde el último uso; "Cerrar panel" lo bloquea ya.
-4. "Ver fotos" → Aprobar o Rechazar (con motivo). Al resolver, las fotos se borran del servidor.
+4. "Ver fotos" → Aprobar o Rechazar (con motivo). Al **rechazar** las fotos se borran del servidor; al **aprobar** se guardan para poder revisarlas después y se borran cuando vos lo decidas (botón "Eliminar fotos"), al cancelar la identidad, con un baneo permanente o al eliminarse la cuenta.
+   - Botón **Baneados / suspendidos**: lista por categoría (permanente, temporal, vender, comprar, comprar y vender), de la medida más antigua a la más reciente, con "Quitar medida".
+   - Botón **Identidades aceptadas**: de la más antigua a la más reciente; "Ver fotos", "Eliminar fotos" y "Cancelar identidad". Arriba hay un botón **Eliminar TODAS las fotos guardadas** (borra las de todas las personas ya revisadas; las pendientes no se tocan y las identidades siguen aceptadas). Cancelar la identidad la deja como rechazada con el motivo: no puede vender y sus publicaciones no se ven (no se borran) hasta que se acepte de nuevo.
+   - **Baneo permanente**: borra para siempre sus publicaciones, sus fotos/videos y las fotos de su identidad.
 5. Cada ingreso, clave incorrecta y decisión queda en los logs de Render. 5 claves incorrectas = bloqueo de 15 minutos.
 
 ## Banear cuentas (desde el panel de administración)
@@ -224,3 +236,35 @@ La app sabe cuáles son esas cuentas por `GET /api/admins` (solo ids, nunca emai
 - Cada persona conserva los últimos 150 avisos y nada de más de 45 días. Marcar como leído o borrar sigue siendo solo en cada celular.
 - La base crea la tabla sola al arrancar (migración 14). Se borran con la cuenta de quien los manda o los recibe.
 - Prueba: `node prueba-avisos.js` (con el servidor corriendo con una carpeta de datos nueva y `ADMIN_EMAILS`/`ADMIN_CLAVE`).
+
+## Bloqueos de usuarios y solicitudes para ver un perfil privado (en el servidor)
+- **Bloqueos** (`js/35-conjuntos-servidor.js`, colección "bloqueos"): cada persona cambia solo sus propios bloqueos.
+  El servidor le entrega a cada una sus bloqueos y los de quienes la bloquearon (así la app esconde a la otra persona en los dos sentidos).
+  Los bloqueos de otras personas nunca se envían.
+- **El servidor hace cumplir el bloqueo** (aunque alguien modifique la app): quienes se bloquearon no pueden escribirse en el chat,
+  comentar ni dar like en los posts del otro, hacerse preguntas en una publicación, seguirse ni pedirse ver el perfil.
+- **Solicitudes para ver un perfil privado** (`js/39-solicitudes-servidor.js`): pedir, cancelar, aceptar y rechazar pasan por el servidor.
+  Sin internet quedan pendientes y se mandan cuando vuelve. Aceptar una solicitud hace que esa cuenta siga a quien aceptó,
+  y recién ahí el servidor le entrega los posts de esa cuenta privada (también puede comentarlos). Rechazar no avisa a nadie.
+- Las cuentas privadas ya no "esconden" sus posts de quienes las siguen ni de ellas mismas (antes ni ellas los recuperaban en otro celular).
+- Al eliminar una cuenta se borran sus solicitudes y sus bloqueos.
+- Rutas: `POST /api/conjuntos/cambiar` (colección `bloqueos`), `GET /api/conjuntos?coleccion=bloqueos`,
+  `GET /api/solicitudes`, `POST /api/solicitudes/enviar|cancelar|responder`.
+- Prueba: `node prueba-bloqueos.js` (con el servidor corriendo con una carpeta de datos nueva).
+- Todavía no se hace cumplir el bloqueo en las compras (pedidos): la app ya esconde el perfil, pero el servidor no lo impide.
+
+## Cupones de descuento (en el servidor)
+- Archivo de la app: `js/40-cupones-servidor.js`. Las claves de siempre (`nivanCupones` y `nivanCuponesGuardados_<id>`) pasan a ser una copia de lo que el servidor le muestra a cada persona.
+- **Lo crea y maneja la tienda** (crear, pausar/reactivar, cambiar la audiencia, eliminar, enviarle un cupón a alguien): hace falta identidad aprobada.
+  Reglas: código de 3 a 20 letras o números, no repetido entre cupones vigentes de cualquier tienda; porcentaje hasta 90%; hasta 100 cupones por tienda; si es de una publicación, tiene que ser suya.
+- **Quién ve qué**: cualquiera ve los cupones públicos en el perfil de la tienda; quien cumple (sigue a la tienda o ya le compró) ve los de "seguidores"/"clientes"; los de "solo con el código" no se le muestran a nadie.
+  Quien escribe un código lo busca en el servidor (tope de 60 códigos por hora). Cada persona solo ve a quiénes la tienda le habilitó ella misma, nunca la lista completa.
+- **El descuento lo calcula el servidor al comprar** (`POST /api/pedidos/crear`): ignora el monto que mande la app. Aplica solo a los productos de esa tienda
+  (o de esa publicación), nunca pasa del subtotal, revisa vencimiento, pausa y audiencia, y cuenta el uso de forma segura (si dos personas piden el último uso a la vez, solo una se lo lleva).
+  Antes el servidor creía el descuento que mandaba la app (había que poner cualquier monto para comprar gratis).
+- Los usos no se devuelven si después se cancela el pedido (igual que antes).
+- Los cupones y códigos guardados que una cuenta ya tenía en su celular se suben solos, una sola vez, la primera vez que entra con esta versión.
+- Al eliminar una cuenta se borran sus cupones y sus códigos guardados. La base crea las tablas sola al arrancar (migración 17).
+- Rutas: `GET /api/cupones`, `POST /api/cupones/crear|actualizar|eliminar|habilitar|buscar|reclamar|quitar`.
+- Prueba: `node prueba-cupones.js` (con el servidor corriendo con una carpeta de datos nueva y `ADMIN_EMAILS`/`ADMIN_CLAVE`).
+- Todavía local: el aviso y el mensaje de chat de "te envío un cupón" se generan en el celular de la tienda y le llegan a la otra persona por los buzones de avisos y de chats.

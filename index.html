@@ -921,7 +921,7 @@
 <footer class="piePaginaNivan">
     <p>© 2026 NIVAN. Todos los derechos reservados.</p>
     <p>¿Necesitás ayuda? Escribinos.</p>
-    <p>💬 Escribinos por mensaje: <a class="enlaceTerminos" href="https://wa.me/5492646096550" target="_blank" rel="noopener noreferrer">+54 9 264 609-6550</a></p>
+    <p>💬 Escribinos por WhatsApp: <a class="enlaceTerminos" href="https://wa.me/5492646096550" target="_blank" rel="noopener noreferrer">+54 9 264 609-6550</a></p>
     <p>✉️ Email: <a class="enlaceTerminos" href="mailto:nivanatelier@gmail.com">nivanatelier@gmail.com</a></p>
     <p><span class="enlaceTerminos" onclick="abrirTerminos()">Leer términos y condiciones</span></p>
     <p><button type="button" class="botonPoliticaPrivacidadNivan" onclick="abrirPoliticaPrivacidadNivan()">Política de privacidad</button></p>
@@ -1345,6 +1345,7 @@
         <button type="button" onclick="abrirMiTiendaNivan()">🏪 Mi tienda</button>
         <button type="button" onclick="abrirCrearPublicacion()">🧾 Crear publicación nueva</button>
         <button type="button" onclick="irAMisPublicaciones()">📋 Mis publicaciones</button>
+        <button type="button" onclick="abrirSeBuscaNivan()">🔎 Se busca en mi país</button>
         <button type="button" onclick="abrirGestionPedidosNivan()">📦 Gestión <span class="badgeGestionNivan" id="badgeGestionNivan" hidden></span></button>
         <button type="button" onclick="abrirMisVentas()">📦 Mis ventas</button>
         <button type="button" onclick="abrirEstadisticasVentaNivan()">📊 Estadísticas de venta</button>
@@ -2703,6 +2704,9 @@
 <script src="js/35-conjuntos-servidor.js"></script>
 <script src="js/36-comentarios-preguntas-servidor.js"></script>
 <script src="js/37-avisos-servidor.js"></script>
+<script src="js/38-otro-pais-busquedas.js"></script>
+<script src="js/39-solicitudes-servidor.js"></script>
+<script src="js/40-cupones-servidor.js"></script>
 <script>
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); });

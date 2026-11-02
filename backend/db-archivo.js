@@ -9,7 +9,7 @@ const path = require('path');
 
 const DIR = process.env.NIVAN_DATOS || path.join(__dirname, 'datos');
 const ARCHIVO = path.join(DIR, 'db.json');
-const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [], chats: [], chatMensajes: [], resenias: [], conjuntos: [], postComentarios: [], preguntas: [], notificaciones: [] };
+const VACIO = { usuarios: [], sesiones: [], publicaciones: [], medios: [], fotosVerif: {}, dispositivos: {}, reportes: [], pedidos: [], chats: [], chatMensajes: [], resenias: [], conjuntos: [], postComentarios: [], preguntas: [], notificaciones: [], busquedas: [], cupones: [], cuponesGuardados: [], loginBloqueos: {} };
 const MAX_SESIONES_POR_USUARIO = 10;
 
 fs.mkdirSync(DIR, { recursive: true });
@@ -98,11 +98,31 @@ async function verificacionesPendientes() {
         .map(function (u) { return { id: u.id, nombre: u.nombre, email: u.email, idPublico: u.idPublico, enviada: u.verificacion.enviada }; });
 }
 async function fotosVerificacion(id) { return datos.fotosVerif[id] || null; }
-async function resolverVerificacion(id, estado) {
+// conservarFotos: al APROBAR las fotos se guardan para que la administración pueda revisarlas o borrarlas después.
+async function resolverVerificacion(id, estado, conservarFotos) {
     const u = datos.usuarios.find(function (x) { return x.id === id; });
     if (u) u.verificacion = estado;
-    delete datos.fotosVerif[id];
+    if (!conservarFotos) delete datos.fotosVerif[id];
     guardar();
+}
+async function borrarFotosVerificacion(id) { if (datos.fotosVerif[id]) { delete datos.fotosVerif[id]; guardar(); } }
+// Borra las fotos guardadas de todas las identidades que NO están pendientes (las pendientes hay que revisarlas). Devuelve cuántas.
+async function borrarTodasLasFotosRevisadas() {
+    let n = 0;
+    Object.keys(datos.fotosVerif).forEach(function (id) {
+        const u = datos.usuarios.find(function (x) { return x.id === id; });
+        if (!u || !u.verificacion || u.verificacion.estado !== 'pendiente') { delete datos.fotosVerif[id]; n++; }
+    });
+    if (n) guardar();
+    return n;
+}
+async function verificacionesAprobadas() {
+    return datos.usuarios.filter(function (u) { return u.verificacion && u.verificacion.estado === 'aprobada'; })
+        .sort(function (a, b) { return (a.verificacion.revisada || 0) - (b.verificacion.revisada || 0); })
+        .map(function (u) { return { id: u.id, nombre: u.nombre, email: u.email, idPublico: u.idPublico, revisada: u.verificacion.revisada || 0, tieneFotos: !!datos.fotosVerif[u.id] }; });
+}
+async function cuentasConBaneo() {
+    return datos.usuarios.filter(function (u) { return u.baneo; });
 }
 async function usuarioPorIdPublico(idPublico) {
     return datos.usuarios.find(function (u) { return u.idPublico === idPublico; }) || null;
@@ -220,8 +240,47 @@ async function eliminarUsuario(id) {
     datos.chats = datos.chats.filter(function (c) { return idsChats.indexOf(c.id) < 0; });
     datos.chatMensajes = datos.chatMensajes.filter(function (m) { return idsChats.indexOf(m.chatId) < 0; });
     const dueno = function (s) { return s.indexOf('T:') === 0 ? s.slice(2) : s; };
-    datos.conjuntos = datos.conjuntos.filter(function (e) { return dueno(e.valor) !== id && dueno(e.clave) !== id && e.clave.indexOf(id + '_') !== 0; });
+    datos.conjuntos = datos.conjuntos.filter(function (e) { return dueno(e.valor) !== id && dueno(e.clave) !== id && e.clave.indexOf(id + '_') !== 0 && e.clave.indexOf(id + '|') !== 0; });
     datos.notificaciones = datos.notificaciones.filter(function (n) { return n.para !== id && n.de !== id; });
+    datos.busquedas = datos.busquedas.filter(function (b) { return b.usuarioId !== id; });
+    datos.cupones = datos.cupones.filter(function (c) { return c.vendedorId !== id; });
+    datos.cuponesGuardados = datos.cuponesGuardados.filter(function (g) { return g.usuarioId !== id; });
+    guardar();
+}
+
+// ---- Cupones ----
+// Cupón: { id, vendedorId, codigo, activo, usos, creado, datos: { tipo, valor, vigenciaHasta, usosMaximos, audiencia, habilitados, productoId, productoNombre } }
+async function cuponCrear(c) { datos.cupones.push({ id: c.id, vendedorId: c.vendedorId, codigo: c.codigo, activo: !!c.activo, usos: c.usos || 0, datos: c.datos, creado: c.creado }); guardar(); }
+async function cuponPorId(id) { return datos.cupones.find(function (c) { return c.id === id; }) || null; }
+async function cuponesPorCodigo(codigo) { return datos.cupones.filter(function (c) { return c.codigo === codigo; }).sort(function (a, b) { return b.creado - a.creado; }); }
+async function cuponesDeVendedor(vendedorId) { return datos.cupones.filter(function (c) { return c.vendedorId === vendedorId; }).sort(function (a, b) { return b.creado - a.creado; }); }
+async function cuponesTodos(limite) { return datos.cupones.slice().sort(function (a, b) { return b.creado - a.creado; }).slice(0, limite); }
+async function cuponActualizar(id, activo, d) {
+    const c = datos.cupones.find(function (x) { return x.id === id; });
+    if (c) { c.activo = !!activo; c.datos = d; guardar(); }
+}
+async function cuponEliminar(id) { datos.cupones = datos.cupones.filter(function (c) { return c.id !== id; }); guardar(); }
+async function cuponUsar(id) {
+    const c = datos.cupones.find(function (x) { return x.id === id; });
+    if (!c || !c.activo) return false;
+    if (c.datos.usosMaximos && c.usos >= c.datos.usosMaximos) return false;
+    c.usos++; guardar();
+    return true;
+}
+async function cuponDevolverUso(id) {
+    const c = datos.cupones.find(function (x) { return x.id === id; });
+    if (c && c.usos > 0) { c.usos--; guardar(); }
+}
+async function cuponesGuardadosDe(usuarioId) {
+    return datos.cuponesGuardados.filter(function (g) { return g.usuarioId === usuarioId; }).sort(function (a, b) { return b.fecha - a.fecha; }).map(function (g) { return g.codigo; });
+}
+async function cuponGuardar(usuarioId, codigo) {
+    if (datos.cuponesGuardados.some(function (g) { return g.usuarioId === usuarioId && g.codigo === codigo; })) return false;
+    datos.cuponesGuardados.push({ usuarioId: usuarioId, codigo: codigo, fecha: Date.now() }); guardar();
+    return true;
+}
+async function cuponQuitarGuardado(usuarioId, codigo) {
+    datos.cuponesGuardados = datos.cuponesGuardados.filter(function (g) { return !(g.usuarioId === usuarioId && g.codigo === codigo); });
     guardar();
 }
 
@@ -255,6 +314,14 @@ async function conjuntoQuitar(coleccion, clave, valor) {
     const antes = datos.conjuntos.length;
     datos.conjuntos = datos.conjuntos.filter(function (e) { return !(e.coleccion === coleccion && e.clave === clave && e.valor === valor); });
     if (datos.conjuntos.length !== antes) guardar();
+}
+async function conjuntoTiene(coleccion, clave, valor) {
+    return datos.conjuntos.some(function (e) { return e.coleccion === coleccion && e.clave === clave && e.valor === valor; });
+}
+async function conjuntoClavesDeValores(coleccion, valores) {
+    const claves = {};
+    datos.conjuntos.forEach(function (e) { if (e.coleccion === coleccion && valores.indexOf(e.valor) !== -1) claves[e.clave] = true; });
+    return Object.keys(claves);
 }
 async function conjuntoLeer(coleccion) {
     return datos.conjuntos.filter(function (e) { return e.coleccion === coleccion; }).map(function (e) { return { clave: e.clave, valor: e.valor }; });
@@ -360,11 +427,37 @@ async function responderPregunta(id, texto, ts) {
     if (q) { q.respuesta = texto; q.respondida = ts; guardar(); }
 }
 
+async function estadosVendedores(ids) {
+    return datos.usuarios.filter(function (u) { return ids.indexOf(u.id) >= 0; }).map(function (u) {
+        return { id: u.id, email: u.email, estado: (u.verificacion && u.verificacion.estado) || '' };
+    });
+}
+// ---- "Se busca" ----
+async function loginBloqueoGet(email) { return datos.loginBloqueos[email] || null; }
+async function loginBloqueoPut(email, e) { datos.loginBloqueos[email] = { fallos: e.fallos, fase: e.fase, hasta: e.hasta, ultimo: e.ultimo }; guardar(); }
+async function loginBloqueoBorrar(email) { if (datos.loginBloqueos[email]) { delete datos.loginBloqueos[email]; guardar(); } }
+async function crearBusqueda(x) { datos.busquedas.push(Object.assign({ cerrada: null }, x)); guardar(); }
+async function busquedasAbiertas(pais, limite) {
+    return datos.busquedas.filter(function (b) { return b.pais === pais && !b.cerrada; }).sort(function (a, c) { return c.creada - a.creada; }).slice(0, limite);
+}
+async function busquedaPorId(id) { return datos.busquedas.find(function (b) { return b.id === id; }) || null; }
+async function busquedaAbiertaDe(usuarioId, refId, pais) {
+    return datos.busquedas.find(function (b) { return b.usuarioId === usuarioId && b.refId === refId && b.pais === pais && !b.cerrada; }) || null;
+}
+async function cerrarBusqueda(id, ts) { const b = datos.busquedas.find(function (x) { return x.id === id; }); if (b && !b.cerrada) { b.cerrada = ts; guardar(); } }
+
 async function tamanoBytes() { return Buffer.byteLength(JSON.stringify(datos)); }
 
 module.exports = {
+    conjuntoTiene: conjuntoTiene, conjuntoClavesDeValores: conjuntoClavesDeValores,
+    estadosVendedores: estadosVendedores,
+    loginBloqueoGet: loginBloqueoGet, loginBloqueoPut: loginBloqueoPut, loginBloqueoBorrar: loginBloqueoBorrar,
+    crearBusqueda: crearBusqueda, busquedasAbiertas: busquedasAbiertas, busquedaPorId: busquedaPorId, busquedaAbiertaDe: busquedaAbiertaDe, cerrarBusqueda: cerrarBusqueda,
     comentariosDePost: comentariosDePost, comentarioPorId: comentarioPorId, crearComentario: crearComentario, borrarComentarioYRespuestas: borrarComentarioYRespuestas, guardarLikesComentario: guardarLikesComentario,
     preguntasPublicas: preguntasPublicas, preguntaPorId: preguntaPorId, contarPreguntasDe: contarPreguntasDe, crearPregunta: crearPregunta, responderPregunta: responderPregunta,
+    cuponCrear: cuponCrear, cuponPorId: cuponPorId, cuponesPorCodigo: cuponesPorCodigo, cuponesDeVendedor: cuponesDeVendedor, cuponesTodos: cuponesTodos,
+    cuponActualizar: cuponActualizar, cuponEliminar: cuponEliminar, cuponUsar: cuponUsar, cuponDevolverUso: cuponDevolverUso,
+    cuponesGuardadosDe: cuponesGuardadosDe, cuponGuardar: cuponGuardar, cuponQuitarGuardado: cuponQuitarGuardado,
     guardarNotificacion: guardarNotificacion, notificacionesDe: notificacionesDe, podarNotificaciones: podarNotificaciones,
     conjuntoAgregar: conjuntoAgregar, conjuntoQuitar: conjuntoQuitar, conjuntoLeer: conjuntoLeer,
     chatPorId: chatPorId, guardarChat: guardarChat, mensajePorId: mensajePorId, agregarMensaje: agregarMensaje, actualizarMensaje: actualizarMensaje,
@@ -378,7 +471,7 @@ module.exports = {
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,
     guardarMedio: guardarMedio, medioPorId: medioPorId, borrarMediosSobrantes: borrarMediosSobrantes,
     eliminarUsuario: eliminarUsuario, guardarPerfil: guardarPerfil, usuariosPublicos: usuariosPublicos,
-    guardarVerificacion: guardarVerificacion, verificacionesPendientes: verificacionesPendientes,
+    guardarVerificacion: guardarVerificacion, borrarFotosVerificacion: borrarFotosVerificacion, borrarTodasLasFotosRevisadas: borrarTodasLasFotosRevisadas, verificacionesAprobadas: verificacionesAprobadas, cuentasConBaneo: cuentasConBaneo, verificacionesPendientes: verificacionesPendientes,
     fotosVerificacion: fotosVerificacion, resolverVerificacion: resolverVerificacion,
     dispositivoConocido: dispositivoConocido, registrarDispositivo: registrarDispositivo, borrarDispositivos: borrarDispositivos,
     cambiarPassword: cambiarPassword, borrarSesionesDeUsuario: borrarSesionesDeUsuario,

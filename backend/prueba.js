@@ -71,9 +71,9 @@ function chequear(nombre, condicion, detalle) {
 
     console.log('\nLogin');
     r = await pedir('POST', '/api/login', { email: email, password: 'Incorrecta.1' });
-    chequear('Contraseña incorrecta → 401', r.estado === 401 && r.json.error === 'Email o contraseña incorrectos.');
+    chequear('Contraseña incorrecta → 401', r.estado === 401 && String(r.json.error).indexOf('Email o contraseña incorrectos.') === 0);
     r = await pedir('POST', '/api/login', { email: 'nadie@gmail.com', password: pw });
-    chequear('Email que no existe → mismo mensaje', r.estado === 401 && r.json.error === 'Email o contraseña incorrectos.');
+    chequear('Email que no existe → mismo mensaje', r.estado === 401 && String(r.json.error).indexOf('Email o contraseña incorrectos.') === 0);
     r = await pedir('POST', '/api/login', { email: email.toUpperCase(), password: pw });
     chequear('Login correcto (sin importar mayúsculas del email)', r.estado === 200 && r.json.ok, r.texto);
     const cookie2 = r.cookie;

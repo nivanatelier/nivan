@@ -125,7 +125,7 @@ function htmlComentarioPostNivan(c, esDuenoPost, esRespuesta) {
                 <div class="menuComentarioPostNivan">
                     <button type="button" class="puntosComentarioPostNivan" onclick="alternarMenuComentarioPostNivan('${c.id}')" aria-label="Más opciones">⋮</button>
                     ${abierto ? `<div class="desplegableComentarioPostNivan">
-                        ${mio ? "" : `<button type="button" onclick="reportarComentarioPostNivan('${c.id}')">⚠ Reportar</button>`}
+                        ${mio ? "" : `<button type="button" onclick="reportarComentarioPostNivan('${c.id}')">${esAdminNivan() ? "🛡️ Moderar" : "🚩 Reportar"}</button>`}
                         ${puedeBorrar ? `<button type="button" onclick="borrarComentarioPostNivan('${c.id}')">🗑 Borrar</button>` : ""}
                     </div>` : ""}
                 </div>
@@ -161,7 +161,7 @@ function dibujarInteraccionPostNivan() {
     const comentarios = comentariosVisiblesPostNivan(ctx.idPost);
     const principales = comentarios.filter(function (c) { return !c.idPadre; });
     const esDuenoPost = !!(usuarioActual && usuarioActual.id === ctx.idUsuario);
-    const yaReporte = yaReportadoNivan("publicacion", "post:" + ctx.idPost);
+    const yaReporte = yaReportadoNivan("post", ctx.idPost);
 
     const htmlComentarios = principales.map(function (c) {
         const respuestas = comentarios
@@ -181,7 +181,7 @@ function dibujarInteraccionPostNivan() {
         <div class="barraAccionesPostNivan">
             <button type="button" class="${yoLike ? "activo" : ""}" onclick="alternarLikePostNivan()">${yoLike ? "❤️" : "🤍"} ${likes.length}</button>
             <span>💬 ${comentarios.length}</span>
-            ${esDuenoPost ? "" : `<button type="button" onclick="reportarPostNivan()" ${yaReporte ? "disabled" : ""}>${yaReporte ? "⚠ Reportado" : "⚠ Reportar"}</button>`}
+            ${esDuenoPost ? "" : `<button type="button" onclick="reportarPostNivan()" ${yaReporte && !esAdminNivan() ? "disabled" : ""}>${esAdminNivan() ? "🛡️ Moderar" : (yaReporte ? "🚩 Reportado" : "🚩 Reportar")}</button>`}
         </div>
         <div class="listaComentariosPostNivan">${htmlComentarios}</div>
         ${avisoResponder}
@@ -294,7 +294,7 @@ function borrarComentarioPostNivan(idComentario) {
 }
 
 function reportarPostNivan() {
-    abrirReporteNivan("publicacion", "post:" + postInteraccionActualNivan.idPost, postInteraccionActualNivan.titulo);
+    abrirReporteNivan("post", postInteraccionActualNivan.idPost, postInteraccionActualNivan.titulo);
 }
 
 function reportarComentarioPostNivan(idComentario) {

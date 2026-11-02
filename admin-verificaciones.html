@@ -34,6 +34,8 @@
     .estadoCuenta.baneada { color: #ff8a80; }
     .estadoCuenta.libre { color: #81c784; }
     .naranja { background: #e65100; color: #fff; }
+    .barra button.activo { background: #fff; color: #000; }
+    .tarjeta .detalle { font-size: 13px; color: #aaa; margin: 3px 0; }
 </style>
 </head>
 <body>
@@ -48,7 +50,8 @@
 </form>
 <div class="barra" id="barra" hidden>
     <button type="button" id="botonActualizar">Actualizar</button>
-    <button type="button" id="botonMail">Probar envío de mails</button>
+    <button type="button" id="botonBaneados">Baneados / suspendidos</button>
+    <button type="button" id="botonAprobadas">Identidades aceptadas</button>
     <button type="button" id="botonSalir">Cerrar panel</button>
 </div>
 <div id="seccionCuentas" hidden>
@@ -59,6 +62,17 @@
         <button type="submit">Buscar</button>
     </form>
     <div id="resultadoCuenta"></div>
+</div>
+<div id="seccionBaneados" hidden>
+    <h2>Baneados y suspendidos</h2>
+    <p class="aviso">Por categoría; dentro de cada una, de la medida más antigua a la más reciente.</p>
+    <div id="listaBaneados"></div>
+</div>
+<div id="seccionAprobadas" hidden>
+    <h2>Identidades aceptadas</h2>
+    <p class="aviso">De la más antigua a la más reciente. Podés ver o borrar las fotos guardadas y cancelar la identidad (la persona tiene que verificarse de nuevo; mientras tanto sus publicaciones no se ven).</p>
+    <div class="acciones" style="margin-bottom:12px"><button type="button" class="no" id="botonBorrarTodas">Eliminar TODAS las fotos guardadas</button></div>
+    <div id="listaAprobadas"></div>
 </div>
 <h2 id="tituloPendientes" hidden>Identidades pendientes</h2>
 <div id="lista"></div>

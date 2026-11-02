@@ -1,5 +1,5 @@
 // ==============================
-// NIVAN · Seguidores y likes de posts (los guarda el servidor)
+// NIVAN · Seguidores, likes de posts y bloqueos de usuarios (los guarda el servidor)
 // ==============================
 // El resto de la app sigue leyendo y escribiendo "nivanSeguidores" y "nivanLikesPosts" como siempre.
 // Acá se hace lo de red:
@@ -39,6 +39,7 @@
         let cola = Promise.resolve();
         let temporizador = null;
         let bajando = false;
+        const esMioBorde = cfg.esMioBorde || function (clave, valor) { return cfg.esMio(valor); };
 
         function leerSync() { return leerJSONNivan(CLAVE_SYNC, {}); }
         function guardarSync(o) { try { localStorage.setItem(CLAVE_SYNC, JSON.stringify(o)); } catch (e) {} }
@@ -57,7 +58,7 @@
             const sync = sincronizadoDe(yo);
             const cambios = [];
             Object.keys(local).forEach(function (b) {
-                if (!(b in sync) && cfg.esMio(local[b][1])) cambios.push({ accion: "agregar", clave: local[b][0], valor: local[b][1] });
+                if (!(b in sync) && esMioBorde(local[b][0], local[b][1])) cambios.push({ accion: "agregar", clave: local[b][0], valor: local[b][1] });
             });
             Object.keys(sync).forEach(function (b) {
                 if (!(b in local)) cambios.push({ accion: "quitar", clave: sync[b][0], valor: sync[b][1] });
@@ -95,7 +96,7 @@
                 if (yo) {
                     // Lo que hice y todavía no llegó al servidor se conserva, y lo que saqué y todavía no llegó sigue sacado.
                     Object.keys(local).forEach(function (b) {
-                        if (!(b in sync) && !(b in remoto) && cfg.esMio(local[b][1])) { resultado[b] = local[b]; quedanPendientes = true; }
+                        if (!(b in sync) && !(b in remoto) && esMioBorde(local[b][0], local[b][1])) { resultado[b] = local[b]; quedanPendientes = true; }
                     });
                     Object.keys(sync).forEach(function (b) {
                         if (!(b in local)) { delete resultado[b]; quedanPendientes = true; }
@@ -139,13 +140,25 @@
     window.guardarJSONNivan = function (clave, valor) {
         const ok = guardarJSONOriginal(clave, valor);
         if (clave === CLAVE_LIKES) { try { likes.programar(); } catch (e) {} }
+        if (clave === CLAVE_BLOQUEOS) { try { bloqueos.programar(); } catch (e) {} }
         return ok;
     };
 
-    function bajarTodo() { return Promise.all([seguidores.bajar(), likes.bajar()]); }
+    // ---- Bloqueos de usuarios: { idDeQuienBloquea: [idBloqueado, ...] } ----
+    // Del servidor se bajan los míos y los de quienes me bloquearon a mí (para que la app los esconda a los dos lados).
+    const CLAVE_BLOQUEOS = "nivanUsuariosBloqueados";
+    const bloqueos = crearConjunto({
+        coleccion: "bloqueos",
+        leerLocal: function () { return leerJSONNivan(CLAVE_BLOQUEOS, {}); },
+        escribirLocal: function (d) { try { localStorage.setItem(CLAVE_BLOQUEOS, JSON.stringify(d)); } catch (e) {} },
+        esMio: function () { return false; },
+        esMioBorde: function (clave) { return hayCuenta() && clave === usuarioActual.id; }       // solo cada persona cambia sus propios bloqueos
+    });
+
+    function bajarTodo() { return Promise.all([seguidores.bajar(), likes.bajar(), bloqueos.bajar()]); }
     window.actualizarSeguidoresYLikesNivan = bajarTodo;
     window.addEventListener("load", function () {
-        setTimeout(function () { bajarTodo().then(function () { if (hayCuenta()) { seguidores.programar(); likes.programar(); } }); }, 1500);
+        setTimeout(function () { bajarTodo().then(function () { if (hayCuenta()) { seguidores.programar(); likes.programar(); bloqueos.programar(); } }); }, 1500);
     });
     document.addEventListener("visibilitychange", function () { if (!document.hidden) bajarTodo(); });
     setInterval(function () { if (!document.hidden) bajarTodo(); }, 60000);

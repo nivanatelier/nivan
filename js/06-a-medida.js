@@ -403,11 +403,37 @@ const mensajePresupuesto =
     return;
       }
 
+        // Se junta todo lo que se completó en el formulario y se manda al servidor, que lo envía por mail a Nivan.
+        const campos = [];
+        document.querySelectorAll("#formularioMedida input, #formularioMedida select, #formularioMedida textarea").forEach(function (el) {
+            if (!el.id || el.type === "file" || el.type === "button" || el.type === "hidden") return;
+            if (el.offsetParent === null) return;   // campos que no se están mostrando
+            let valor = el.type === "checkbox" ? (el.checked ? "Sí" : "") : String(el.value || "").trim();
+            if (el.tagName === "SELECT" && el.selectedIndex >= 0 && el.value) valor = el.options[el.selectedIndex].text.trim();
+            if (!valor) return;
+            const rotulo = document.querySelector('#formularioMedida label[for="' + el.id + '"]');
+            campos.push({ etiqueta: rotulo ? rotulo.textContent.replace(/\s+/g, " ").trim() : el.id, valor: valor });
+        });
+        const banner = document.getElementById("bannerInspiracionReventa");
+        if (banner && banner.style.display !== "none") campos.push({ etiqueta: "Origen", valor: "Pedido inspirado en una publicación de otra tienda" });
+
         const numeroSolicitud =
             Math.floor(
                 100000 +
                 Math.random() * 900000
             );
+
+        const botonEnviar = document.getElementById("enviarSolicitudMedida");
+        if (botonEnviar.disabled) return;
+        botonEnviar.disabled = true;
+        apiNivan("/api/medida", { email: emailMedida, numero: numeroSolicitud, pais: typeof paisNivan === "function" ? paisNivan() : "", campos: campos }).then(function (r) {
+            botonEnviar.disabled = false;
+            if (!r.ok) { alert(r.error || "No pudimos enviar tu solicitud. Probá de nuevo."); return; }
+            mostrarResultadoSolicitudMedida(numeroSolicitud, emailMedida);
+        });
+    });
+
+function mostrarResultadoSolicitudMedida(numeroSolicitud, emailMedida) {
 
 
         const resultado =
@@ -436,7 +462,7 @@ const mensajePresupuesto =
 
     <br><br>
 
-    📧 Enviaremos una confirmación a:
+    📧 Te vamos a responder al correo:
 
     <strong>
         ${escaparHTMLNivan(emailMedida)}
@@ -470,5 +496,4 @@ const mensajePresupuesto =
         resultado.scrollIntoView({
             behavior: "smooth"
         });
-
-    });
+}

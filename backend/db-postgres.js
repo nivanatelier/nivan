@@ -189,7 +189,50 @@ const MIGRACIONES = [
         recibida BIGINT NOT NULL,
         PRIMARY KEY (para, id)
     );
-    CREATE INDEX notificaciones_para_idx ON notificaciones (para, recibida);`
+    CREATE INDEX notificaciones_para_idx ON notificaciones (para, recibida);`,
+    // 15 · "Se busca": pedidos de personas para que alguien venda en su país algo que vieron en otro país. Se borran con la cuenta de quien pidió.
+    `CREATE TABLE busquedas (
+        id            TEXT PRIMARY KEY,
+        usuario_id    TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        nombre        TEXT NOT NULL DEFAULT '',
+        pais          TEXT NOT NULL,
+        ref_id        TEXT NOT NULL,
+        ref_pais      TEXT NOT NULL,
+        ref_nombre    TEXT NOT NULL DEFAULT '',
+        ref_categoria TEXT NOT NULL DEFAULT '',
+        ref_imagen    TEXT NOT NULL DEFAULT '',
+        nota          TEXT NOT NULL DEFAULT '',
+        creada        BIGINT NOT NULL,
+        cerrada       BIGINT
+    );
+    CREATE INDEX busquedas_pais_idx ON busquedas (pais, creada);
+    CREATE INDEX busquedas_usuario_idx ON busquedas (usuario_id, ref_id);`,
+    // 16 · Intentos fallidos de iniciar sesión por email (se guardan acá para que reiniciar el servidor no los borre).
+    `CREATE TABLE login_bloqueos (
+        email   TEXT PRIMARY KEY,
+        fallos  INTEGER NOT NULL DEFAULT 0,
+        fase    INTEGER NOT NULL DEFAULT 0,
+        hasta   BIGINT NOT NULL DEFAULT 0,
+        ultimo  BIGINT NOT NULL DEFAULT 0
+    );`,
+    // 17 · cupones de descuento de cada tienda y los códigos que cada persona tiene guardados. Se borran con la cuenta.
+    `CREATE TABLE cupones (
+        id          TEXT PRIMARY KEY,
+        vendedor_id TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        codigo      TEXT NOT NULL,
+        activo      BOOLEAN NOT NULL DEFAULT TRUE,
+        usos        INTEGER NOT NULL DEFAULT 0,
+        datos       JSONB NOT NULL,
+        creado      BIGINT NOT NULL
+    );
+    CREATE INDEX cupones_codigo_idx ON cupones (codigo);
+    CREATE INDEX cupones_vendedor_idx ON cupones (vendedor_id);
+    CREATE TABLE cupones_guardados (
+        usuario_id TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        codigo     TEXT NOT NULL,
+        fecha      BIGINT NOT NULL,
+        PRIMARY KEY (usuario_id, codigo)
+    );`
 ];
 
 async function migrar() {
@@ -293,9 +336,24 @@ async function fotosVerificacion(id) {
     const r = await pool.query('SELECT fotos FROM verificaciones_fotos WHERE usuario_id = $1', [id]);
     return r.rows[0] ? r.rows[0].fotos : null;
 }
-async function resolverVerificacion(id, estado) {
+// conservarFotos: al APROBAR las fotos se guardan para que la administración pueda revisarlas o borrarlas después.
+async function resolverVerificacion(id, estado, conservarFotos) {
     await pool.query('UPDATE usuarios SET verificacion = $2 WHERE id = $1', [id, JSON.stringify(estado)]);
-    await pool.query('DELETE FROM verificaciones_fotos WHERE usuario_id = $1', [id]);
+    if (!conservarFotos) await pool.query('DELETE FROM verificaciones_fotos WHERE usuario_id = $1', [id]);
+}
+async function borrarFotosVerificacion(id) { await pool.query('DELETE FROM verificaciones_fotos WHERE usuario_id = $1', [id]); }
+// Borra las fotos guardadas de todas las identidades que NO están pendientes (las pendientes hay que revisarlas). Devuelve cuántas.
+async function borrarTodasLasFotosRevisadas() {
+    const r = await pool.query("DELETE FROM verificaciones_fotos WHERE usuario_id NOT IN (SELECT id FROM usuarios WHERE verificacion->>'estado' = 'pendiente')");
+    return r.rowCount || 0;
+}
+async function verificacionesAprobadas() {
+    const r = await pool.query("SELECT u.id, u.nombre, u.email, u.id_publico, u.verificacion, (f.usuario_id IS NOT NULL) AS tiene FROM usuarios u LEFT JOIN verificaciones_fotos f ON f.usuario_id = u.id WHERE u.verificacion->>'estado' = 'aprobada' ORDER BY COALESCE((u.verificacion->>'revisada')::bigint, 0) ASC LIMIT 1000");
+    return r.rows.map(function (f) { return { id: f.id, nombre: f.nombre, email: f.email, idPublico: f.id_publico, revisada: Number(f.verificacion.revisada) || 0, tieneFotos: !!f.tiene }; });
+}
+async function cuentasConBaneo() {
+    const r = await pool.query('SELECT * FROM usuarios WHERE baneo IS NOT NULL LIMIT 2000');
+    return r.rows.map(aUsuario);
 }
 async function usuarioPorIdPublico(idPublico) {
     const r = await pool.query('SELECT * FROM usuarios WHERE id_publico = $1', [idPublico]);
@@ -330,7 +388,7 @@ async function cambiarPassword(id, hash) { await pool.query('UPDATE usuarios SET
 async function eliminarUsuario(id) {
     await pool.query('DELETE FROM chats WHERE a_id = $1 OR b_id = $1', [id]);     // sus chats (y mensajes) se van con la cuenta
     // sus seguimientos, los de otras personas hacia sus cuentas y los likes de sus posts (las claves de posts empiezan con "id_")
-    await pool.query("DELETE FROM conjuntos WHERE valor = ANY($1::text[]) OR clave = ANY($1::text[]) OR clave LIKE $2 ESCAPE '\\'", [[id, 'T:' + id], id + '\\_%']);
+    await pool.query("DELETE FROM conjuntos WHERE valor = ANY($1::text[]) OR clave = ANY($1::text[]) OR (clave LIKE $2 ESCAPE '\\' OR clave LIKE $3 ESCAPE '\\')", [[id, 'T:' + id], id + '\\_%', id + '|%']);
     await pool.query("DELETE FROM post_comentarios WHERE post_id LIKE $1 ESCAPE '\\'", [id + '\\_%']);    // los comentarios de sus posts
     await pool.query('DELETE FROM usuarios WHERE id = $1', [id]);
 }
@@ -379,6 +437,47 @@ async function borrarMediosSobrantes(usuarioId, usados) {
     const r = await pool.query('DELETE FROM medios WHERE usuario_id = $1 AND NOT (id = ANY($2::text[])) RETURNING id, tipo, octet_length(datos) AS n', [usuarioId, usados]);
     return r.rows.map(function (f) { return { id: f.id, tipo: f.tipo, enNube: +f.n === 0 }; });
 }
+// Estado de verificación de varias cuentas a la vez (para saber si sus vendedores están aprobados).
+async function estadosVendedores(ids) {
+    if (!ids.length) return [];
+    const r = await pool.query("SELECT id, email, verificacion->>'estado' AS estado FROM usuarios WHERE id = ANY($1::text[])", [ids]);
+    return r.rows.map(function (f) { return { id: f.id, email: f.email, estado: f.estado || '' }; });
+}
+
+// ---- "Se busca" ----
+function aBusqueda(f) {
+    return f ? { id: f.id, usuarioId: f.usuario_id, nombre: f.nombre, pais: f.pais, refId: f.ref_id, refPais: f.ref_pais, refNombre: f.ref_nombre,
+        refCategoria: f.ref_categoria, refImagen: f.ref_imagen, nota: f.nota, creada: +f.creada, cerrada: f.cerrada == null ? null : +f.cerrada } : null;
+}
+async function crearBusqueda(x) {
+    await pool.query(
+        `INSERT INTO busquedas (id, usuario_id, nombre, pais, ref_id, ref_pais, ref_nombre, ref_categoria, ref_imagen, nota, creada)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [x.id, x.usuarioId, x.nombre, x.pais, x.refId, x.refPais, x.refNombre, x.refCategoria, x.refImagen, x.nota, x.creada]);
+}
+async function busquedasAbiertas(pais, limite) {
+    const r = await pool.query('SELECT * FROM busquedas WHERE pais = $1 AND cerrada IS NULL ORDER BY creada DESC LIMIT $2', [pais, limite]);
+    return r.rows.map(aBusqueda);
+}
+async function busquedaPorId(id) {
+    const r = await pool.query('SELECT * FROM busquedas WHERE id = $1', [id]);
+    return aBusqueda(r.rows[0]);
+}
+async function busquedaAbiertaDe(usuarioId, refId, pais) {
+    const r = await pool.query('SELECT * FROM busquedas WHERE usuario_id = $1 AND ref_id = $2 AND pais = $3 AND cerrada IS NULL LIMIT 1', [usuarioId, refId, pais]);
+    return aBusqueda(r.rows[0]);
+}
+async function loginBloqueoGet(email) {
+    const r = await pool.query('SELECT fallos, fase, hasta, ultimo FROM login_bloqueos WHERE email = $1', [email]);
+    return r.rows[0] ? { fallos: r.rows[0].fallos, fase: r.rows[0].fase, hasta: Number(r.rows[0].hasta), ultimo: Number(r.rows[0].ultimo) } : null;
+}
+async function loginBloqueoPut(email, e) {
+    await pool.query('INSERT INTO login_bloqueos (email, fallos, fase, hasta, ultimo) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (email) DO UPDATE SET fallos = $2, fase = $3, hasta = $4, ultimo = $5',
+        [email, e.fallos, e.fase, e.hasta, e.ultimo]);
+}
+async function loginBloqueoBorrar(email) { await pool.query('DELETE FROM login_bloqueos WHERE email = $1', [email]); }
+async function cerrarBusqueda(id, ts) { await pool.query('UPDATE busquedas SET cerrada = $2 WHERE id = $1 AND cerrada IS NULL', [id, ts]); }
+
 async function tamanoBytes() {
     const r = await pool.query('SELECT pg_database_size(current_database()) AS n');
     return +r.rows[0].n;
@@ -390,10 +489,49 @@ async function conjuntoAgregar(coleccion, clave, valor) {
 async function conjuntoQuitar(coleccion, clave, valor) {
     await pool.query('DELETE FROM conjuntos WHERE coleccion = $1 AND clave = $2 AND valor = $3', [coleccion, clave, valor]);
 }
+async function conjuntoTiene(coleccion, clave, valor) {
+    const r = await pool.query('SELECT 1 FROM conjuntos WHERE coleccion = $1 AND clave = $2 AND valor = $3', [coleccion, clave, valor]);
+    return r.rowCount > 0;
+}
+// Todas las claves que contienen alguno de esos valores (por ejemplo: a qué cuentas sigue una persona).
+async function conjuntoClavesDeValores(coleccion, valores) {
+    const r = await pool.query('SELECT DISTINCT clave FROM conjuntos WHERE coleccion = $1 AND valor = ANY($2::text[])', [coleccion, valores]);
+    return r.rows.map(function (f) { return f.clave; });
+}
 async function conjuntoLeer(coleccion) {
     const r = await pool.query('SELECT clave, valor FROM conjuntos WHERE coleccion = $1 LIMIT 100000', [coleccion]);
     return r.rows;
 }
+// ---- Cupones ----
+// datos = { tipo, valor, vigenciaHasta, usosMaximos, audiencia: [], habilitados: [], productoId, productoNombre }
+function aCupon(f) {
+    return f ? { id: f.id, vendedorId: f.vendedor_id, codigo: f.codigo, activo: !!f.activo, usos: +f.usos, creado: +f.creado, datos: f.datos || {} } : null;
+}
+async function cuponCrear(c) {
+    await pool.query('INSERT INTO cupones (id, vendedor_id, codigo, activo, usos, datos, creado) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [c.id, c.vendedorId, c.codigo, c.activo, c.usos || 0, JSON.stringify(c.datos), c.creado]);
+}
+async function cuponPorId(id) { return aCupon((await pool.query('SELECT * FROM cupones WHERE id = $1', [id])).rows[0]); }
+async function cuponesPorCodigo(codigo) { return (await pool.query('SELECT * FROM cupones WHERE codigo = $1 ORDER BY creado DESC', [codigo])).rows.map(aCupon); }
+async function cuponesDeVendedor(vendedorId) { return (await pool.query('SELECT * FROM cupones WHERE vendedor_id = $1 ORDER BY creado DESC', [vendedorId])).rows.map(aCupon); }
+async function cuponesTodos(limite) { return (await pool.query('SELECT * FROM cupones ORDER BY creado DESC LIMIT $1', [limite])).rows.map(aCupon); }
+async function cuponActualizar(id, activo, datos) { await pool.query('UPDATE cupones SET activo = $2, datos = $3 WHERE id = $1', [id, activo, JSON.stringify(datos)]); }
+async function cuponEliminar(id) { await pool.query('DELETE FROM cupones WHERE id = $1', [id]); }
+// Gasta un uso de forma segura: si ya se agotó (o está pausado) no suma y devuelve false.
+async function cuponUsar(id) {
+    const r = await pool.query("UPDATE cupones SET usos = usos + 1 WHERE id = $1 AND activo AND (COALESCE((datos->>'usosMaximos')::int, 0) = 0 OR usos < (datos->>'usosMaximos')::int)", [id]);
+    return r.rowCount > 0;
+}
+async function cuponDevolverUso(id) { await pool.query('UPDATE cupones SET usos = GREATEST(usos - 1, 0) WHERE id = $1', [id]); }
+async function cuponesGuardadosDe(usuarioId) {
+    return (await pool.query('SELECT codigo FROM cupones_guardados WHERE usuario_id = $1 ORDER BY fecha DESC', [usuarioId])).rows.map(function (f) { return f.codigo; });
+}
+async function cuponGuardar(usuarioId, codigo) {
+    const r = await pool.query('INSERT INTO cupones_guardados (usuario_id, codigo, fecha) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [usuarioId, codigo, Date.now()]);
+    return r.rowCount > 0;
+}
+async function cuponQuitarGuardado(usuarioId, codigo) { await pool.query('DELETE FROM cupones_guardados WHERE usuario_id = $1 AND codigo = $2', [usuarioId, codigo]); }
+
 // ---- Notificaciones (avisos para otras personas) ----
 // Si trae "dedupe", reemplaza al aviso anterior igual de esa persona (un solo "le gustó tu publicación" por persona y publicación).
 async function guardarNotificacion(x) {
@@ -581,9 +719,13 @@ process.on('SIGTERM', function () { cerrar().finally(function () { process.exit(
 process.on('SIGINT', function () { cerrar().finally(function () { process.exit(0); }); });
 
 module.exports = {
+    conjuntoTiene: conjuntoTiene, conjuntoClavesDeValores: conjuntoClavesDeValores,
     comentariosDePost: comentariosDePost, comentarioPorId: comentarioPorId, crearComentario: crearComentario, borrarComentarioYRespuestas: borrarComentarioYRespuestas, guardarLikesComentario: guardarLikesComentario,
     preguntasPublicas: preguntasPublicas, preguntaPorId: preguntaPorId, contarPreguntasDe: contarPreguntasDe, crearPregunta: crearPregunta, responderPregunta: responderPregunta,
     conjuntoAgregar: conjuntoAgregar, conjuntoQuitar: conjuntoQuitar, conjuntoLeer: conjuntoLeer,
+    cuponCrear: cuponCrear, cuponPorId: cuponPorId, cuponesPorCodigo: cuponesPorCodigo, cuponesDeVendedor: cuponesDeVendedor, cuponesTodos: cuponesTodos,
+    cuponActualizar: cuponActualizar, cuponEliminar: cuponEliminar, cuponUsar: cuponUsar, cuponDevolverUso: cuponDevolverUso,
+    cuponesGuardadosDe: cuponesGuardadosDe, cuponGuardar: cuponGuardar, cuponQuitarGuardado: cuponQuitarGuardado,
     guardarNotificacion: guardarNotificacion, notificacionesDe: notificacionesDe, podarNotificaciones: podarNotificaciones,
     chatPorId: chatPorId, guardarChat: guardarChat, mensajePorId: mensajePorId, agregarMensaje: agregarMensaje, actualizarMensaje: actualizarMensaje,
     chatsDeUsuarioDesde: chatsDeUsuarioDesde, mensajesDeUsuarioDesde: mensajesDeUsuarioDesde,
@@ -595,10 +737,13 @@ module.exports = {
     guardarPublicacion: guardarPublicacion, eliminarPublicacion: eliminarPublicacion,
     guardarMedio: guardarMedio, medioPorId: medioPorId, borrarMediosSobrantes: borrarMediosSobrantes,
     eliminarUsuario: eliminarUsuario, guardarPerfil: guardarPerfil, usuariosPublicos: usuariosPublicos,
-    guardarVerificacion: guardarVerificacion, verificacionesPendientes: verificacionesPendientes,
+    guardarVerificacion: guardarVerificacion, borrarFotosVerificacion: borrarFotosVerificacion, borrarTodasLasFotosRevisadas: borrarTodasLasFotosRevisadas, verificacionesAprobadas: verificacionesAprobadas, cuentasConBaneo: cuentasConBaneo, verificacionesPendientes: verificacionesPendientes,
     fotosVerificacion: fotosVerificacion, resolverVerificacion: resolverVerificacion,
     dispositivoConocido: dispositivoConocido, registrarDispositivo: registrarDispositivo, borrarDispositivos: borrarDispositivos,
     cambiarPassword: cambiarPassword, borrarSesionesDeUsuario: borrarSesionesDeUsuario,
+    estadosVendedores: estadosVendedores,
+    loginBloqueoGet: loginBloqueoGet, loginBloqueoPut: loginBloqueoPut, loginBloqueoBorrar: loginBloqueoBorrar,
+    crearBusqueda: crearBusqueda, busquedasAbiertas: busquedasAbiertas, busquedaPorId: busquedaPorId, busquedaAbiertaDe: busquedaAbiertaDe, cerrarBusqueda: cerrarBusqueda,
     tipo: 'postgres', listo: listo, cerrar: cerrar, tamanoBytes: tamanoBytes,
     usuarioPorEmail: usuarioPorEmail, usuarioPorId: usuarioPorId, crearUsuario: crearUsuario,
     crearSesion: crearSesion, sesionPorHash: sesionPorHash, borrarSesion: borrarSesion, limpiarVencidas: limpiarVencidas

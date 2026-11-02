@@ -67,7 +67,7 @@
 
     function titulo() {
         const t = el("h3", "", "🛡️ Moderar");
-        const sub = el("div", "modSub", (objetivo.tipo === "usuario" ? "Perfil: " : "Publicación: ") + (objetivo.nombre || objetivo.id));
+        const sub = el("div", "modSub", ({ usuario: "Perfil: ", post: "Post de perfil: ", comentario: "Comentario: " }[objetivo.tipo] || "Publicación: ") + (objetivo.nombre || objetivo.id));
         panel.append(t, sub);
     }
 
@@ -153,7 +153,7 @@
         // Reportes
         const pendientes = r.reportes.filter(function (x) { return x.estado === "pendiente"; }).length;
         const caja = el("div", "modCaja");
-        caja.appendChild(el("strong", "", (objetivo.tipo === "usuario" ? "Reportes de este perfil" : "Reportes de esta publicación") + " (" + r.reportes.length + ")"));
+        caja.appendChild(el("strong", "", ({ usuario: "Reportes de este perfil", post: "Reportes de este post", comentario: "Reportes de este comentario" }[objetivo.tipo] || "Reportes de esta publicación") + " (" + r.reportes.length + ")"));
         if (!r.reportes.length) caja.appendChild(el("div", "modMeta", "Nadie la reportó todavía."));
         r.reportes.forEach(function (x) {
             const fila = el("div", "modReporte");
@@ -269,7 +269,7 @@
 
     window.abrirModeracionNivan = function (tipo, id, nombre) {
         asegurarVentana();
-        objetivo = { tipo: tipo === "usuario" ? "usuario" : "publicacion", id: String(id), nombre: nombre || "" };
+        objetivo = { tipo: ["usuario", "post", "comentario"].indexOf(tipo) >= 0 ? tipo : "publicacion", id: String(id), nombre: nombre || "" };
         overlay.classList.add("abierto");
         cargar();
     };

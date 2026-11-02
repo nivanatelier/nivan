@@ -78,7 +78,7 @@ público, y comprador/vendedor ven nombre, teléfono y dirección del pedido que
 - Eliminación: **Sí**, con las dos vías de arriba. Al eliminar se borran la cuenta, sesiones, publicaciones,
   reseñas, chats, dispositivos, fotos de verificación y las fotos/videos en Cloudinary. **Se conservan** los pedidos ya
   hechos en el historial de la otra persona. Si Play lo pregunta, declará esa excepción.
-- Las fotos del documento y la selfie se borran del servidor cuando termina la revisión.
+- Las fotos del documento y la selfie se borran al rechazar la verificación. Si se aprueba, se guardan en el servidor hasta que la administración las borre (también se borran al cancelar la identidad, con un baneo permanente o al eliminar la cuenta). **Ajustá la política de privacidad y el formulario de Play a esto.**
 
 ## 6. Antes de enviar el formulario, corregí esto
 
@@ -86,7 +86,7 @@ público, y comprador/vendedor ven nombre, teléfono y dirección del pedido que
    Corré `node backend/generar-privacidad.js tu-correo@ejemplo.com` y volvé a desplegar. Sin eso Google rechaza la política.
 2. **La política dice cosas que el servidor hoy no hace.** La cláusula 3 habla de conservar una huella (hash) del
    número de documento y de guardar de forma permanente las fotos de usuarios sancionados, para que no vuelvan a registrarse.
-   En el código, al resolver la verificación se borran siempre las fotos, no se guarda ninguna huella del documento
+   En el código, al rechazar la verificación se borran las fotos (al aprobar se conservan hasta que la administración las borre), no se guarda ninguna huella del documento
    y el baneo se aplica por cuenta/email. La política tiene que describir lo que realmente pasa: o se implementa
    eso, o se ajusta el texto. (No toqué la política: es un texto legal y es decisión tuya.)
 3. **La política dice que se recopilan "registros técnicos" y "tipo de dispositivo"**: está bien, pero acordate de

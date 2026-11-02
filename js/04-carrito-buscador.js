@@ -214,7 +214,7 @@ function abrirReporteNivan(tipo, idObjetivo, nombreObjetivo) {
     }
 
     // Las cuentas de administración no reportan: moderan (ver reportes y suspender o banear).
-    if (esAdminNivan() && (tipo === "usuario" || (tipo === "publicacion" && String(idObjetivo).indexOf("post:") !== 0))) {
+    if (esAdminNivan()) {
         abrirModeracionNivan(tipo, idObjetivo, nombreObjetivo);
         return;
     }
@@ -231,6 +231,8 @@ function abrirReporteNivan(tipo, idObjetivo, nombreObjetivo) {
         ? `Vas a reportar al usuario ${nombreObjetivo || ""}. Contanos por qué.`
         : tipo === "comentario"
             ? `Vas a reportar el comentario "${nombreObjetivo || ""}". Contanos por qué.`
+            : tipo === "post"
+                ? `Vas a reportar el post "${nombreObjetivo || ""}". Contanos por qué.`
             : `Vas a reportar la publicación "${nombreObjetivo || ""}". Contanos por qué.`;
   
     document.getElementById("listaMotivosReporte").innerHTML = MOTIVOS_REPORTE_NIVAN.map(function(motivo) {
@@ -380,11 +382,9 @@ async function enviarReporteNivan() {
 
     const detalle = limpiarTextoNivan(document.getElementById("detalleReporteNivan").value, 300).trim();
 
-    // Publicaciones y cuentas se reportan también al servidor, que es donde moderación los ve.
-    // Los posts del feed y los comentarios todavía viven solo en el celular.
+    // Todo se reporta al servidor, que es donde moderación lo ve (publicaciones, cuentas, posts del perfil y comentarios).
     const motivoElegido = motivoReporteNivanElegido;
-    const alServidor = (reporteNivanActual.tipo === "usuario" || (reporteNivanActual.tipo === "publicacion" && String(reporteNivanActual.id).indexOf("post:") !== 0))
-        ? { tipo: reporteNivanActual.tipo, objetivoId: String(reporteNivanActual.id) } : null;
+    const alServidor = { tipo: reporteNivanActual.tipo, objetivoId: String(reporteNivanActual.id) };
 
     const reportes = obtenerReportesNivan();
 

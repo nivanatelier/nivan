@@ -288,6 +288,13 @@ RUTAS['POST /api/registro'] = async function (req, res) {
     await iniciarSesionEn(res, req, usuario, 201, cookieDisp(tokenDisp));
 };
 
+const INTENTOS_LOGIN = [3, 2, 1];                                   // intentos por etapa
+const ESPERAS_LOGIN = [5 * 60 * 1000, 30 * 60 * 1000, 24 * 3600 * 1000];   // espera al agotarlos
+function textoEsperaLogin(ms) {
+    const min = Math.ceil(ms / 60000);
+    const t = min >= 120 ? Math.ceil(min / 60) + ' horas' : min >= 60 ? '1 hora' + (min > 60 ? ' y ' + (min - 60) + ' min' : '') : min + ' min';
+    return 'Ingreso bloqueado por demasiados intentos. Probá de nuevo en ' + t + '.';
+}
 RUTAS['POST /api/login'] = async function (req, res) {
     const ip = seg.ipDe(req);
     const b = await leerJSON(req);
@@ -297,18 +304,40 @@ RUTAS['POST /api/login'] = async function (req, res) {
 
     // Límites: por dispositivo y por cuenta (frena a quien prueba contraseñas una tras otra).
     const claveEmail = 'login:' + email;
-    const espera = seg.limitar('login-ip:' + ip, 20, 15 * 60 * 1000) || seg.limitar(claveEmail, 8, 15 * 60 * 1000);
+    const espera = seg.limitar('login-ip:' + ip, 20, 15 * 60 * 1000) || seg.limitar(claveEmail, 30, 15 * 60 * 1000);
     if (espera) return error(res, 429, 'Demasiados intentos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+
+    // Bloqueo escalonado por cuenta: 3 fallos → 5 min · 2 más → 30 min · 1 más → 24 h (y así cada 24 h).
+    // Mientras dura la espera no se prueba ninguna contraseña (ni siquiera la correcta).
+    const bloqueo = await db.loginBloqueoGet(email);
+    const ahoraLogin = Date.now();
+    if (bloqueo && bloqueo.hasta > ahoraLogin) {
+        return responder(res, 429, { ok: false, bloqueada: true, esperaSeg: Math.ceil((bloqueo.hasta - ahoraLogin) / 1000), error: textoEsperaLogin(bloqueo.hasta - ahoraLogin) });
+    }
 
     const usuario = await db.usuarioPorEmail(email);
     let ok = false;
     if (usuario) ok = await seg.verificarPassword(password, usuario.passwordHash);
     else await seg.gastarTiempo(password);
 
-    if (!ok) return error(res, 401, 'Email o contraseña incorrectos.');
+    if (!ok) {
+        let e = bloqueo && (ahoraLogin - bloqueo.ultimo < 7 * 24 * 3600 * 1000) ? { fallos: bloqueo.fallos, fase: bloqueo.fase, hasta: 0, ultimo: ahoraLogin } : { fallos: 0, fase: 0, hasta: 0, ultimo: ahoraLogin };
+        e.fallos++; e.ultimo = ahoraLogin;
+        const tope = INTENTOS_LOGIN[Math.min(e.fase, INTENTOS_LOGIN.length - 1)];
+        if (e.fallos >= tope) {
+            const ms = ESPERAS_LOGIN[Math.min(e.fase, ESPERAS_LOGIN.length - 1)];
+            e.hasta = ahoraLogin + ms; e.fase++; e.fallos = 0;
+            await db.loginBloqueoPut(email, e);
+            return responder(res, 429, { ok: false, bloqueada: true, esperaSeg: Math.ceil(ms / 1000), error: 'Contraseña incorrecta. ' + textoEsperaLogin(ms) });
+        }
+        await db.loginBloqueoPut(email, e);
+        const quedan = tope - e.fallos;
+        return responder(res, 401, { ok: false, quedan: quedan, error: 'Email o contraseña incorrectos. Te ' + (quedan === 1 ? 'queda 1 intento' : 'quedan ' + quedan + ' intentos') + ' antes de que se bloquee el ingreso por un rato.' });
+    }
     const baneo = baneoActivo(usuario);
     if (baneo) return responder(res, 403, { ok: false, baneada: true, error: textoBaneo(baneo) });
     seg.olvidar(claveEmail);
+    if (bloqueo) await db.loginBloqueoBorrar(email);
 
     let tokenDisp = tokenDispDe(req);
     const nuevo = !tokenDisp || !(await db.dispositivoConocido(usuario.id, hashDisp(tokenDisp)));
@@ -318,6 +347,34 @@ RUTAS['POST /api/login'] = async function (req, res) {
         avisarNuevoDispositivo(usuario, req).catch(function (e) { console.error('Aviso de inicio de sesión:', e && e.message); });
     }
     await iniciarSesionEn(res, req, usuario, 200, cookieDisp(tokenDisp));
+};
+
+// Solicitud de prenda a medida: llega por mail a Nivan (MAIL_ATELIER, por defecto nivanatelier@gmail.com).
+const MAIL_ATELIER = String(process.env.MAIL_ATELIER || 'nivanatelier@gmail.com').trim();
+RUTAS['POST /api/medida'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'Iniciá sesión o creá tu cuenta para enviar la solicitud.');
+    const espera = seg.limitar('medida:' + u.id, 5, 24 * 3600 * 1000);
+    if (espera) return error(res, 429, 'Ya enviaste varias solicitudes hoy. Probá de nuevo más tarde.');
+    const b = await leerJSON(req);
+    const emailCliente = String(b.email || '').trim().toLowerCase().slice(0, 120);
+    if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(emailCliente)) return error(res, 400, 'El correo electrónico no es válido.');
+    const campos = (Array.isArray(b.campos) ? b.campos : []).slice(0, 40).map(function (c) {
+        return { k: String(c && c.etiqueta || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 80), v: String(c && c.valor || '').replace(/\r/g, '').trim().slice(0, 1500) };
+    }).filter(function (c) { return c.k && c.v; });
+    if (!campos.length) return error(res, 400, 'La solicitud está vacía.');
+    const numero = String(b.numero || '').replace(/\D/g, '').slice(0, 8) || String(Date.now()).slice(-6);
+    const tipo = String((campos.find(function (c) { return /qué querés crear|tipo de prenda/i.test(c.k); }) || {}).v || 'prenda').replace(/[\r\n]+/g, ' ').slice(0, 60);
+    if (!emailConfigurado()) return error(res, 503, 'Por ahora no podemos recibir solicitudes por correo. Probá de nuevo más tarde o escribinos a ' + MAIL_ATELIER + '.');
+    const texto = 'Nueva solicitud a medida #' + numero + '\n\n'
+        + 'Cuenta: ' + u.nombre + ' (' + u.email + ')' + (u.idPublico ? ' · ID ' + u.idPublico : '') + '\n'
+        + 'Correo de contacto: ' + emailCliente + '\n'
+        + 'País: ' + String(b.pais || '').slice(0, 2).toUpperCase() + '\n\n'
+        + campos.map(function (c) { return c.k + ': ' + c.v; }).join('\n')
+        + '\n\nPodés responder este mail: la respuesta va al correo de contacto.';
+    const d = await enviarEmailDetalle(MAIL_ATELIER, 'Solicitud a medida #' + numero + ' · ' + tipo, texto, emailCliente);
+    if (!d.ok) return error(res, 502, 'No pudimos enviar tu solicitud. Probá de nuevo en unos minutos.');
+    responder(res, 200, { ok: true, numero: numero });
 };
 
 RUTAS['POST /api/logout'] = async function (req, res) {
@@ -376,13 +433,13 @@ const MIN_CODIGO = 10;
 function emailConfigurado() { return !!(process.env.BREVO_API_KEY && process.env.MAIL_DE); }
 const BREVO_URL = process.env.BREVO_URL || 'https://api.brevo.com/v3/smtp/email';
 // Devuelve { ok, estado, detalle }. estado = código HTTP de Brevo (0 si ni siquiera se pudo conectar).
-async function enviarEmailDetalle(para, asunto, texto) {
+async function enviarEmailDetalle(para, asunto, texto, responderA) {
     if (!emailConfigurado()) return { ok: false, estado: -1, detalle: 'faltan variables' };
     try {
         const r = await fetch(BREVO_URL, {
             method: 'POST',
             headers: { 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify({ sender: { name: 'Nivan', email: process.env.MAIL_DE }, to: [{ email: para }], subject: asunto, textContent: texto }),
+            body: JSON.stringify(Object.assign({ sender: { name: 'Nivan', email: process.env.MAIL_DE }, to: [{ email: para }], subject: asunto, textContent: texto }, responderA ? { replyTo: { email: responderA } } : {})),
             signal: AbortSignal.timeout(15000)
         });
         if (r.ok) return { ok: true, estado: r.status, detalle: '' };
@@ -495,6 +552,7 @@ RUTAS['POST /api/recuperar/restablecer'] = async function (req, res) {
     await db.borrarSesionesDeUsuario(usuario.id);   // se cierran todas las sesiones abiertas
     CODIGOS.delete(email);
     seg.olvidar('login:' + email);
+    await db.loginBloqueoBorrar(email);
     responder(res, 200, { ok: true });
 };
 
@@ -558,15 +616,6 @@ RUTAS['POST /api/admin/entrar'] = async function (req, res) {
     console.log('[admin] ' + u.email + ' entró al panel');
     responder(res, 200, { ok: true });
 };
-// Manda un mail de prueba SOLO a la cuenta del admin y le dice, en palabras, por qué falla si falla.
-RUTAS['POST /api/admin/probar-email'] = async function (req, res) {
-    const admin = await soloAdmin(req, res);
-    if (!admin) return;
-    const espera = seg.limitar('probarmail:' + admin.id, 5, 10 * 60 * 1000);
-    if (espera) return error(res, 429, 'Probaste muchas veces. Esperá unos minutos.');
-    const d = await enviarEmailDetalle(admin.email, 'Prueba de Nivan', 'Si estás leyendo esto, el envío de mails de Nivan funciona.');
-    responder(res, 200, { ok: true, enviado: d.ok, para: admin.email, explicacion: explicarFalloEmail(d) });
-};
 RUTAS['POST /api/admin/salir'] = async function (req, res) {
     const sesion = await seg.sesionDe(req);
     if (sesion) desbloqueos.delete(sesion.h);
@@ -584,6 +633,44 @@ RUTAS['POST /api/admin/verificacion/ver'] = async function (req, res) {
     if (!fotos) return error(res, 404, 'Ya no hay fotos para esa persona.');
     responder(res, 200, { ok: true, fotos: fotos });
 };
+// Gente ya aprobada (la más antigua primero), con la opción de ver/borrar sus fotos y de cancelar su identidad.
+RUTAS['POST /api/admin/aprobadas'] = async function (req, res) {
+    if (!(await soloAdmin(req, res))) return;
+    responder(res, 200, { ok: true, aprobadas: await db.verificacionesAprobadas() });
+};
+RUTAS['POST /api/admin/verificacion/borrar-todas'] = async function (req, res) {
+    const admin = await soloAdmin(req, res);
+    if (!admin) return;
+    const n = await db.borrarTodasLasFotosRevisadas();
+    console.log('[admin] ' + admin.email + ' borró todas las fotos de identidad ya revisadas (' + n + ')');
+    responder(res, 200, { ok: true, borradas: n });
+};
+RUTAS['POST /api/admin/verificacion/borrar-fotos'] = async function (req, res) {
+    const admin = await soloAdmin(req, res);
+    if (!admin) return;
+    const b = await leerJSON(req);
+    const id = String(b.usuarioId || '');
+    const u = await db.usuarioPorId(id);
+    if (!u) return error(res, 404, 'Esa cuenta ya no existe.');
+    await db.borrarFotosVerificacion(id);
+    console.log('[admin] ' + admin.email + ' borró las fotos de identidad de ' + u.email);
+    responder(res, 200, { ok: true });
+};
+// Cancelar una identidad aprobada: vuelve a "rechazada" (hay que verificarse de nuevo). Sus publicaciones dejan de verse
+// hasta que la identidad vuelva a ser aceptada (no se borran). Se borran también las fotos guardadas.
+RUTAS['POST /api/admin/verificacion/cancelar'] = async function (req, res) {
+    const admin = await soloAdmin(req, res);
+    if (!admin) return;
+    const b = await leerJSON(req);
+    const id = String(b.usuarioId || '');
+    const u = await db.usuarioPorId(id);
+    if (!u || !u.verificacion || u.verificacion.estado !== 'aprobada') return error(res, 404, 'Esa identidad ya no está aprobada.');
+    if (esAdmin(u)) return error(res, 400, 'Una cuenta de administración no necesita verificación.');
+    const motivo = limpiarTextoCorto(b.motivo, 200) || 'Tu identidad fue cancelada. Volvé a verificarla.';
+    await db.resolverVerificacion(id, { estado: 'rechazada', enviada: u.verificacion.enviada, revisada: Date.now(), motivo: motivo, bloqueoReclamos: !!u.verificacion.bloqueoReclamos, cancelada: true }, false);
+    console.log('[admin] ' + admin.email + ' canceló la identidad de ' + u.email + ' · ' + motivo);
+    responder(res, 200, { ok: true });
+};
 RUTAS['POST /api/admin/verificacion/resolver'] = async function (req, res) {
     const admin = await soloAdmin(req, res);
     if (!admin) return;
@@ -597,11 +684,23 @@ RUTAS['POST /api/admin/verificacion/resolver'] = async function (req, res) {
         motivo: b.decision === 'rechazada' ? String(b.motivo || 'No pudimos validar tus fotos.').slice(0, 200) : '',
         bloqueoReclamos: !!u.verificacion.bloqueoReclamos
     };
-    await db.resolverVerificacion(id, nueva);
+    await db.resolverVerificacion(id, nueva, b.decision === 'aprobada');
     console.log('[admin] ' + admin.email + ' ' + b.decision + ' a ' + u.email);
     responder(res, 200, { ok: true });
 };
 
+
+// Solo vende quien tiene la identidad APROBADA (o es de administración). Devuelve los ids, entre los dados, que NO pueden vender.
+// Sirve para ocultar y rechazar compras de publicaciones viejas de cuentas que todavía no fueron aprobadas.
+async function vendedoresNoHabilitados(ids) {
+    const unicos = Array.from(new Set(ids.filter(Boolean)));
+    const no = new Set();
+    if (!unicos.length) return no;
+    (await db.estadosVendedores(unicos)).forEach(function (f) {
+        if (f.estado !== 'aprobada' && ADMINS.indexOf(String(f.email).toLowerCase()) < 0) no.add(f.id);
+    });
+    return no;
+}
 
 // ---- Cuentas: buscar y banear (solo admins, con la clave del panel) ----
 async function buscarCuenta(texto) {
@@ -618,6 +717,18 @@ function textoMedida(b) {
     const que = a === 'todo' ? 'baneo temporal' : 'suspensión para ' + (a === 'comprar' ? 'comprar' : a === 'vender' ? 'vender' : 'comprar y vender');
     return que + ' hasta el ' + fechaCorta(b.hasta);
 }
+// Todas las cuentas con baneo o suspensión vigente, por categoría y, dentro de cada una, de la más antigua a la más reciente.
+const CATEGORIAS_BANEO = ['permanente', 'temporal', 'vender', 'comprar', 'comprar_vender'];
+function categoriaBaneo(b) { return b.permanente ? 'permanente' : (alcanceDe(b) === 'todo' ? 'temporal' : alcanceDe(b)); }
+RUTAS['POST /api/admin/baneados'] = async function (req, res) {
+    if (!(await soloAdmin(req, res))) return;
+    const ahora = Date.now();
+    const lista = (await db.cuentasConBaneo()).filter(function (u) { return u.baneo.permanente || (u.baneo.hasta || 0) > ahora; }).map(function (u) {
+        const b = u.baneo;
+        return { id: u.id, nombre: u.nombre, email: u.email, idPublico: u.idPublico, categoria: categoriaBaneo(b), fecha: b.fecha || 0, hasta: b.permanente ? null : b.hasta, motivo: b.motivo || '', por: b.por || '' };
+    }).sort(function (a, b) { return a.fecha - b.fecha; });
+    responder(res, 200, { ok: true, categorias: CATEGORIAS_BANEO, baneados: lista });
+};
 RUTAS['POST /api/admin/cuenta/buscar'] = async function (req, res) {
     if (!(await soloAdmin(req, res))) return;
     const b = await leerJSON(req);
@@ -646,8 +757,16 @@ RUTAS['POST /api/admin/cuenta/banear'] = async function (req, res) {
         baneo = { permanente: false, hasta: Date.now() + dias * 86400000, motivo: motivo, fecha: Date.now(), por: admin.email, alcance: alcance };
     } else return error(res, 400, 'Elegí si el baneo es permanente o temporal.');
     await db.fijarBaneo(u.id, baneo);
+    // Baneo permanente: se borran para siempre sus publicaciones, sus fotos/videos y las fotos de su identidad.
+    if (baneo.permanente) {
+        const pubs = await db.publicacionesDeUsuario(u.id);
+        for (const p of pubs) await db.eliminarPublicacion(p.id);
+        borrarQuitadosDeNube(await db.borrarMediosSobrantes(u.id, []));
+        await db.borrarFotosVerificacion(u.id);
+        console.log('[admin] baneo permanente: se borraron ' + pubs.length + ' publicación(es) y las fotos de ' + u.email);
+    }
     // Si la medida salió de un reporte, esos reportes quedan como resueltos.
-    const repTipo = b.reporte && b.reporte.tipo === 'usuario' ? 'usuario' : 'publicacion';
+    const repTipo = (b.reporte && tipoDeReporte(b.reporte.tipo)) || 'publicacion';
     if (b.reporte && b.reporte.objetivoId != null) {
         await db.cerrarReportes(repTipo, String(b.reporte.objetivoId).slice(0, 60), 'resuelto', textoMedida(baneo));
     }
@@ -671,7 +790,18 @@ const MOTIVOS_REPORTE = { estafa: 'Estafa o intento de fraude', prohibido: 'Prod
     ofensivo: 'Contenido ofensivo, discriminatorio o acoso', spam: 'Spam o publicidad no autorizada', suplantacion: 'Suplantación de identidad', otro: 'Otro motivo' };
 function limpiarTextoCorto(t, max) { return String(t == null ? '' : t).replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max); }
 // A qué cuenta corresponde lo reportado (el dueño de la publicación, o la cuenta misma).
+const TIPOS_REPORTE = ['usuario', 'publicacion', 'post', 'comentario'];
+function tipoDeReporte(t) { return TIPOS_REPORTE.indexOf(t) >= 0 ? t : ''; }
 async function objetivoDeReporte(tipo, objetivoId) {
+    if (tipo === 'post') {       // post del perfil: el id es "idDelDueño_fecha"
+        const i = objetivoId.lastIndexOf('_');
+        const dueno = i > 0 ? await db.usuarioPorId(objetivoId.slice(0, i)) : null;
+        return dueno ? { cuentaId: dueno.id, nombre: 'Post de ' + limpiarTextoCorto(dueno.nombre, 60) } : null;
+    }
+    if (tipo === 'comentario') {
+        const c = await db.comentarioPorId(objetivoId);
+        return c ? { cuentaId: c.usuarioId, nombre: limpiarTextoCorto(c.texto, 60) } : null;
+    }
     if (tipo === 'publicacion') {
         const pub = await db.publicacionPorId(objetivoId);
         return pub ? { cuentaId: pub.vendedorId, nombre: limpiarTextoCorto(pub.datos && pub.datos.nombre, 80) } : null;
@@ -685,7 +815,7 @@ RUTAS['POST /api/reportes'] = async function (req, res) {
     const espera = seg.limitar('reporte:' + u.id, 30, 3600 * 1000);
     if (espera) return error(res, 429, 'Hiciste muchos reportes seguidos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
     const b = await leerJSON(req);
-    const tipo = b.tipo === 'usuario' ? 'usuario' : (b.tipo === 'publicacion' ? 'publicacion' : '');
+    const tipo = tipoDeReporte(b.tipo);
     const objetivoId = limpiarTextoCorto(b.objetivoId, 60);
     if (!tipo || !objetivoId) return error(res, 400, 'Reporte inválido.');
     if (!Object.prototype.hasOwnProperty.call(MOTIVOS_REPORTE, b.motivo)) return error(res, 400, 'Elegí un motivo.');
@@ -706,7 +836,7 @@ RUTAS['POST /api/reportes'] = async function (req, res) {
 RUTAS['POST /api/admin/reportes/objetivo'] = async function (req, res) {
     if (!(await soloAdmin(req, res))) return;
     const b = await leerJSON(req);
-    const tipo = b.tipo === 'usuario' ? 'usuario' : 'publicacion';
+    const tipo = tipoDeReporte(b.tipo) || 'publicacion';
     const objetivoId = limpiarTextoCorto(b.objetivoId, 60);
     if (!objetivoId) return error(res, 400, 'Falta qué moderar.');
     const reportes = await db.reportesDeObjetivo(tipo, objetivoId);
@@ -729,7 +859,7 @@ RUTAS['POST /api/admin/reportes/descartar'] = async function (req, res) {
     const admin = await soloAdmin(req, res);
     if (!admin) return;
     const b = await leerJSON(req);
-    const tipo = b.tipo === 'usuario' ? 'usuario' : 'publicacion';
+    const tipo = tipoDeReporte(b.tipo) || 'publicacion';
     await db.cerrarReportes(tipo, limpiarTextoCorto(b.objetivoId, 60), 'descartado', 'Sin medidas');
     console.log('[admin] ' + admin.email + ' descartó los reportes de ' + tipo + ' ' + b.objetivoId);
     responder(res, 200, { ok: true });
@@ -878,13 +1008,16 @@ RUTAS['POST /api/perfil/guardar'] = async function (req, res) {
 };
 
 RUTAS['GET /api/perfiles'] = async function (req, res) {
+    const yo = await usuarioDeSesion(req);
+    const sigo = {};     // cuentas que sigo: de esas veo los posts aunque sean privadas (como en Instagram)
+    if (yo) (await db.conjuntoClavesDeValores('seguidores', [yo.id, 'T:' + yo.id])).forEach(function (c) { if (String(c).indexOf('T:') !== 0) sigo[c] = true; });
     const lista = await db.usuariosPublicos(1000);
     const perfiles = [], ocultos = [];
     lista.forEach(function (u) {
         if (baneoActivo(u) || u.desactivada) { ocultos.push(u.id); return; }
         const p = u.perfil || {};
         const priv = p.privacidad || {};
-        const publico = (priv.verPerfil || 'todos') === 'todos';   // si la cuenta es privada, sus posts no salen del servidor
+        const publico = (priv.verPerfil || 'todos') === 'todos' || !!sigo[u.id] || !!(yo && yo.id === u.id);   // si la cuenta es privada, sus posts solo los reciben quienes la siguen (y ella misma)
         const elegir = function (propio, columna) { return propio !== undefined && propio !== null ? propio : (columna || ''); };
         perfiles.push({
             id: u.id, nombre: u.nombre, idPublico: u.idPublico, pais: u.pais || 'AR',
@@ -1034,7 +1167,10 @@ RUTAS['GET /api/publicaciones'] = async function (req, res) {
     const pais = pedido === 'UY' || pedido === 'AR' ? pedido : null;
     const u = await usuarioDeSesion(req);
     const baneados = new Set(await db.idsBaneados());
-    const filas = (await db.publicacionesPorPais(pais, u ? u.id : '', 600)).filter(function (f) { return !baneados.has(f.vendedorId); });
+    const todas = (await db.publicacionesPorPais(pais, u ? u.id : '', 600)).filter(function (f) { return !baneados.has(f.vendedorId); });
+    // Las publicaciones de cuentas sin identidad aprobada no se muestran a los demás (cada persona sí ve las suyas).
+    const noHab = await vendedoresNoHabilitados(todas.map(function (f) { return f.vendedorId; }));
+    const filas = todas.filter(function (f) { return (u && f.vendedorId === u.id) || !noHab.has(f.vendedorId); });
     const lista = filas.map(function (f) {
         return Object.assign({}, f.datos, { id: f.datos.id, vendedorId: f.vendedorId, pais: f.pais, activo: f.activo });
     });
@@ -1151,6 +1287,7 @@ RUTAS['POST /api/pedidos/crear'] = async function (req, res) {
     if (!entrada.length || entrada.length > MAX_ITEMS_PEDIDO) return error(res, 400, 'El carrito está vacío o tiene demasiados productos.');
 
     const baneados = new Set(await db.idsBaneados());
+    const noHab = await vendedoresNoHabilitados(entrada.map(function (it) { return it && it.vendedorId ? String(it.vendedorId).slice(0, 60) : ''; }));
     const grupos = [];
     for (const it of entrada) {
         if (!it || typeof it !== 'object') return error(res, 400, 'Producto inválido.');
@@ -1160,7 +1297,7 @@ RUTAS['POST /api/pedidos/crear'] = async function (req, res) {
         let nombre, precioUnitario;
         if (vendedorId) {
             const pub = await db.publicacionPorId(String(it.id == null ? '' : it.id).slice(0, 40));
-            if (!pub || pub.vendedorId !== vendedorId || !pub.activo || baneados.has(vendedorId)) return error(res, 409, 'Una de las publicaciones ya no está disponible.');
+            if (!pub || pub.vendedorId !== vendedorId || !pub.activo || baneados.has(vendedorId) || noHab.has(vendedorId)) return error(res, 409, 'Una de las publicaciones ya no está disponible.');
             if (pub.pais !== pais) return error(res, 409, 'Una de las publicaciones es de otro país.');
             nombre = txt(pub.datos.nombre, 120);
             precioUnitario = precioDePublicacion(pub.datos, cantidad);
@@ -1177,6 +1314,20 @@ RUTAS['POST /api/pedidos/crear'] = async function (req, res) {
         if (g.vendedorId && !g.vendedorNombre) { const v = await db.usuarioPorId(g.vendedorId); g.vendedorNombre = v ? (v.nombreTienda || v.nombre) : 'Vendedor'; }
     }
 
+    // Cupón: el descuento lo calcula el servidor con las reglas reales del cupón. Lo que mande la app (monto, tienda) no cuenta.
+    let cuponAplicado = null, cuponGastado = null;
+    if (b.cupon && typeof b.cupon === 'object' && b.cupon.codigo) {
+        const c = (await db.cuponesPorCodigo(normalizarCodigoCupon(b.cupon.codigo))).find(cuponUsableServidor);
+        if (!c) return error(res, 409, 'Ese cupón ya no está disponible.');
+        if (!(await puedeUsarCuponServidor(c, u))) return error(res, 403, 'No estás habilitado para usar este cupón.');
+        const g = grupos.find(function (x) { return x.vendedorId === c.vendedorId; });
+        const enAlcance = g ? g.items.filter(function (it) { return !c.datos.productoId || String(it.id) === String(c.datos.productoId); }) : [];
+        const base = enAlcance.reduce(function (a, it) { return a + it.precioUnitario * it.cantidad; }, 0);
+        if (!g || base <= 0) return error(res, 409, 'El cupón no aplica a los productos de tu carrito.');
+        const bruto = c.datos.tipo === 'porcentaje' ? base * (Number(c.datos.valor) / 100) : Math.min(Number(c.datos.valor), base);
+        cuponAplicado = { id: c.id, codigo: c.codigo, vendedorId: c.vendedorId, descuento: Math.max(0, Math.min(Math.round(bruto), base)) };
+    }
+
     let numero;
     for (let n = 0; n < 5; n++) {
         const c = 'NV-' + new Date().getFullYear() + '-' + (100000 + crypto.randomInt(900000));
@@ -1184,23 +1335,32 @@ RUTAS['POST /api/pedidos/crear'] = async function (req, res) {
     }
     if (!numero) return error(res, 500, 'No se pudo generar el número de pedido. Probá de nuevo.');
 
-    const cupon = b.cupon && typeof b.cupon === 'object' ? b.cupon : null;
     const ahora = Date.now();
     const filas = grupos.map(function (g, i) {
         const subtotal = g.items.reduce(function (a, it) { return a + it.precioUnitario * it.cantidad; }, 0);
-        const aplica = !!(cupon && String(cupon.vendedorId || '') === g.vendedorId);
-        const descuento = aplica ? Math.max(0, Math.min(Number(cupon.descuento) || 0, subtotal)) : 0;
+        const aplica = !!(cuponAplicado && cuponAplicado.vendedorId === g.vendedorId);
+        const descuento = aplica ? Math.min(cuponAplicado.descuento, subtotal) : 0;
         const id = grupos.length > 1 ? numero + '-' + (i + 1) : numero;
         const pedido = {
             id: id, numeroPedido: numero, compradorId: u.id, compradorNombre: comp.nombre, compradorEmail: comp.email, compradorTelefono: comp.telefono,
             vendedorId: g.vendedorId || null, vendedorNombre: g.vendedorNombre, envio: comp.envio, pago: comp.pago,
             direccion: comp.direccion, ciudad: comp.ciudad, codigoPostal: comp.codigoPostal, items: g.items, subtotal: subtotal,
-            cupon: aplica ? { codigo: txt(cupon.codigo, 40), descuento: descuento } : null, total: Math.max(0, subtotal - descuento),
+            cupon: aplica ? { codigo: cuponAplicado.codigo, descuento: descuento } : null, total: Math.max(0, subtotal - descuento),
             pais: pais, fecha: ahora, estado: 'pendiente', historial: [{ estado: 'pendiente', fecha: ahora }]
         };
         return { id: id, compradorId: u.id, vendedorId: g.vendedorId || null, pais: pais, datos: pedido, creado: ahora, actualizado: ahora };
     });
-    await db.crearPedidos(filas);
+    // Se gasta un uso del cupón justo antes de crear el pedido (si dos personas lo piden a la vez, solo una se lleva el último uso).
+    if (cuponAplicado) {
+        if (!(await db.cuponUsar(cuponAplicado.id))) return error(res, 409, 'Ese cupón se agotó recién. Quitalo del carrito y volvé a intentar.');
+        cuponGastado = cuponAplicado.id;
+    }
+    try {
+        await db.crearPedidos(filas);
+    } catch (e) {
+        if (cuponGastado) await db.cuponDevolverUso(cuponGastado);
+        throw e;
+    }
     responder(res, 200, { ok: true, numeroPedido: numero, pedidos: filas.map(function (f) { return f.datos; }) });
 };
 
@@ -1388,6 +1548,7 @@ RUTAS['POST /api/chats/enviar'] = async function (req, res) {
     if (espera) return error(res, 429, 'Estás mandando mensajes demasiado rápido. Probá de nuevo en un momento.');
     const b = await leerJSON(req, 256 * 1024);
     const info = await validarChatDe(u, b.chat);
+    if (await hayBloqueoEntre(u.id, info.otroId)) return error(res, 403, 'No se pudo enviar el mensaje a esta cuenta.');
     const ahora = Date.now();
 
     const previa = await db.chatPorId(info.id);
@@ -1439,6 +1600,68 @@ function fechaEntregaPedido(d) {
     const h = (Array.isArray(d.historial) ? d.historial : []).filter(function (e) { return e && e.estado === 'entregado'; });
     return h.length ? Number(h[h.length - 1].fecha) || 0 : Number(d.fecha) || 0;
 }
+
+// ---- "Se busca": pedidos para que alguien venda en un país algo que se vio en el otro ----
+// Mirar las publicaciones del otro país es solo mirar (no se compra). Quien quiere algo así en su país lo pide acá,
+// y quienes venden en ese país ven cuánta gente lo busca. Varias personas que piden lo mismo se cuentan juntas.
+const PAISES_BUSQUEDA = ['AR', 'UY'];
+function imagenSegura(s) {
+    s = String(s == null ? '' : s);
+    return s.length <= 300 && (/^\/api\/medio\/[a-f0-9]{24}$/.test(s) || /^https:\/\/[^\s"'<>]+$/.test(s)) ? s : '';
+}
+RUTAS['GET /api/busquedas'] = async function (req, res) {
+    const url = new URL(req.url, 'http://localhost');
+    const pais = url.searchParams.get('pais');
+    if (PAISES_BUSQUEDA.indexOf(pais) < 0) return error(res, 400, 'Elegí un país.');
+    const u = await usuarioDeSesion(req);
+    const baneados = new Set(await db.idsBaneados());
+    const abiertas = (await db.busquedasAbiertas(pais, 500)).filter(function (b) { return !baneados.has(b.usuarioId); });
+    const porClave = {};
+    abiertas.forEach(function (b) {   // de la más nueva a la más vieja
+        const k = b.refPais + ':' + b.refId;
+        const g = porClave[k] || (porClave[k] = { refId: b.refId, refPais: b.refPais, nombre: b.refNombre, categoria: b.refCategoria, imagen: b.refImagen,
+            cantidad: 0, notas: [], mia: false, miaId: null, ultima: b.creada });
+        g.cantidad++;
+        if (b.nota && g.notas.length < 3) g.notas.push({ nombre: b.nombre, nota: b.nota });
+        if (u && b.usuarioId === u.id) { g.mia = true; g.miaId = b.id; }
+    });
+    const grupos = Object.keys(porClave).map(function (k) { return porClave[k]; })
+        .sort(function (a, b) { return b.cantidad - a.cantidad || b.ultima - a.ultima; }).slice(0, 100);
+    responder(res, 200, { ok: true, grupos: grupos });
+};
+RUTAS['POST /api/busquedas/crear'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'Iniciá sesión para pedir que alguien venda algo así.');
+    const espera = seg.limitar('busq:' + u.id, 10, 24 * 3600 * 1000);
+    if (espera) return error(res, 429, 'Hiciste muchos pedidos hoy. Probá de nuevo más tarde.');
+    const b = await leerJSON(req);
+    const pais = String(b.pais || '');
+    if (PAISES_BUSQUEDA.indexOf(pais) < 0) return error(res, 400, 'Elegí un país.');
+    const pubId = String(b.publicacionId == null ? '' : b.publicacionId).slice(0, 40);
+    const pub = pubId ? await db.publicacionPorId(pubId) : null;
+    if (!pub || !pub.activo) return error(res, 404, 'Esa publicación ya no está disponible.');
+    if (pub.pais === pais) return error(res, 400, 'Eso ya se vende en tu país: lo ves en el catálogo.');
+    const baneados = new Set(await db.idsBaneados());
+    const noHab = await vendedoresNoHabilitados([pub.vendedorId]);
+    if (baneados.has(pub.vendedorId) || noHab.has(pub.vendedorId)) return error(res, 404, 'Esa publicación ya no está disponible.');
+    if (await db.busquedaAbiertaDe(u.id, pub.id, pais)) return error(res, 409, 'Ya pediste algo así: quienes venden en tu país ya lo ven.');
+    const d = pub.datos || {};
+    const x = { id: 'BUS-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex'), usuarioId: u.id, nombre: limpiarTextoCorto(u.nombre, 60) || 'Alguien',
+        pais: pais, refId: pub.id, refPais: pub.pais, refNombre: limpiarTextoCorto(d.nombre, 80), refCategoria: limpiarTextoCorto(d.categoria, 40),
+        refImagen: imagenSegura(d.imagen), nota: limpiarTextoCorto(b.nota, 200), creada: Date.now() };
+    await db.crearBusqueda(x);
+    responder(res, 200, { ok: true, id: x.id });
+};
+RUTAS['POST /api/busquedas/cerrar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'Iniciá sesión.');
+    const b = await leerJSON(req);
+    const x = await db.busquedaPorId(String(b.id == null ? '' : b.id).slice(0, 60));
+    if (!x || x.cerrada) return error(res, 404, 'Ese pedido ya no existe.');
+    if (x.usuarioId !== u.id) return error(res, 403, 'Ese pedido no es tuyo.');
+    await db.cerrarBusqueda(x.id, Date.now());
+    responder(res, 200, { ok: true });
+};
 
 RUTAS['GET /api/resenias'] = async function (req, res) {
     const url = new URL(req.url, 'http://localhost');
@@ -1555,7 +1778,13 @@ RUTAS['GET /api/chats'] = async function (req, res) {
 // ------------------------------
 // Conjuntos: quién sigue a qué cuenta y a quién le gusta cada post. Cada persona solo cambia lo suyo.
 // ------------------------------
-const COLECCIONES_CONJUNTO = { seguidores: true, likes: true };
+const COLECCIONES_CONJUNTO = { seguidores: true, likes: true, bloqueos: true };
+
+// Bloqueo de ida y vuelta: si cualquiera de las dos personas bloqueó a la otra, no pueden escribirse, comentar, preguntar ni seguirse.
+async function hayBloqueoEntre(a, b) {
+    if (!a || !b) return false;
+    return (await db.conjuntoTiene('bloqueos', a, b)) || (await db.conjuntoTiene('bloqueos', b, a));
+}
 function duenoDeClaveCuenta(clave) { return String(clave).indexOf('T:') === 0 ? String(clave).slice(2) : String(clave); }
 
 RUTAS['POST /api/conjuntos/cambiar'] = async function (req, res) {
@@ -1574,9 +1803,12 @@ RUTAS['POST /api/conjuntos/cambiar'] = async function (req, res) {
         let permitido = false;
         if (coleccion === 'likes') {
             permitido = valor === u.id;
+        } else if (coleccion === 'bloqueos') {
+            // clave = quien bloquea (siempre yo), valor = a quién bloqueo. Quitar el bloqueo también es solo mío.
+            permitido = clave === u.id && valor !== u.id && (accion === 'quitar' || !!(await db.usuarioPorId(valor)));
         } else {
             const duenoValor = duenoDeClaveCuenta(valor), duenoClave = duenoDeClaveCuenta(clave);
-            if (accion === 'agregar') permitido = duenoValor === u.id && duenoClave !== u.id && !!(await db.usuarioPorId(duenoClave));
+            if (accion === 'agregar') permitido = duenoValor === u.id && duenoClave !== u.id && !!(await db.usuarioPorId(duenoClave)) && !(await hayBloqueoEntre(u.id, duenoClave));
             else permitido = duenoValor === u.id || duenoClave === u.id;      // seguirse a uno mismo no; quitar: el que sigue o el seguido
         }
         if (!permitido) { rechazados++; continue; }
@@ -1594,6 +1826,8 @@ RUTAS['GET /api/conjuntos'] = async function (req, res) {
     const u = await usuarioDeSesion(req);
     const yo = u ? u.id : null;
     let filas = await db.conjuntoLeer(coleccion);
+    // Los bloqueos son privados: cada persona recibe solo los suyos y los de quienes la bloquearon a ella (para que la app los esconda).
+    if (coleccion === 'bloqueos') filas = yo ? filas.filter(function (f) { return f.clave === yo || f.valor === yo; }) : [];
     if (coleccion === 'seguidores') {
         // Quién sigue a quién se muestra solo si las dos cuentas son públicas, o si una de las dos sos vos.
         const privados = {};
@@ -1633,7 +1867,10 @@ async function postAccesible(u, idPost) {
     if (!dueno || baneoActivo(dueno) || dueno.desactivada || !portafolio.some(function (p) { return p && Number(p.fecha) === fecha; })) throw { estado: 404, mensaje: 'Ese post ya no existe.' };
     const priv = dueno.perfil && dueno.perfil.privacidad;
     const privado = !!(priv && priv.verPerfil && priv.verPerfil !== 'todos');
-    if (privado && (!u || u.id !== dueno.id)) throw { estado: 404, mensaje: 'Ese post ya no existe.' };
+    if (privado && (!u || u.id !== dueno.id)) {
+        const losSigue = !!u && ((await db.conjuntoTiene('seguidores', dueno.id, u.id)) || (await db.conjuntoTiene('seguidores', dueno.id, 'T:' + u.id)));
+        if (!losSigue) throw { estado: 404, mensaje: 'Ese post ya no existe.' };
+    }
     return { id: id, dueno: dueno };
 }
 function comentarioPublico(c) {
@@ -1657,6 +1894,7 @@ RUTAS['POST /api/comentarios/crear'] = async function (req, res) {
     if (espera) return error(res, 429, 'Comentaste muchas veces seguidas. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
     const b = await leerJSON(req);
     const post = await postAccesible(u, b.postId);
+    if (await hayBloqueoEntre(u.id, post.dueno.id)) return error(res, 404, 'Ese post ya no existe.');
     const texto = textoChat(b.texto, MAX_COMENTARIO_POST).trim();
     if (!texto) return error(res, 400, 'Escribí un comentario.');
     const existentes = await db.comentariosDePost(post.id);
@@ -1696,7 +1934,8 @@ RUTAS['POST /api/comentarios/like'] = async function (req, res) {
     const b = await leerJSON(req);
     const c = await db.comentarioPorId(String(b.id || '').slice(0, 60));
     if (!c) return error(res, 404, 'Ese comentario ya no existe.');
-    await postAccesible(u, c.postId);
+    const postDelLike = await postAccesible(u, c.postId);
+    if (await hayBloqueoEntre(u.id, postDelLike.dueno.id)) return error(res, 404, 'Ese post ya no existe.');
     const likes = (Array.isArray(c.likes) ? c.likes : []).filter(function (x) { return x !== u.id; });
     if (b.like === true) likes.push(u.id);
     await db.guardarLikesComentario(c.id, likes);
@@ -1836,6 +2075,7 @@ RUTAS['POST /api/preguntas/crear'] = async function (req, res) {
     const pub = pubId ? await db.publicacionPorId(pubId) : null;
     if (!pub) return error(res, 404, 'Esa publicación ya no existe.');
     if (pub.vendedorId === u.id) return error(res, 403, 'No podés hacerte preguntas a vos mismo.');
+    if (await hayBloqueoEntre(u.id, pub.vendedorId)) return error(res, 403, 'No podés hacerle preguntas a este vendedor.');
     const texto = textoChat(b.texto, MAX_PREGUNTA).trim();
     if (!texto) return error(res, 400, 'Escribí tu pregunta antes de enviarla.');
     if ((await db.contarPreguntasDe(pubId)) >= MAX_PREGUNTAS_POR_PUBLICACION) return error(res, 400, 'Esta publicación ya tiene el máximo de preguntas.');
@@ -1857,6 +2097,271 @@ RUTAS['POST /api/preguntas/responder'] = async function (req, res) {
     if (!texto) return error(res, 400, 'Escribí una respuesta antes de enviarla.');
     await db.responderPregunta(q.id, texto, Date.now());
     responder(res, 200, { ok: true, pregunta: preguntaPublica(Object.assign({}, q, { respuesta: texto })) });
+};
+
+
+// ------------------------------
+// Solicitudes para ver un perfil privado
+// ------------------------------
+// Una solicitud es: "esta cuenta (personal o tienda) pide ver tu perfil (personal o tienda)".
+// Aceptarla = esa cuenta pasa a seguirte, y ahí ya recibe tus posts. Rechazarla no avisa a nadie.
+// Se guardan en la tabla de conjuntos: clave = "idDeQuienRecibe|ambito", valor = cuenta de quien pide ("id" o "T:id").
+const AMBITOS_SOLICITUD = ['tienda', 'personal'];
+function ambitoSolicitud(a) { return a === 'personal' ? 'personal' : 'tienda'; }
+function claveCuentaDe(idUsuario, ambito) { return ambito === 'personal' ? idUsuario : 'T:' + idUsuario; }
+
+// ------------------------------
+// Cupones de descuento (los crea cada tienda; los ve y los usa cualquier persona que cumpla las reglas)
+// ------------------------------
+// Cada cupón es de UNA tienda y descuenta solo en sus productos (en toda la tienda o en una publicación).
+// Lo puede usar quien tenga el código si el cupón no limita la audiencia; si la limita ("seguidores" / "clientes"),
+// solo quienes cumplan, o a quienes la tienda se lo envió directamente (habilitados).
+// El descuento lo calcula el servidor al comprar; los usos también se cuentan acá.
+const MAX_CUPONES_POR_TIENDA = 100;
+const AUDIENCIAS_CUPON = ['publico', 'seguidores', 'clientes'];
+const REGEX_CODIGO_CUPON = /^[A-Z0-9]{3,20}$/;
+const REGEX_ID_CUPON = /^CUP-\d{10,15}-\d{1,4}$/;
+function normalizarCodigoCupon(c) { return String(c == null ? '' : c).trim().toUpperCase().replace(/\s+/g, '').slice(0, 40); }
+function cuponUsableServidor(c) {
+    const d = c.datos || {};
+    if (!c.activo) return false;
+    if (d.vigenciaHasta && Date.now() > d.vigenciaHasta) return false;
+    if (d.usosMaximos && c.usos >= d.usosMaximos) return false;
+    return true;
+}
+function audienciaDeCupon(c) { return Array.isArray(c.datos.audiencia) ? c.datos.audiencia : []; }
+
+// ¿Esta persona puede usar este cupón? (misma regla que la app)
+async function puedeUsarCuponServidor(c, u, cache) {
+    const aud = audienciaDeCupon(c);
+    if (!aud.length || aud.indexOf('publico') !== -1) return true;
+    if (!u) return false;
+    if (u.id === c.vendedorId) return true;
+    if ((c.datos.habilitados || []).indexOf(u.id) !== -1) return true;
+    cache = cache || {};
+    if (aud.indexOf('seguidores') !== -1) {
+        if (!cache.seguidores) cache.seguidores = (await db.conjuntoLeer('seguidores'));
+        const clave = 'T:' + c.vendedorId;
+        if (cache.seguidores.some(function (f) { return f.clave === clave && (f.valor === u.id || f.valor === 'T:' + u.id); })) return true;
+    }
+    if (aud.indexOf('clientes') !== -1) {
+        if (!cache.pedidos) cache.pedidos = await db.pedidosDeUsuario(u.id, 500);
+        if (cache.pedidos.some(function (f) { return f.vendedorId === c.vendedorId && f.compradorId === u.id; })) return true;
+    }
+    return false;
+}
+
+// Lo que se le muestra a cada persona (los demás habilitados nunca se envían).
+function cuponPublico(c, yoId) {
+    const d = c.datos, propio = c.vendedorId === yoId;
+    return {
+        id: c.id, codigo: c.codigo, vendedorId: c.vendedorId, tipo: d.tipo, valor: d.valor, vigenciaHasta: d.vigenciaHasta || null,
+        usosMaximos: d.usosMaximos || null, usos: c.usos, activo: c.activo, audiencia: audienciaDeCupon(c),
+        habilitados: propio ? (d.habilitados || []) : ((d.habilitados || []).indexOf(yoId) !== -1 ? [yoId] : []),
+        productoId: d.productoId || null, productoNombre: d.productoNombre || '', creado: c.creado
+    };
+}
+async function codigoDeCuponEnUso(codigo, idExcluido) {
+    return (await db.cuponesPorCodigo(codigo)).some(function (c) { return c.id !== idExcluido && cuponUsableServidor(c); });
+}
+async function exigirPoderVender(u, res) {
+    const sinVender = restriccionActiva(u);
+    if (sinVender && restriccionPublica(u).vender) { error(res, 403, textoRestriccion(sinVender, 'vender')); return false; }
+    const estadoVerif = esAdmin(u) ? 'aprobada' : (u.verificacion && u.verificacion.estado);
+    if (estadoVerif !== 'aprobada') { error(res, 403, 'Tenés que tener tu identidad aprobada para crear cupones.'); return false; }
+    return true;
+}
+
+// Los cupones que ve esta persona + los códigos que tiene guardados.
+RUTAS['GET /api/cupones'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    const yo = u ? u.id : null;
+    const todos = await db.cuponesTodos(5000);
+    const guardados = u ? await db.cuponesGuardadosDe(u.id) : [];
+    const cache = {};
+    const lista = [];
+    for (const c of todos) {
+        const propio = c.vendedorId === yo;
+        const guardado = guardados.indexOf(c.codigo) !== -1;
+        const habilitado = !!yo && (c.datos.habilitados || []).indexOf(yo) !== -1;
+        if (propio || guardado) { lista.push(cuponPublico(c, yo)); continue; }
+        if (!cuponUsableServidor(c)) continue;
+        const aud = audienciaDeCupon(c);
+        if (!aud.length && !habilitado) continue;                                  // "solo con el código": no se muestra a nadie
+        if (aud.indexOf('publico') !== -1 || habilitado || (u && await puedeUsarCuponServidor(c, u, cache))) lista.push(cuponPublico(c, yo));
+    }
+    responder(res, 200, { ok: true, cupones: lista, guardados: guardados });
+};
+
+// Busca un cupón por su código (para guardarlo o usarlo en el carrito).
+RUTAS['POST /api/cupones/buscar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'Iniciá sesión para usar un cupón.');
+    const espera = seg.limitar('cupbus:' + u.id, 60, 3600 * 1000);
+    if (espera) return error(res, 429, 'Probaste muchos códigos seguidos. Esperá ' + Math.ceil(espera / 60) + ' min.');
+    const b = await leerJSON(req);
+    const codigo = normalizarCodigoCupon(b.codigo);
+    if (!REGEX_CODIGO_CUPON.test(codigo)) return error(res, 404, 'No encontramos ningún cupón con ese código.');
+    const coinciden = await db.cuponesPorCodigo(codigo);
+    const c = coinciden.find(cuponUsableServidor) || coinciden[0];
+    if (!c) return error(res, 404, 'No encontramos ningún cupón con ese código.');
+    responder(res, 200, { ok: true, cupon: cuponPublico(c, u.id), usable: cuponUsableServidor(c), puedeUsar: await puedeUsarCuponServidor(c, u) });
+};
+
+// Guardar un cupón en "Tus cupones".
+RUTAS['POST /api/cupones/reclamar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'Iniciá sesión o creá tu cuenta para agregar el cupón.');
+    const espera = seg.limitar('cupbus:' + u.id, 60, 3600 * 1000);
+    if (espera) return error(res, 429, 'Probaste muchos códigos seguidos. Esperá ' + Math.ceil(espera / 60) + ' min.');
+    const b = await leerJSON(req);
+    const coinciden = await db.cuponesPorCodigo(normalizarCodigoCupon(b.codigo));
+    const c = coinciden.find(cuponUsableServidor);
+    if (!c) return error(res, 409, 'El cupón no está disponible.');
+    if (!(await puedeUsarCuponServidor(c, u))) return error(res, 403, 'No estás habilitado para este cupón.');
+    const nuevo = await db.cuponGuardar(u.id, c.codigo);
+    responder(res, 200, { ok: true, yaLoTenia: !nuevo, cupon: cuponPublico(c, u.id) });
+};
+
+RUTAS['POST /api/cupones/quitar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    await db.cuponQuitarGuardado(u.id, normalizarCodigoCupon(b.codigo));
+    responder(res, 200, { ok: true });
+};
+
+RUTAS['POST /api/cupones/crear'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const espera = seg.limitar('cupon:' + u.id, 60, 3600 * 1000);
+    if (espera) return error(res, 429, 'Demasiados cambios seguidos. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    if (!(await exigirPoderVender(u, res))) return;
+    const b = await leerJSON(req);
+    const x = b.cupon && typeof b.cupon === 'object' ? b.cupon : {};
+    const codigo = normalizarCodigoCupon(x.codigo);
+    if (!REGEX_CODIGO_CUPON.test(codigo)) return error(res, 400, 'El código tiene que tener entre 3 y 20 letras o números, sin espacios ni símbolos.');
+    const tipo = x.tipo === 'porcentaje' || x.tipo === 'monto' ? x.tipo : null;
+    const valor = Number(x.valor);
+    if (!tipo || !isFinite(valor) || valor <= 0 || valor > 1e9 || (tipo === 'porcentaje' && valor > 90)) return error(res, 400, tipo === 'porcentaje' ? 'El porcentaje tiene que ser mayor a 0 y hasta 90%.' : 'El monto tiene que ser mayor a 0.');
+    const vigenciaHasta = x.vigenciaHasta ? Number(x.vigenciaHasta) : null;
+    if (vigenciaHasta !== null && (!isFinite(vigenciaHasta) || vigenciaHasta < Date.now() - 86400000 || vigenciaHasta > Date.now() + 5 * 365 * 86400000)) return error(res, 400, 'La fecha de vencimiento no es válida.');
+    const usosMaximos = x.usosMaximos ? Math.max(1, Math.min(1000000, Math.round(Number(x.usosMaximos)))) : null;
+    if (x.usosMaximos && !isFinite(usosMaximos)) return error(res, 400, 'La cantidad de usos no es válida.');
+    const audiencia = (Array.isArray(x.audiencia) ? x.audiencia : []).filter(function (a, i, arr) { return AUDIENCIAS_CUPON.indexOf(a) !== -1 && arr.indexOf(a) === i; });
+    let productoId = null, productoNombre = '';
+    if (x.productoId != null && x.productoId !== '') {
+        const pub = await db.publicacionPorId(String(x.productoId).slice(0, 40));
+        if (!pub || pub.vendedorId !== u.id) return error(res, 400, 'Elegí una de tus publicaciones para el cupón.');
+        productoId = pub.id; productoNombre = txt(pub.datos.nombre, 120);
+    }
+    if ((await db.cuponesDeVendedor(u.id)).length >= MAX_CUPONES_POR_TIENDA) return error(res, 400, 'Llegaste al máximo de ' + MAX_CUPONES_POR_TIENDA + ' cupones. Eliminá alguno para crear otro.');
+    if (await codigoDeCuponEnUso(codigo, null)) return error(res, 409, 'Ese código ya está en uso en un cupón vigente. Elegí otro distinto.');
+    let id = typeof x.id === 'string' && REGEX_ID_CUPON.test(x.id) ? x.id : null;
+    if (id && (await db.cuponPorId(id))) id = null;
+    if (!id) id = 'CUP-' + Date.now() + '-' + Math.floor(Math.random() * 9000 + 100);
+    const c = { id: id, vendedorId: u.id, codigo: codigo, activo: true, usos: 0, creado: Date.now(),
+        datos: { tipo: tipo, valor: valor, vigenciaHasta: vigenciaHasta, usosMaximos: usosMaximos, audiencia: audiencia, habilitados: [], productoId: productoId, productoNombre: productoNombre } };
+    await db.cuponCrear(c);
+    responder(res, 200, { ok: true, cupon: cuponPublico(c, u.id) });
+};
+
+// Pausar / reactivar un cupón o cambiar quién lo puede reclamar.
+RUTAS['POST /api/cupones/actualizar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    const c = await db.cuponPorId(String(b.id || '').slice(0, 40));
+    if (!c || c.vendedorId !== u.id) return error(res, 404, 'No se encontró ese cupón.');
+    const datosNuevos = Object.assign({}, c.datos);
+    let activo = c.activo;
+    if (typeof b.activo === 'boolean') {
+        if (b.activo && !c.activo && await codigoDeCuponEnUso(c.codigo, c.id)) return error(res, 409, 'No se puede activar: ya hay otro cupón vigente con el código ' + c.codigo + '.');
+        activo = b.activo;
+    }
+    if (Array.isArray(b.audiencia)) datosNuevos.audiencia = b.audiencia.filter(function (a, i, arr) { return AUDIENCIAS_CUPON.indexOf(a) !== -1 && arr.indexOf(a) === i; });
+    await db.cuponActualizar(c.id, activo, datosNuevos);
+    responder(res, 200, { ok: true, cupon: cuponPublico(Object.assign({}, c, { activo: activo, datos: datosNuevos }), u.id) });
+};
+
+RUTAS['POST /api/cupones/eliminar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    const c = await db.cuponPorId(String(b.id || '').slice(0, 40));
+    if (c && c.vendedorId === u.id) await db.cuponEliminar(c.id);
+    responder(res, 200, { ok: true });
+};
+
+// La tienda le habilita el cupón a personas puntuales (aunque el cupón tenga audiencia limitada).
+RUTAS['POST /api/cupones/habilitar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    const c = await db.cuponPorId(String(b.id || '').slice(0, 40));
+    if (!c || c.vendedorId !== u.id) return error(res, 404, 'No se encontró ese cupón.');
+    if (!cuponUsableServidor(c)) return error(res, 409, 'El cupón no está disponible.');
+    const habilitados = Array.isArray(c.datos.habilitados) ? c.datos.habilitados.slice() : [];
+    for (const id of (Array.isArray(b.usuarios) ? b.usuarios : []).slice(0, 300)) {
+        const idx = String(id).slice(0, 60);
+        if (idx !== u.id && habilitados.indexOf(idx) === -1 && habilitados.length < 2000 && (await db.usuarioPorId(idx))) habilitados.push(idx);
+    }
+    await db.cuponActualizar(c.id, c.activo, Object.assign({}, c.datos, { habilitados: habilitados }));
+    responder(res, 200, { ok: true, habilitados: habilitados.length });
+};
+
+RUTAS['GET /api/solicitudes'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const filas = await db.conjuntoLeer('solicitudes');
+    const recibidas = [], enviadas = [];
+    filas.forEach(function (f) {
+        const i = f.clave.lastIndexOf('|');
+        if (i < 1) return;
+        const duenioId = f.clave.slice(0, i), ambito = ambitoSolicitud(f.clave.slice(i + 1));
+        if (duenioId === u.id) recibidas.push({ ambito: ambito, cuenta: f.valor });
+        if (duenoDeClaveCuenta(f.valor) === u.id) enviadas.push({ duenioId: duenioId, ambito: ambito, cuenta: f.valor });
+    });
+    responder(res, 200, { ok: true, recibidas: recibidas, enviadas: enviadas });
+};
+
+RUTAS['POST /api/solicitudes/enviar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'Iniciá sesión para enviar la solicitud.');
+    const espera = seg.limitar('solic:' + u.id, 60, 3600 * 1000);
+    if (espera) return error(res, 429, 'Hiciste muchas solicitudes seguidas. Probá de nuevo en ' + Math.ceil(espera / 60) + ' min.');
+    const b = await leerJSON(req);
+    const duenioId = String(b.duenioId || '').slice(0, 60), ambito = ambitoSolicitud(b.ambito), cuenta = String(b.cuenta || '').slice(0, 70);
+    if (!duenioId || duenioId === u.id || duenoDeClaveCuenta(cuenta) !== u.id) return error(res, 400, 'Solicitud inválida.');
+    const duenio = await db.usuarioPorId(duenioId);
+    if (!duenio || baneoActivo(duenio) || duenio.desactivada || (await hayBloqueoEntre(u.id, duenioId))) return error(res, 404, 'No podés enviar la solicitud a este usuario.');
+    if (await db.conjuntoTiene('seguidores', claveCuentaDe(duenioId, ambito), cuenta)) return responder(res, 200, { ok: true, yaLaSigue: true });
+    await db.conjuntoAgregar('solicitudes', duenioId + '|' + ambito, cuenta);
+    responder(res, 200, { ok: true });
+};
+
+RUTAS['POST /api/solicitudes/cancelar'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    const cuenta = String(b.cuenta || '').slice(0, 70);
+    if (duenoDeClaveCuenta(cuenta) !== u.id) return error(res, 403, 'Esa solicitud no es tuya.');
+    await db.conjuntoQuitar('solicitudes', String(b.duenioId || '').slice(0, 60) + '|' + ambitoSolicitud(b.ambito), cuenta);
+    responder(res, 200, { ok: true });
+};
+
+RUTAS['POST /api/solicitudes/responder'] = async function (req, res) {
+    const u = await usuarioDeSesion(req);
+    if (!u) return error(res, 401, 'No iniciaste sesión.');
+    const b = await leerJSON(req);
+    const ambito = ambitoSolicitud(b.ambito), cuenta = String(b.cuenta || '').slice(0, 70), clave = u.id + '|' + ambito;
+    if (!(await db.conjuntoTiene('solicitudes', clave, cuenta))) return error(res, 404, 'Esa solicitud ya no está disponible.');
+    await db.conjuntoQuitar('solicitudes', clave, cuenta);
+    if (b.aceptar === true) {
+        const solicitante = await db.usuarioPorId(duenoDeClaveCuenta(cuenta));
+        if (solicitante && !(await hayBloqueoEntre(u.id, solicitante.id))) await db.conjuntoAgregar('seguidores', claveCuentaDe(u.id, ambito), cuenta);
+    }
+    responder(res, 200, { ok: true });
 };
 
 // ------------------------------
