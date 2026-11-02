@@ -1629,68 +1629,6 @@ function fechaEntregaPedido(d) {
     return h.length ? Number(h[h.length - 1].fecha) || 0 : Number(d.fecha) || 0;
 }
 
-// ---- "Se busca": pedidos para que alguien venda en un país algo que se vio en el otro ----
-// Mirar las publicaciones del otro país es solo mirar (no se compra). Quien quiere algo así en su país lo pide acá,
-// y quienes venden en ese país ven cuánta gente lo busca. Varias personas que piden lo mismo se cuentan juntas.
-const PAISES_BUSQUEDA = ['AR', 'UY'];
-function imagenSegura(s) {
-    s = String(s == null ? '' : s);
-    return s.length <= 300 && (/^\/api\/medio\/[a-f0-9]{24}$/.test(s) || /^https:\/\/[^\s"'<>]+$/.test(s)) ? s : '';
-}
-RUTAS['GET /api/busquedas'] = async function (req, res) {
-    const url = new URL(req.url, 'http://localhost');
-    const pais = url.searchParams.get('pais');
-    if (PAISES_BUSQUEDA.indexOf(pais) < 0) return error(res, 400, 'Elegí un país.');
-    const u = await usuarioDeSesion(req);
-    const baneados = new Set(await db.idsBaneados());
-    const abiertas = (await db.busquedasAbiertas(pais, 500)).filter(function (b) { return !baneados.has(b.usuarioId); });
-    const porClave = {};
-    abiertas.forEach(function (b) {   // de la más nueva a la más vieja
-        const k = b.refPais + ':' + b.refId;
-        const g = porClave[k] || (porClave[k] = { refId: b.refId, refPais: b.refPais, nombre: b.refNombre, categoria: b.refCategoria, imagen: b.refImagen,
-            cantidad: 0, notas: [], mia: false, miaId: null, ultima: b.creada });
-        g.cantidad++;
-        if (b.nota && g.notas.length < 3) g.notas.push({ nombre: b.nombre, nota: b.nota });
-        if (u && b.usuarioId === u.id) { g.mia = true; g.miaId = b.id; }
-    });
-    const grupos = Object.keys(porClave).map(function (k) { return porClave[k]; })
-        .sort(function (a, b) { return b.cantidad - a.cantidad || b.ultima - a.ultima; }).slice(0, 100);
-    responder(res, 200, { ok: true, grupos: grupos });
-};
-RUTAS['POST /api/busquedas/crear'] = async function (req, res) {
-    const u = await usuarioDeSesion(req);
-    if (!u) return error(res, 401, 'Iniciá sesión para pedir que alguien venda algo así.');
-    const espera = seg.limitar('busq:' + u.id, 10, 24 * 3600 * 1000);
-    if (espera) return error(res, 429, 'Hiciste muchos pedidos hoy. Probá de nuevo más tarde.');
-    const b = await leerJSON(req);
-    const pais = String(b.pais || '');
-    if (PAISES_BUSQUEDA.indexOf(pais) < 0) return error(res, 400, 'Elegí un país.');
-    const pubId = String(b.publicacionId == null ? '' : b.publicacionId).slice(0, 40);
-    const pub = pubId ? await db.publicacionPorId(pubId) : null;
-    if (!pub || !pub.activo) return error(res, 404, 'Esa publicación ya no está disponible.');
-    if (pub.pais === pais) return error(res, 400, 'Eso ya se vende en tu país: lo ves en el catálogo.');
-    const baneados = new Set(await db.idsBaneados());
-    const noHab = await vendedoresNoHabilitados([pub.vendedorId]);
-    if (baneados.has(pub.vendedorId) || noHab.has(pub.vendedorId)) return error(res, 404, 'Esa publicación ya no está disponible.');
-    if (await db.busquedaAbiertaDe(u.id, pub.id, pais)) return error(res, 409, 'Ya pediste algo así: quienes venden en tu país ya lo ven.');
-    const d = pub.datos || {};
-    const x = { id: 'BUS-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex'), usuarioId: u.id, nombre: limpiarTextoCorto(u.nombre, 60) || 'Alguien',
-        pais: pais, refId: pub.id, refPais: pub.pais, refNombre: limpiarTextoCorto(d.nombre, 80), refCategoria: limpiarTextoCorto(d.categoria, 40),
-        refImagen: imagenSegura(d.imagen), nota: limpiarTextoCorto(b.nota, 200), creada: Date.now() };
-    await db.crearBusqueda(x);
-    responder(res, 200, { ok: true, id: x.id });
-};
-RUTAS['POST /api/busquedas/cerrar'] = async function (req, res) {
-    const u = await usuarioDeSesion(req);
-    if (!u) return error(res, 401, 'Iniciá sesión.');
-    const b = await leerJSON(req);
-    const x = await db.busquedaPorId(String(b.id == null ? '' : b.id).slice(0, 60));
-    if (!x || x.cerrada) return error(res, 404, 'Ese pedido ya no existe.');
-    if (x.usuarioId !== u.id) return error(res, 403, 'Ese pedido no es tuyo.');
-    await db.cerrarBusqueda(x.id, Date.now());
-    responder(res, 200, { ok: true });
-};
-
 RUTAS['GET /api/resenias'] = async function (req, res) {
     const url = new URL(req.url, 'http://localhost');
     const pedido = url.searchParams.get('pais');

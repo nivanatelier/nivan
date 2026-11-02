@@ -128,7 +128,7 @@ sigue andando. El panel de administración muestra cuántos MB se usan. Neon pue
 ## Publicaciones por país
 - Las publicaciones de venta de Uruguay solo las ve gente de Uruguay, y las de Argentina solo gente de Argentina. `GET /api/publicaciones?pais=UY|AR` devuelve solo ese país (sin el parámetro usa el país de la cuenta, o Argentina).
 - Los perfiles y sus posts del portafolio sí son de todos y viajan aparte (`GET /api/perfiles`).
-- Se sacó del menú "Ver publicaciones del otro país" y "Se busca en mi país". Las rutas `/api/busquedas*` y la prueba `prueba-busquedas.js` quedaron en el servidor por si se quiere volver a usar, pero la app ya no las muestra.
+- Se sacó "Ver publicaciones del otro país" y "Se busca en mi país": ya no están en la app ni en el servidor (rutas `/api/busquedas*` y su prueba borradas). Si en el sitio publicado todavía aparecen, hay que borrar el viejo `js/38-otro-pais-busquedas.js` del hosting.
 
 ## Si los mails de "Olvidé mi contraseña" no llegan
 La app siempre responde "te mandamos un código" aunque el envío falle (así nadie puede averiguar qué emails tienen cuenta).
